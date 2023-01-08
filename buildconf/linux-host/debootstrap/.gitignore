@@ -1,0 +1,10 @@
+.DS_Store
+.idea
+*.log
+tmp/
+bullseye.img
+bullseye.id_rsa
+bullseye.id_rsa.pub
+chroot
+shared
+tmp

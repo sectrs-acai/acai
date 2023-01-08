@@ -1,0 +1,6 @@
+#!/bin/sh
+
+modprobe pteditor
+modprobe fvp_guest_module
+
+exit 0
