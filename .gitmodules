@@ -1,0 +1,9 @@
+[submodule "ext/buildroot"]
+	path = ext/buildroot
+	url = https://github.com/buildroot/buildroot.git
+[submodule "ext/scanmem"]
+	path = ext/scanmem
+	url = https://github.com/scanmem/scanmem.git
+[submodule "assets"]
+	path = assets
+	url = ./assets/
