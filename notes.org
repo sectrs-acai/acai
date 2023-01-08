@@ -1,0 +1,8 @@
+#+title: Notes
+* Notes
+** TODO enable ccache for buildroot
+in host and guest
+** Generate qemu linux .config for host
+- make defconfig # creates a .config file
+- make kvmconfig # modifies .config
+- or make kvm_guest.config in more recent kernels

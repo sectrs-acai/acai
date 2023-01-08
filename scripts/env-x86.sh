@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/env.sh
-
-export CROSS_COMPILE=aarch64-none-linux-gnu-
-export ARCH=""
+source $OUTPUT_LINUX_HOST_DIR/host/environment-setup
+export PS1="x86:"

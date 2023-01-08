@@ -1,0 +1,6 @@
+config BR2_PACKAGE_PTEDITOR
+	bool "pteditor"
+	default "n"
+	depends on BR2_LINUX_KERNEL
+	help
+	  pteditor

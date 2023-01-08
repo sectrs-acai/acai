@@ -5,45 +5,57 @@ source $(git rev-parse --show-toplevel)/env.sh
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 BUILDROOT_CONFIG_DIR=$SCRIPT_DIR/buildroot
-BUILDROOT_OUTPUT_DIR=$OUTPUT_DIR/buildroot-linux-guest2
+BUILDROOT_OUTPUT_DIR=$OUTPUT_LINUX_GUEST_DIR
 BUILDROOT_DIR=$EXT_BUILDROOT_DIR
 
-BR2_EXTERNAL=$SCRIPT_DIR/
+
+SRC_LINUX=$SRC_DIR/linux-guest
+
+BR2_EXTERNAL=$SCRIPT_DIR/../buildroot_packages
 BR2_JLEVEL=$(nproc)
-SHARE_DIR="$SCRIPT_DIR/.."
+
+SHARE_DIR=$ROOT_DIR
 
 
 function do_init {
+    set -x
     cd $BUILDROOT_DIR
-    rm -f .config
-    rm -f $BUILDROOT_OUTPUT_DIR/.config
 
-    make V=1 qemu_aarch64_virt_defconfig O=$BUILDROOT_OUTPUT_DIR
+    rm -f .config
+    rm -f .config.old
+    rm -f $BUILDROOT_OUTPUT_DIR/.config
+    rm -f $BUILDROOT_OUTPUT_DIR/.config.old
+
+    make V=1 BR2_EXTERNAL=$BR2_EXTERNAL O=$BUILDROOT_OUTPUT_DIR  qemu_aarch64_virt_defconfig
     cat $BUILDROOT_CONFIG_DIR/buildroot_config_fragment_aarch64 >> $BUILDROOT_OUTPUT_DIR/.config
-    make olddefconfig O=$BUILDROOT_OUTPUT_DIR
+    make V=1 BR2_EXTERNAL=$BR2_EXTERNAL O=$BUILDROOT_OUTPUT_DIR olddefconfig
 }
 
 function do_clean {
     cd $BUILDROOT_DIR
-    make clean O=$BUILDROOT_OUTPUT_DIR
+    make V=1 O=$BUILDROOT_OUTPUT_DIR clean
     do_init
 }
 
 function do_compile {
     cd $BUILDROOT_DIR
+    set -x
     env -u LD_LIBRARY_PATH \
         time make BR2_JLEVEL=$BR2_JLEVEL O=$BUILDROOT_OUTPUT_DIR \
-        linux-rebuild all
+        all
 }
 
+
 function do_run {
+    # source $SCRIPTS_DIR/env-aarch64.sh
+
     cd $BUILDROOT_OUTPUT_DIR
-    source $SCRIPTS_DIR/env-aarch64.sh
     exec qemu-system-aarch64 \
-        -M virt -cpu cortex-a53 -nographic -smp 1 \
-        -kernel ./images/Image -append "rootwait root=/dev/vda console=ttyAMA0 nokaslr" -netdev user,id=eth0 -device virtio-net-device,netdev=eth0 \
-        -drive file=./images/rootfs.ext4,if=none,format=raw,id=hd0 -device virtio-blk-device,drive=hd0
-    -virtfs local,path=$SHARE_DIR,mount_tag=host0,security_model=none,id=host0
+        -M virt -cpu cortex-a53 -nographic -smp 2 \
+        -kernel ./images/Image -append "rootwait root=/dev/vda console=ttyAMA0 nokaslr" \
+        -netdev user,id=eth0 -device virtio-net-device,netdev=eth0 \
+        -drive file=./images/rootfs.ext4,if=none,format=raw,id=hd0 -device virtio-blk-device,drive=hd0 \
+        -virtfs local,path=$SHARE_DIR,mount_tag=host0,security_model=none,id=host0
     #-s  \
         }
 
@@ -59,9 +71,9 @@ function do_run_fvp {
 
     $SCRIPTS_DIR/run_fvp.sh $bl1 $fip $image $rootfs $p9_folder
 
-
 }
 
+# "${@:2}"
 case "$1" in
     clean)
         do_clean

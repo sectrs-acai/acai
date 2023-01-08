@@ -1,1 +1,5 @@
 source "$BR2_EXTERNAL_ARMCCA_PATH/package/scanmem/Config.in"
+source "$BR2_EXTERNAL_ARMCCA_PATH/package/pteditor/Config.in"
+source "$BR2_EXTERNAL_ARMCCA_PATH/package/guest_user/Config.in"
+source "$BR2_EXTERNAL_ARMCCA_PATH/package/guest_kernel_module/Config.in"
+source "$BR2_EXTERNAL_ARMCCA_PATH/package/fvp_escape_host/Config.in"

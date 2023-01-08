@@ -1,0 +1,6 @@
+config BR2_PACKAGE_SCANMEM
+	bool "scanmem"
+	depends on BR2_LINUX_KERNEL
+    default "n"
+	help
+		scan mem

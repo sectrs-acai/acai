@@ -1,0 +1,6 @@
+config BR2_PACKAGE_GUEST_KERNEL_MODULE
+	bool "guest_kernel_module"
+	default "n"
+	depends on BR2_LINUX_KERNEL
+	help
+	  guest kernel module

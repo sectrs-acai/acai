@@ -1,0 +1,8 @@
+config BR2_PACKAGE_FVP_ESCAPE_HOST
+	bool "fvp_escape_host"
+	depends on BR2_LINUX_KERNEL
+    depends on BR2_PACKAGE_PTEDITOR
+    depends on BR2_PACKAGE_SCANMEM
+    default "n"
+	help
+		escape_host

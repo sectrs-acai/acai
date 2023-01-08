@@ -1,0 +1,4 @@
+config BR2_PACKAGE_GUEST_USER
+	bool "guest_user"
+	help
+      guest user

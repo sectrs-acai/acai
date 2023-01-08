@@ -1,2 +1,2 @@
 # normally placed in buildroot dir
-LINUX_OVERRIDE_SRCDIR="../linux-stable"
+LINUX_OVERRIDE_SRCDIR="../../src/linux-host"

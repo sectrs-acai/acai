@@ -1,18 +1,28 @@
 #!/usr/bin/env bash
+export ROOT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
-ROOT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-EXT_DIR=$ROOT_DIR/ext
-EXT_BUILDROOT_DIR=$EXT_DIR/buildroot
+# ext
+export EXT_DIR=$ROOT_DIR/ext
+export EXT_BUILDROOT_DIR=$EXT_DIR/buildroot
 
-SRC_DIR=$ROOT_DIR/src
+# scr
+export SRC_DIR=$ROOT_DIR/src
 
-OUTPUT_DIR=$ROOT_DIR/output
+# buildroot output
+export OUTPUT_DIR=$ROOT_DIR/output
+export OUTPUT_LINUX_GUEST_DIR=$OUTPUT_DIR/buildroot-linux-guest
+export OUTPUT_LINUX_HOST_DIR=$OUTPUT_DIR/buildroot-linux-host
+export OUTPUT_LINUX_GUEST_HEADERS=$OUTPUT_LINUX_GUEST_DIR/build/linux-custom
+export OUTPUT_LINUX_HOST_HEADERS=$OUTPUT_LINUX_HOST_DIR/build/linux-custom
 
-BUILDCONF_DIR=$ROOT_DIR/buildconf
+# buildconf
+export BUILDCONF_DIR=$ROOT_DIR/buildconf
 
-ASSETS_DIR=$ROOT_DIR/assets
+# assets
+export ASSETS_DIR=$ROOT_DIR/assets
 
-SCRIPTS_DIR=$ROOT_DIR/scripts
+# scripts
+export SCRIPTS_DIR=$ROOT_DIR/scripts
 
-export PATH="$PATH:$ASSETS_DIR/toolchain-arm/aarch64-none-linux-gnu/bin"
 export PATH="$PATH:$ASSETS_DIR/fvp/bin"
+export PATH="$PATH:$SCRIPTS_DIR"

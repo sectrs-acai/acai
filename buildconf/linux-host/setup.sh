@@ -5,23 +5,23 @@ source $(git rev-parse --show-toplevel)/env.sh
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 BUILDROOT_CONFIG_DIR=$SCRIPT_DIR/buildroot
-BUILDROOT_OUTPUT_DIR=$OUTPUT_DIR/buildroot-linux-host
+BUILDROOT_OUTPUT_DIR=$OUTPUT_LINUX_HOST_DIR
 BUILDROOT_DIR=$EXT_BUILDROOT_DIR
-SRC_LINUX_HOST=$SRC_DIR/linux-host
 
-BR2_EXTERNAL=../buildroot_packages
+SRC_LINUX=$SRC_DIR/linux-host
+
+BR2_EXTERNAL=$SCRIPT_DIR/../buildroot_packages
 BR2_JLEVEL=$(nproc)
 SHARE_DIR=$ROOT_DIR
-
 
 function do_init {
     cd $BUILDROOT_DIR
     rm -f .config
     rm -f $BUILDROOT_OUTPUT_DIR/.config
 
-    make V=1 BR2_EXTERNAL=$BR2_EXTERNAL qemu_x86_64_defconfig O=$BUILDROOT_OUTPUT_DIR
-    cat $BUILDROOT_CONFIG_DIR/buildroot_config_fragment_aarch64 >> $BUILDROOT_OUTPUT_DIR/.config
-    make BR2_EXTERNAL=$BR2_EXTERNAL olddefconfig O=$BUILDROOT_OUTPUT_DIR
+    make V=1 BR2_EXTERNAL=$BR2_EXTERNAL O=$BUILDROOT_OUTPUT_DIR qemu_x86_64_defconfig
+    cat $BUILDROOT_CONFIG_DIR/buildroot_config_fragment >> $BUILDROOT_OUTPUT_DIR/.config
+    make V=1 BR2_EXTERNAL=$BR2_EXTERNAL O=$BUILDROOT_OUTPUT_DIR olddefconfig
 }
 
 function do_clean {
@@ -30,37 +30,57 @@ function do_clean {
     do_init
 }
 
-function do_run {
+function do_compile {
     cd $BUILDROOT_DIR
+    env -u LD_LIBRARY_PATH \
+        time make BR2_EXTERNAL=$BR2_EXTERNAL BR2_JLEVEL=$BR2_JLEVEL  O=$BUILDROOT_OUTPUT_DIR \
+        fvp_escape_host-rebuild all
+}
 
+
+function do_run {
+    # XXX: use host qemu, we get some error otherwise
+    # # cd $SCRIPT_DIR && source $SCRIPTS_DIR/env-x86.sh
+
+    cd $BUILDROOT_OUTPUT_DIR
     qemu-system-x86_64 \
-    -smp $(nproc --all) \
-    -M pc \
-    -s  \
-    -kernel ./output/images/bzImage \
-    -drive file=./output/images/rootfs.ext2,if=virtio,format=raw \
-    -virtfs local,path=$SHARE_DIR,mount_tag=host0,security_model=none,id=host0 \
-    -append "root=/dev/vda console=ttyS0 nokaslr" \
-    -net nic,model=virtio -net user \
-    -nographic
+        -smp $BR2_JLEVEL \
+        -M pc \
+        -enable-kvm \
+        -s \
+        -kernel ./images/bzImage \
+        -drive file=./images/rootfs.ext2,if=virtio,format=raw \
+        -virtfs local,path=$SHARE_DIR,mount_tag=host0,security_model=none,id=host0 \
+        -append "root=/dev/vda console=ttyS0 nokaslr" \
+        -net nic,model=virtio -net user \
+        -nographic
 }
 
 function do_run_debian {
-    cd $BUILDROOT_DIR
-    $SCRIPT_DIR/../debian-rootfs/run.sh ./output/images/bzImage $SHARE_DIR
+    cd $SCRIPT_DIR && source $SCRIPTS_DIR/env-x86.sh
+    cd $BUILDROOT_OUTPUT_DIR
+
+    $SCRIPT_DIR/../debian-rootfs/run.sh ./images/bzImage $SHARE_DIR
 }
 
 function do_compilationdb {
-    local buildroot_kernel=$BUILDROOT_DIR/output/build/linux-custom
-    local src_kernel=$SRC_LINUX_HOST
+    # TODO: Fix this
+    echo "fix this"
+    local buildroot_kernel=$BUILDROOT_OUTPUT_DIR/build/linux-custom
+    local src_kernel=$SRC_LINUX
     local out=$src_kernel/compile_commands.json
-    cd $BUILDROOT_DIR/output/build/linux-custom/
+
+    cd $BUILDROOT_OUTPUT_DIR/output/build/linux-custom/
     ./scripts/clang-tools/gen_compile_commands.py -o $out
     cd $src_kernel
     sed -i "s#$buildroot_kernel#$src_kernel#g" compile_commands.json
 }
 
 case "$1" in
+    clean)
+        do_clean
+        do_init
+        ;;
     init)
         do_init
         ;;
