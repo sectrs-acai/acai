@@ -1,0 +1,15 @@
+.DS_Store
+.idea
+*.log
+tmp/
+.git
+
+output/buildroot-linux-guest/build
+output/buildroot-linux-guest/host
+output/buildroot-linux-guest/staging
+output/buildroot-linux-guest/target
+
+output/buildroot-linux-host/build
+output/buildroot-linux-host/host
+output/buildroot-linux-host/staging
+output/buildroot-linux-host/target
