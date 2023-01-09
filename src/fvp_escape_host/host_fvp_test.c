@@ -19,7 +19,7 @@
 
 #include "pagescan.h"
 
-#include <pteditor/ptedit_header.h>
+#include "ptedit_header.h"
 #include <sched.h>
 #include <sched.h>
 
