@@ -7,11 +7,8 @@ target_lib=$OUTPUT_LINUX_HOST_DIR/target/lib
 host_lib=$OUTPUT_LINUX_HOST_DIR/host/lib
 host_usr_lib=$OUTPUT_LINUX_HOST_DIR/host/usr/lib
 
-# XXX: Staging from environment-setup
-staging=$STAGING_DIR/usr/lib:$STAGING_DIR/lib
-
 # XXX: All if we run something outside of the rootfs we add search path to LD_LIBRARY_PATH
 # so we can access shared libraries on host too
-export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$host_lib:$host_usr_lib:$staging"
+export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$host_lib:$host_usr_lib"
 
 export PS1="x86: "
