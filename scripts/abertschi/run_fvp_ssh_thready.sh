@@ -2,13 +2,20 @@
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $(git rev-parse --show-toplevel)/env.sh
 
-remote_home=/home/armcca/trusted-periph
+remote_home=/home/bean/trusted-peripherals
 target_dir=$remote_home/tmp-sync
-host=armcca@192.33.93.245
+host=bean@192.33.93.250
 
+function sync {
+    rsync -v -a --checksum --ignore-times $1 $host:$target_dir
+}
+
+set -x
+
+cd $ROOT_DIR
 ssh $host mkdir -p $target_dir
-scp -Rv $ASSETS_DIR/tfa $host:$target_dir
-scp -Rv $OUTPUT_LINUX_GUEST_DIR/images/ $host:$target_dir
+sync $ASSETS_DIR/tfa/
+sync $OUTPUT_LINUX_GUEST_DIR/images/
 
 bl1=$target_dir/bl1-fvp
 fip=$target_dir/fip-fvp

@@ -2,14 +2,20 @@
 .idea
 *.log
 tmp/
-.git
+.git/
 
+**/.git/
+
+assets/toolchain-arm/
 output/buildroot-linux-guest/build
 output/buildroot-linux-guest/host
 output/buildroot-linux-guest/staging
 output/buildroot-linux-guest/target
-
+buildconf/linux-host/debootstrap/bullseye.img
 output/buildroot-linux-host/build
 output/buildroot-linux-host/host
 output/buildroot-linux-host/staging
 output/buildroot-linux-host/target
+ext/buildroot/dl/
+ext/buildroot/output
+ext/buildroot/package

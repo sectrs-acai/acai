@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-source $(git rev-parse --show-toplevel)/env.sh
+
+source $SCRIPT_DIR/../env.sh
 
 FVP=FVP_Base_RevC-2xAEMvA
 
