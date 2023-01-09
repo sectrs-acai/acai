@@ -19,16 +19,11 @@ define PTEDITOR_INSTALL_TARGET_CMDS
     $(INSTALL) -D -m 0655 $(@D)/lib* $(TARGET_DIR)/usr/lib
 endef
 
-define HOST_PTEDITOR_INSTALL_CMDS
-    $(INSTALL) -D -m 0655 $(@D)/lib* $(HOST_DIR)/usr/lib
-endef
-
 define PTEDITOR_BUILD_CMDS
 	# XXX: apply a patch to build a shared library
 	cd $(@D) && patch -N Makefile $(THIS_DIR)/shared-lib.patch || true
 	$(MAKE) $(TARGET_CONFIGURE_OPTS) -C $(@D) header libptedit.a libptedit.so
 endef
-
 
 define PTEDITOR_INSTALL_TARGET_CMDS
 	$(INSTALL) -D -m 0655 $(@D)/*.out '$(TARGET_DIR)' || true
@@ -36,6 +31,16 @@ define PTEDITOR_INSTALL_TARGET_CMDS
 	$(INSTALL) -D -m 0655 $(@D)/*.a '$(TARGET_DIR)' || true
 	$(INSTALL) -D -m 0655 $(@D)/*.so '$(TARGET_DIR)' || true
 endef
+
+define HOST_PTEDITOR_INSTALL_CMDS
+	$(INSTALL) -D -m 0655 $(@D)/lib* $(HOST_DIR)/usr/lib
+endef
+
+define HOST_PTEDITOR_BUILD_CMD
+	cd $(@D) && patch -N Makefile $(THIS_DIR)/shared-lib.patch || true
+	$(MAKE) $(TARGET_CONFIGURE_OPTS) -C $(@D) header libptedit.a libptedit.so
+endef
+
 
 $(eval $(kernel-module))
 $(eval $(generic-package))
