@@ -6,11 +6,11 @@ FVP=FVP_Base_RevC-2xAEMvA
 
 function run_fvp {
 	local bl1=$1
-        local fip=$2
+  local fip=$2
 	local image=$3
 	local rootfs=$4
 	local p9_folder=$5
-        local mount_tag=host0
+  local mount_tag=host0
 
 	$FVP \
 		-C bp.secureflashloader.fname=${bl1}          \
@@ -75,6 +75,7 @@ function run_fvp {
 }
 
 function usage {
+  echo "usage: "
 	echo "$0 bl1 fip image rootfs p9_folder"
         exit
 }
