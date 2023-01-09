@@ -4,7 +4,7 @@ index 1a1c0c3..33cf017 100644
 +++ b/Makefile
 @@ -1,4 +1,4 @@
 -all: pteditor ptedit.o example header tests
-+all: pteditor ptedit.o example header tests lib.ptedit
++all: pteditor ptedit.o example header tests libptedit.a libptedit.so
  
  header: module/pteditor.c module/pteditor.h ptedit.c ptedit.h
  	echo "#pragma once" > ptedit_header.h
@@ -13,6 +13,9 @@ index 1a1c0c3..33cf017 100644
  	cd test && make clean
  	rm -f example *.o
 +
-+lib.ptedit:
-+	$(CC) $(CFLAGS) -c -fPIC ptedit.c -o ptedit.pic.o
-+	$(CC) $(CFLAGS) -shared ptedit.pic.o -o libptedit.so
++libptedit.a: ptedit.o
++	$(AR) rcs $@ $^
++
++libptedit.so: ptedit.o
++	$(CC) $(CFLAGS) -c -fPIC ptedit.c -o libptedit.o
++	$(CC) $(CFLAGS) -shared libptedit.o -o libptedit.so

@@ -5,9 +5,9 @@ SCANMEM_INSTALL_STAGING = YES
 SCANMEM_INSTALL_TARGET = YES
 SCANMEM_AUTORECONF = YES
 
-SCANMEM_CONF_OPTS = -v --disable-procmem
-SCANMEM_DEPENDENCIES = readline libtool host-libtool host-readline
-
+SCANMEM_CONF_OPTS = -v --disable-procmem --enable-static
+SCANMEM_DEPENDENCIES = readline libtool
+HOST_SCANMEM_DEPENDENCIES = host-readline host-libtool host-intltool
 
 define SCANMEM_RUN_AUTOGEN
 	cd $(@D) && PATH=$(BR_PATH) ./autogen.sh
