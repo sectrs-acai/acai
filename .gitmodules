@@ -6,7 +6,7 @@
 	url = https://github.com/scanmem/scanmem.git
 [submodule "assets"]
 	path = assets
-	url = ./assets/
+	url = ssh://git@gitlab.inf.ethz.ch:PRV-SHINDE/theses/ma-theses/ma-2022/221114_andrin_bertschi/trusted-peripherals-assets.git
 [submodule "ext/pteditor"]
 	path = ext/pteditor
 	url = https://github.com/misc0110/PTEditor.git
