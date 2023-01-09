@@ -16,3 +16,4 @@ buildroot/output
 ./output
 ./assets/
 output/
+tmp-sync/
