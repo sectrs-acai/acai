@@ -1,6 +1,3 @@
-#
-# TODO: make patch or fork ptedit
-#
 PTEDITOR_VERSION = 1.0
 PTEDITOR_SITE = $(BR2_EXTERNAL_ARMCCA_PATH)/../../ext/pteditor
 PTEDITOR_MODULE_SUBDIRS = module
@@ -24,7 +21,7 @@ define PTEDITOR_INSTALL_TARGET_CMDS
 endef
 
 define PTEDITOR_BUILD_CMDS
-	# apply a patch to build a shared library
+	# XXX: apply a patch to build a shared library
 	cd $(@D) && patch -N Makefile $(THIS_DIR)/shared-lib.patch
 
 	$(MAKE) $(TARGET_CONFIGURE_OPTS) -C $(@D) header lib.ptedit
