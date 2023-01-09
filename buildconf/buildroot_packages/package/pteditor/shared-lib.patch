@@ -1,0 +1,18 @@
+diff --git a/Makefile b/Makefile
+index 1a1c0c3..33cf017 100644
+--- a/Makefile
++++ b/Makefile
+@@ -1,4 +1,4 @@
+-all: pteditor ptedit.o example header tests
++all: pteditor ptedit.o example header tests lib.ptedit
+ 
+ header: module/pteditor.c module/pteditor.h ptedit.c ptedit.h
+ 	echo "#pragma once" > ptedit_header.h
+@@ -25,3 +25,7 @@ clean:
+ 	cd demos && make clean
+ 	cd test && make clean
+ 	rm -f example *.o
++
++lib.ptedit:
++	$(CC) $(CFLAGS) -c -fPIC ptedit.c -o ptedit.pic.o
++	$(CC) $(CFLAGS) -shared ptedit.pic.o -o libptedit.so

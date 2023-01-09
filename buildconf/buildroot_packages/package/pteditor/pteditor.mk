@@ -24,9 +24,10 @@ define PTEDITOR_INSTALL_TARGET_CMDS
 endef
 
 define PTEDITOR_BUILD_CMDS
-	$(MAKE) $(TARGET_CONFIGURE_OPTS) -C $(@D) header lib.ptedit
+	# apply a patch to build a shared library
+	cd $(@D) && patch -N Makefile $(THIS_DIR)/shared-lib.patch
 
-	# $(MAKE) $(TARGET_CONFIGURE_OPTS) -C $(THIS_DIR) all
+	$(MAKE) $(TARGET_CONFIGURE_OPTS) -C $(@D) header lib.ptedit
 endef
 
 
@@ -34,7 +35,6 @@ define PTEDITOR_INSTALL_TARGET_CMDS
 	$(INSTALL) -D -m 0655 $(@D)/*.out '$(TARGET_DIR)' || true
 	$(INSTALL) -D -m 0655 $(@D)/*.o '$(TARGET_DIR)' || true
 endef
-
 
 $(eval $(kernel-module))
 $(eval $(generic-package))
