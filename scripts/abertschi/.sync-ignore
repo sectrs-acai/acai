@@ -5,7 +5,7 @@ tmp/
 .git/
 
 **/.git/
-
+output/
 assets/toolchain-arm/
 output/buildroot-linux-guest/build
 output/buildroot-linux-guest/host

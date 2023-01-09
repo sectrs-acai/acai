@@ -19,8 +19,8 @@ sync $OUTPUT_LINUX_GUEST_DIR/images/
 
 bl1=$target_dir/bl1-fvp
 fip=$target_dir/fip-fvp
-image=$target_dir/images/Image
-rootfs=$target_dir/images/rootfs.ext2
+image=$target_dir/Image
+rootfs=$target_dir/rootfs.ext2
 p9_folder=$remote_home
 
 ssh -X $host $remote_home/scripts/run_fvp.sh $bl1 $fip $image $rootfs $p9_folder

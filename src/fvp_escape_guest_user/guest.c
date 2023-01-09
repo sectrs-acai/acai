@@ -16,6 +16,7 @@ struct __attribute__((__packed__))  data_t
 struct data_t *data;
 int main(int argc, char *argv[])
 {
+    printf("hi grand master d.\n");
 
     volatile size_t *_ptr = mmap(NULL, 4096, PROT_READ | PROT_WRITE,
                                  MAP_PRIVATE | MAP_ANONYMOUS | MAP_POPULATE, -1, 0);

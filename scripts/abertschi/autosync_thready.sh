@@ -14,7 +14,7 @@ function sync {
 }
 
 sync
-while inotifywait -r $script_dir; do
+while true ; do
     sync
-    sleep 0.5
+    sleep 2
 done
