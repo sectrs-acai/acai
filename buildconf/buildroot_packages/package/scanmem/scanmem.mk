@@ -6,7 +6,7 @@ SCANMEM_INSTALL_TARGET = YES
 SCANMEM_AUTORECONF = YES
 
 SCANMEM_CONF_OPTS = -v --disable-procmem
-SCANMEM_DEPENDENCIES = readline libtool
+SCANMEM_DEPENDENCIES = readline libtool host-libtool host-readline
 
 
 define SCANMEM_RUN_AUTOGEN

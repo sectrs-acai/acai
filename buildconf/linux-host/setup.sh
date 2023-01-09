@@ -1,8 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 source $(git rev-parse --show-toplevel)/env.sh
-
-SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+SCRIPT_DIR=$( dirname "$(readlink -f "$0")" )
 
 BUILDROOT_CONFIG_DIR=$SCRIPT_DIR/buildroot
 BUILDROOT_OUTPUT_DIR=$OUTPUT_LINUX_HOST_DIR
