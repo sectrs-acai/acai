@@ -9,7 +9,6 @@ THIS_DIR=$(BR2_EXTERNAL_ARMCCA_PATH)/package/pteditor
 
 define PTEDITOR_INSTALL_STAGING_CMDS
 	mkdir -p $(STAGING_DIR)/usr/include/pteditor
-
     $(INSTALL) -D -m 0644 $(@D)/ptedit_header.h $(STAGING_DIR)/usr/include/pteditor/ptedit_header.h
 	$(INSTALL) -D -m 0644 $(@D)/ptedit.h $(STAGING_DIR)/usr/include/pteditor/ptedit.h
 	$(INSTALL) -D -m 0655 $(@D)/lib* $(STAGING_DIR)/usr/lib
@@ -20,10 +19,13 @@ define PTEDITOR_INSTALL_TARGET_CMDS
     $(INSTALL) -D -m 0655 $(@D)/lib* $(TARGET_DIR)/usr/lib
 endef
 
+define HOST_PTEDITOR_INSTALL_CMDS
+    $(INSTALL) -D -m 0655 $(@D)/lib* $(HOST_DIR)/usr/lib
+endef
+
 define PTEDITOR_BUILD_CMDS
 	# XXX: apply a patch to build a shared library
 	cd $(@D) && patch -N Makefile $(THIS_DIR)/shared-lib.patch || true
-
 	$(MAKE) $(TARGET_CONFIGURE_OPTS) -C $(@D) header libptedit.a libptedit.so
 endef
 
