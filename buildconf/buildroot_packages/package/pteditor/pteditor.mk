@@ -22,7 +22,7 @@ endef
 
 define PTEDITOR_BUILD_CMDS
 	# XXX: apply a patch to build a shared library
-	cd $(@D) && patch -N Makefile $(THIS_DIR)/shared-lib.patch
+	cd $(@D) && patch -N Makefile $(THIS_DIR)/shared-lib.patch || true
 
 	$(MAKE) $(TARGET_CONFIGURE_OPTS) -C $(@D) header libptedit.a libptedit.so
 endef
