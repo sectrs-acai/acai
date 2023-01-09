@@ -63,8 +63,6 @@ function do_run_debian {
 }
 
 function do_compilationdb {
-    # TODO: Fix this
-    echo "fix this"
     local buildroot_kernel=$BUILDROOT_OUTPUT_DIR/build/linux-custom
     local src_kernel=$SRC_LINUX
     local out=$src_kernel/compile_commands.json
