@@ -36,7 +36,7 @@ define HOST_PTEDITOR_INSTALL_CMDS
 	$(INSTALL) -D -m 0655 $(@D)/lib* $(HOST_DIR)/usr/lib
 endef
 
-define HOST_PTEDITOR_BUILD_CMD
+define HOST_PTEDITOR_BUILD_CMDS
 	cd $(@D) && patch -N Makefile $(THIS_DIR)/shared-lib.patch || true
 	$(MAKE) $(TARGET_CONFIGURE_OPTS) -C $(@D) header libptedit.a libptedit.so
 endef
