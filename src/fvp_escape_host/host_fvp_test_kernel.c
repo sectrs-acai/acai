@@ -207,7 +207,6 @@ static void *serve_faulthook_thread(void *vargp)
         ret = poll(&pfd, 1, -1);
         if (ret == -1)
         {
-            
             perror("poll error");
             break;
         }
@@ -225,7 +224,6 @@ static void *serve_faulthook_thread(void *vargp)
             }
         }
     }
-
 
     exit:
     printf("exiting serve_faulthook_thread\n");

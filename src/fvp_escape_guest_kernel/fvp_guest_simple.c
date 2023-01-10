@@ -46,7 +46,6 @@ static int work_func(void *d)
 
         *((volatile size_t *) data->data) = i;
 
-
         // faulthook
         data->turn = i;
 
@@ -108,17 +107,14 @@ static int myinit(void)
     }
     pr_info("Allocated magic page at addr: " PTR_FMT "\n", ptr);
 
-
     memset((char *) ptr, 0, 4096);
     data = (struct data_t *) ptr;
     data->magic = 0xAABBCCDDEEFF9988;
     asm volatile("dmb sy");
 
     flush_cache_all();
-
     kthread = kthread_create(work_func, NULL, "mykthread");
     wake_up_process(kthread);
-
     return 0;
 }
 
