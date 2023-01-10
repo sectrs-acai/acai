@@ -2,8 +2,8 @@
 #include <string.h>
 #include <sys/mman.h>
 #include<unistd.h>
-
 #define DATA_SIZE 4032
+
 struct __attribute__((__packed__))  data_t
 {
     volatile unsigned long magic;
@@ -11,8 +11,9 @@ struct __attribute__((__packed__))  data_t
     char padding[48];
     char data[DATA_SIZE];
 };
-struct data_t *data;
 
+
+struct data_t *data;
 int main(int argc, char *argv[])
 {
     printf("hi grand master d.\n");
