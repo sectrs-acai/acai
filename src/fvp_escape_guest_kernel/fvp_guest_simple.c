@@ -3,27 +3,48 @@
 #include <linux/delay.h>
 #include <linux/debugfs.h>
 #include <linux/slab.h>
+#include <asm/cacheflush.h>
+
 // #include <linux/dma-direct.h>
 // #include <linux/dma-map-ops.h>
 
-volatile char *ptr;
-size_t magic = 0xAABBCCDDEEFF0011;
 #define PTR_FMT "0x%llx"
+#define DATA_SIZE 4032
+const size_t magic = 0xAABBCCDDEEFF0011;
+
+struct __attribute__((__packed__))  data_t
+{
+    volatile unsigned long magic;
+    volatile unsigned long turn;
+    char padding[48];
+    char data[DATA_SIZE];
+};
+struct data_t *data;
+
 
 static struct dentry *dir = 0;
+static bool status = 0;
 
-static int debugfs_hook(void *data, u64 value)
+static int debugfs_hook(void *d, u64 value)
 {
-    pr_err("Accessing page " PTR_FMT "\n", ptr);
-    *((volatile char *) ptr + 8) = 0xFF;
-    // arch_sync_dma_for_device(virt_to_phys(ptr), 4096, DMA_BIDIRECTIONAL);
+
+    int i = 0;
+
+    pr_info("before write %ld\n", i);
+    __flush_dcache_area(data, 4096);
+    *((volatile size_t *) data->magic) = i;
+    asm volatile("dmb sy");
+    __flush_dcache_area(data, 4096);
+    pr_info("after write %ld\n", i);
 
     return 0;
 }
 
-DEFINE_SIMPLE_ATTRIBUTE(debugfs_fops, NULL, debugfs_hook, "%llu\n");
+DEFINE_SIMPLE_ATTRIBUTE(debugfs_fops, NULL, debugfs_hook,
+"%llu\n");
 
 static int myinit(void)
+
 {
     pr_info("hello init\n");
     dir = debugfs_create_dir("armcca", 0);
@@ -46,7 +67,7 @@ static int myinit(void)
         return -1;
     }
 
-    ptr = (char*) kmalloc(4096, GFP_KERNEL);
+    volatile char *ptr = (char *) kmalloc(4096, GFP_KERNEL);
     if (!ptr)
     {
         return 1;
@@ -54,9 +75,9 @@ static int myinit(void)
     pr_info("Allocated magic page at addr: " PTR_FMT "\n", ptr);
 
     memset((char *) ptr, 0, 4096);
-    *((size_t *) ptr) = magic;
 
-    // arch_sync_dma_for_device(virt_to_phys(ptr), 4096, DMA_BIDIRECTIONAL);
+    data = (struct data_t *) ptr;
+    data->magic = magic;
 
     return 0;
 }
