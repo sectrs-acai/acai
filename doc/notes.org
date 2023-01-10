@@ -1,8 +1,15 @@
 #+title: Notes
-* Notes
-** TODO enable ccache for buildroot
+* Some gotchas and notes during dev
+
+** DONE enable ccache for buildroot
 in host and guest
 ** Generate qemu linux .config for host
 - make defconfig # creates a .config file
 - make kvmconfig # modifies .config
 - or make kvm_guest.config in more recent kernels
+** external toolchain buildroot
+- needs the following kconfig explicitly set otherwise we always lose external toolchain setting
+#+begin_src
+BR2_TOOLCHAIN_EXTERNAL=y
+BR2_TOOLCHAIN_BUILDROOT=n
+#+end_src

@@ -67,7 +67,7 @@ function do_compilationdb {
     local src_kernel=$SRC_LINUX
     local out=$src_kernel/compile_commands.json
 
-    cd $BUILDROOT_OUTPUT_DIR/output/build/linux-custom/
+    cd $BUILDROOT_OUTPUT_DIR/build/linux-custom/
     ./scripts/clang-tools/gen_compile_commands.py -o $out
     cd $src_kernel
     sed -i "s#$buildroot_kernel#$src_kernel#g" compile_commands.json

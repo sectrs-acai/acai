@@ -17,3 +17,4 @@ buildroot/output
 ./assets/
 output/
 tmp-sync/
+/src/fvp_escape_host/ptedit/

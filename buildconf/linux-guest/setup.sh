@@ -26,8 +26,17 @@ function do_init {
     rm -f $BUILDROOT_OUTPUT_DIR/.config.old
 
     make V=1 BR2_EXTERNAL=$BR2_EXTERNAL O=$BUILDROOT_OUTPUT_DIR  qemu_aarch64_virt_defconfig
+    #mv $BUILDROOT_OUTPUT_DIR/.config $BUILDROOT_OUTPUT_DIR/.config.old
+
+    #./support/kconfig/merge_config.sh configs/qemu_aarch64_virt_defconfig $BUILDROOT_CONFIG_DIR/buildroot_config_fragment_aarch64
+    #mv .config $BUILDROOT_OUTPUT_DIR
+    #make V=1 BR2_EXTERNAL=$BR2_EXTERNAL O=$BUILDROOT_OUTPUT_DIR olddefconfig
+
+
     cat $BUILDROOT_CONFIG_DIR/buildroot_config_fragment_aarch64 >> $BUILDROOT_OUTPUT_DIR/.config
     make V=1 BR2_EXTERNAL=$BR2_EXTERNAL O=$BUILDROOT_OUTPUT_DIR olddefconfig
+    ./utils/diffconfig $BUILDROOT_OUTPUT_DIR/.config.old $BUILDROOT_OUTPUT_DIR/.config
+    ./utils/diffconfig -m $BUILDROOT_OUTPUT_DIR/.config.old $BUILDROOT_OUTPUT_DIR/.config
 }
 
 function do_clean {
@@ -74,6 +83,13 @@ function do_run_fvp {
 
 # "${@:2}"
 case "$1" in
+    xconfig)
+        cd $BUILDROOT_DIR
+        set -x
+        make xconfig O=$BUILDROOT_OUTPUT_DIR
+        ./utils/diffconfig $BUILDROOT_OUTPUT_DIR/.config.old $BUILDROOT_OUTPUT_DIR/.config
+        ./utils/diffconfig -m $BUILDROOT_OUTPUT_DIR/.config.old $BUILDROOT_OUTPUT_DIR/.config
+        ;;
     clean)
         do_clean
         ;;
