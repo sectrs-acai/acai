@@ -4,7 +4,11 @@
 tmp/
 .git/
 
+assets/
 **/.git/
+src/linux-guest
+src/linux-host
+ext/buildroot
 output/
 assets/toolchain-arm/
 output/buildroot-linux-guest/build

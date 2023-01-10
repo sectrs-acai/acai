@@ -12,3 +12,5 @@ host_usr_lib=$OUTPUT_LINUX_HOST_DIR/host/usr/lib
 export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$host_lib:$host_usr_lib"
 
 export PS1="x86: "
+
+alias make=$SCRIPTS_DIR/make-x86.sh

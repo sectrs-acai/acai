@@ -16,11 +16,16 @@ SHARE_DIR=$ROOT_DIR
 function do_init {
     cd $BUILDROOT_DIR
     rm -f .config
+    rm -f .config.old
     rm -f $BUILDROOT_OUTPUT_DIR/.config
+    rm -f $BUILDROOT_OUTPUT_DIR/.config.old
 
     make V=1 BR2_EXTERNAL=$BR2_EXTERNAL O=$BUILDROOT_OUTPUT_DIR qemu_x86_64_defconfig
     cat $BUILDROOT_CONFIG_DIR/buildroot_config_fragment >> $BUILDROOT_OUTPUT_DIR/.config
+
     make V=1 BR2_EXTERNAL=$BR2_EXTERNAL O=$BUILDROOT_OUTPUT_DIR olddefconfig
+    ./utils/diffconfig $BUILDROOT_OUTPUT_DIR/.config.old $BUILDROOT_OUTPUT_DIR/.config
+    ./utils/diffconfig -m $BUILDROOT_OUTPUT_DIR/.config.old $BUILDROOT_OUTPUT_DIR/.config
 }
 
 function do_clean {
@@ -74,6 +79,13 @@ function do_compilationdb {
 }
 
 case "$1" in
+    xconfig)
+        cd $BUILDROOT_DIR
+        set -x
+        make xconfig O=$BUILDROOT_OUTPUT_DIR
+        ./utils/diffconfig $BUILDROOT_OUTPUT_DIR/.config.old $BUILDROOT_OUTPUT_DIR/.config
+        ./utils/diffconfig -m $BUILDROOT_OUTPUT_DIR/.config.old $BUILDROOT_OUTPUT_DIR/.config
+        ;;
     clean)
         do_clean
         do_init
