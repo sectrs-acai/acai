@@ -133,6 +133,7 @@ skip_dev_lock:
  */
 static loff_t char_sgdma_llseek(struct file *file, loff_t off, int whence)
 {
+    HERE;
 	loff_t newpos = 0;
 
 	switch (whence) {
@@ -404,12 +405,14 @@ static ssize_t char_sgdma_read_write(struct file *file, const char __user *buf,
 static ssize_t char_sgdma_write(struct file *file, const char __user *buf,
 		size_t count, loff_t *pos)
 {
+    HERE;
 	return char_sgdma_read_write(file, buf, count, pos, 1);
 }
 
 static ssize_t char_sgdma_read(struct file *file, char __user *buf,
 				size_t count, loff_t *pos)
 {
+    HERE;
 	return char_sgdma_read_write(file, buf, count, pos, 0);
 }
 
@@ -423,6 +426,7 @@ static ssize_t cdev_aio_write(struct kiocb *iocb, const struct iovec *io,
 	struct xdma_dev *xdev;
 	int rv;
 	unsigned long i;
+    HERE;
 
 	if (!xcdev) {
 		pr_info("file 0x%p, xcdev NULL, %llu, pos %llu, W %d.\n",
@@ -496,6 +500,7 @@ static ssize_t cdev_aio_read(struct kiocb *iocb, const struct iovec *io,
 	struct xdma_dev *xdev;
 	int rv;
 	unsigned long i;
+    HERE;
 
 	if (!xcdev) {
 		pr_info("file 0x%p, xcdev NULL, %llu, pos %llu, W %d.\n",
@@ -562,11 +567,13 @@ static ssize_t cdev_aio_read(struct kiocb *iocb, const struct iovec *io,
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 16, 0)
 static ssize_t cdev_write_iter(struct kiocb *iocb, struct iov_iter *io)
 {
+    HERE;
 	return cdev_aio_write(iocb, io->iov, io->nr_segs, io->iov_offset);
 }
 
 static ssize_t cdev_read_iter(struct kiocb *iocb, struct iov_iter *io)
 {
+    HERE;
 	return cdev_aio_read(iocb, io->iov, io->nr_segs, io->iov_offset);
 }
 #endif
@@ -802,6 +809,7 @@ static long char_sgdma_ioctl(struct file *file, unsigned int cmd,
 	struct xdma_cdev *xcdev = (struct xdma_cdev *)file->private_data;
 	struct xdma_dev *xdev;
 	struct xdma_engine *engine;
+    HERE;
 
 	int rv = 0;
 
@@ -850,6 +858,7 @@ static int char_sgdma_open(struct inode *inode, struct file *file)
 {
 	struct xdma_cdev *xcdev;
 	struct xdma_engine *engine;
+    HERE;
 
 	char_open(inode, file);
 
@@ -872,6 +881,7 @@ static int char_sgdma_close(struct inode *inode, struct file *file)
 	struct xdma_cdev *xcdev = (struct xdma_cdev *)file->private_data;
 	struct xdma_engine *engine;
 	int rv;
+    HERE;
 
 	rv = xcdev_check(__func__, xcdev, 1);
 	if (rv < 0)

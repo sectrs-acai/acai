@@ -66,6 +66,9 @@ int main(int argc, char **argv)
 	offset = target & (pgsz - 1);
 	target_aligned = target & (~(pgsz - 1));
 
+    printf("device: %s, target: 0x%lx, pgsz: 0x%lx, offset: 0x%lx, target_aligned: 0x%lx\n",
+           device, target, pgsz, offset, target_aligned);
+
 	printf("device: %s, address: 0x%lx (0x%lx+0x%lx), access %s.\n",
 		device, target, target_aligned, offset,
 			argc >= 4 ? "write" : "read");
@@ -85,6 +88,9 @@ int main(int argc, char **argv)
 		access_width = 'w';
 	}
 
+
+
+
 	if ((fd = open(argv[1], O_RDWR | O_SYNC)) == -1) {
 		printf("character device %s opened failed: %s.\n",
 			argv[1], strerror(errno));
@@ -94,6 +100,9 @@ int main(int argc, char **argv)
 
 	map = mmap(NULL, offset + 4, PROT_READ | PROT_WRITE, MAP_SHARED, fd,
 		       	target_aligned);
+
+    printf("mmap: NULL, len: %ld, offset: %ld\n", offset + 4, target_aligned);
+
 	if (map == (void *)-1) {
 		printf("Memory 0x%lx mapped failed: %s.\n",
 			target, strerror(errno));

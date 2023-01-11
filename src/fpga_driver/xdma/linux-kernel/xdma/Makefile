@@ -1,5 +1,5 @@
 SHELL = /bin/bash
-LINUX_DIR ?= /lib/modules/$(shell uname -r)
+LINUX_DIR ?= /lib/modules/$(shell uname -r)/build
 
 #
 # optional makefile parameters:

@@ -32,6 +32,7 @@ static ssize_t char_events_read(struct file *file, char __user *buf,
 	struct xdma_cdev *xcdev = (struct xdma_cdev *)file->private_data;
 	u32 events_user;
 	unsigned long flags;
+    HERE;
 
 	rv = xcdev_check(__func__, xcdev, 0);
 	if (rv < 0)
@@ -81,6 +82,7 @@ static unsigned int char_events_poll(struct file *file, poll_table *wait)
 	unsigned long flags;
 	unsigned int mask = 0;
 	int rv;
+    HERE;
 
 	rv = xcdev_check(__func__, xcdev, 0);
 	if (rv < 0)

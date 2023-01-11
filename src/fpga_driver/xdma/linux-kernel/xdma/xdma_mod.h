@@ -49,6 +49,9 @@
 #include "libxdma.h"
 #include "xdma_thread.h"
 
+#define PTR_FMT "0x%llx"
+#define HERE pr_info("%s/%s: %d\n", __FILE__, __FUNCTION__, __LINE__)
+
 #define MAGIC_ENGINE	0xEEEEEEEEUL
 #define MAGIC_DEVICE	0xDDDDDDDDUL
 #define MAGIC_CHAR	0xCCCCCCCCUL

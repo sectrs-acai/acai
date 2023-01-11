@@ -26,6 +26,7 @@
 static int copy_desc_data(struct xdma_transfer *transfer, char __user *buf,
 		size_t *buf_offset, size_t buf_size)
 {
+HERE;
 	int i;
 	int copy_err;
 	int rc = 0;
@@ -65,6 +66,7 @@ static int copy_desc_data(struct xdma_transfer *transfer, char __user *buf,
 static ssize_t char_bypass_read(struct file *file, char __user *buf,
 		size_t count, loff_t *pos)
 {
+HERE;
 	struct xdma_dev *xdev;
 	struct xdma_engine *engine;
 	struct xdma_cdev *xcdev = (struct xdma_cdev *)file->private_data;
@@ -117,6 +119,7 @@ static ssize_t char_bypass_read(struct file *file, char __user *buf,
 static ssize_t char_bypass_write(struct file *file, const char __user *buf,
 		size_t count, loff_t *pos)
 {
+HERE;
 	struct xdma_dev *xdev;
 	struct xdma_engine *engine;
 	struct xdma_cdev *xcdev = (struct xdma_cdev *)file->private_data;
