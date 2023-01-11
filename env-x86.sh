@@ -1,1 +1,0 @@
-scripts/env-x86.sh
