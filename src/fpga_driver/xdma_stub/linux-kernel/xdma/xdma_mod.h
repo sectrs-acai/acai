@@ -48,9 +48,20 @@
 
 #include "libxdma.h"
 #include "xdma_thread.h"
+#include <faulthook/fpga_manager.h>
 
-#define PTR_FMT "0x%llx"
+// -----------------------------------------------
+// faulthook
+#include <asm/cacheflush.h>
 #define HERE pr_info("%s/%s: %d\n", __FILE__, __FUNCTION__, __LINE__)
+#define NOT_SUPPORTED pr_alert("Operation not supported: %s/%s: %d\n", __FILE__, __FUNCTION__, __LINE__)
+#define PTR_FMT "0x%llx"
+
+extern struct faultdata_struct *fd_data;
+void fh_do_faulthook(void);
+
+// -----------------------------------------------
+
 
 #define MAGIC_ENGINE	0xEEEEEEEEUL
 #define MAGIC_DEVICE	0xDDDDDDDDUL

@@ -20,7 +20,7 @@ $(warning XVC_FLAGS: $(XVC_FLAGS).)
 
 topdir := $(shell cd $(src)/.. && pwd)
 
-TARGET_MODULE:=xdma
+TARGET_MODULE:=xdma_stub
 
 EXTRA_CFLAGS := -I$(topdir)/include $(XVC_FLAGS)
 ifeq ($(DEBUG),1)
@@ -34,10 +34,14 @@ endif
 ifneq ($(KERNELRELEASE),)
 	$(TARGET_MODULE)-objs :=  xdma_cdev.o cdev_ctrl.o cdev_events.o cdev_sgdma.o cdev_xvc.o cdev_bypass.o xdma_mod.o
 	obj-m := $(TARGET_MODULE).o
+	EXTRA_CFLAGS+=-I$(PWD)/../../..
 else
 	BUILDSYSTEM_DIR:=$(LINUX_DIR)
 	PWD:=$(shell pwd)
+
 all :
+	echo "flags:"
+	echo $(EXTRA_CFLAGS)
 	$(MAKE) -C $(BUILDSYSTEM_DIR) M=$(PWD) modules
 
 clean:

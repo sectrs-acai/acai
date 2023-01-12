@@ -61,8 +61,11 @@ static volatile int keepRunning = 1;
 
 char *target;
 
-static inline void hex_dump(const void *data, size_t size)
-{
+
+static inline void hex_dump(
+        const void *data,
+        size_t size
+){
     char ascii[17];
     size_t i, j;
     ascii[16] = '\0';
@@ -128,10 +131,10 @@ static int map_pt(unsigned long *victim_buf_addr, int victim_pid)
     printf(TAG_PROGRESS "PT mapped at %p\n", pt);
 
     /* "target" entry is bits 12 to 20 of "target" virtual address */
-    size_t  entry = (((size_t) target) >> 12) & 0x1ff;
+    size_t entry = (((size_t) target) >> 12) & 0x1ff;
     printf(TAG_PROGRESS "Entry: %zd\n", entry);
-    size_t * mapped_entry = ((size_t * )
-    pt) +entry;
+    size_t *mapped_entry = ((size_t *)
+            pt) + entry;
 
     /* "mapped_entry" is a user-space-accessible pointer to the PTE of "target" */
     if (*mapped_entry != target_entry.pte)
@@ -182,7 +185,7 @@ static void disable_trace()
     ctrl.address = 0;
     ctrl.pid = 0;
 
-    ret = ioctl(fd_hook, FAULTHOOK_IOCTL_CMD_STATUS, (size_t) & ctrl);
+    ret = ioctl(fd_hook, FAULTHOOK_IOCTL_CMD_STATUS, (size_t) &ctrl);
     if (ret < 0)
     {
         perror("FAULTHOOK_IOCTL_CMD_STATUS failed");
