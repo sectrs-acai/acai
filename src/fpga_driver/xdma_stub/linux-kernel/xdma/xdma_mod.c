@@ -64,15 +64,6 @@ static void xpdev_free(void)
 struct faultdata_struct *fd_data = NULL;
 static unsigned long fh_turn = 0;
 
-#include <linux/delay.h> /* usleep_range */
-#if defined(__x86_64__) || defined(_M_X64)
-#define faultdata_flush(faultdata) \
-flush_cache_all()
-#else
-#define faultdata_flush(faultdata) \
-asm volatile("dmb sy"); flush_cache_all()
-#endif
-
 static int faulthook_init(void)
 {
     const size_t len = 4 * 4096;
@@ -90,10 +81,11 @@ static int faulthook_init(void)
 
     fd_data->action = FH_ACTION_ALLOC_GUEST;
     int i = 0;
+    int max = 30;
     do {
         fh_do_faulthook();
         usleep_range(1000000, 1000001);
-    } while(fd_data->action != FH_ACTION_GUEST_CONTINUE && i++ < 30);
+    } while(fd_data->action != FH_ACTION_GUEST_CONTINUE && i++ < 60);
 
     if (fd_data->action != FH_ACTION_GUEST_CONTINUE) {
         pr_err("no action from host\n");
@@ -102,7 +94,6 @@ static int faulthook_init(void)
 
     return 0;
 }
-
 
 void fh_do_faulthook()
 {

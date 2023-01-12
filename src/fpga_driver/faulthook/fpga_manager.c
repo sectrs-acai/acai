@@ -59,6 +59,7 @@ static void *find_magic_region(
     return NULL;
 }
 
+
 static int on_fault(void)
 {
     unsigned long victim_offset = fh_ctx.victim_addr & 0xFFF;
@@ -73,12 +74,26 @@ static int on_fault(void)
 
     switch (fault->action) {
         case FH_ACTION_ALLOC_GUEST: {
-
+            print_progress("FH_ACTION_ALLOC_GUEST");
+            fault->action = FH_ACTION_GUEST_CONTINUE;
             break;
-            default:break;
         }
+        case FH_ACTION_OPEN_DEVICE: {
+            print_progress("FH_ACTION_OPEN_DEVICE");
+            struct action_openclose_device *a = (struct action_openclose_device *) fault->data;
+            int fd = open(a->device, O_RDWR);
+            a->ret = fd;
+            a->fd = fd;
+            break;
+        }
+        case FH_ACTION_CLOSE_DEVICE: {
+            print_progress("FH_ACTION_CLOSE_DEVICE");
+            struct action_openclose_device *a = (struct action_openclose_device *) fault->data;
+            a->ret = close(a->fd);
+        }
+        default:break;
+            print_err("unknown action: %d", fault->action);
     }
-    fault->action = FH_ACTION_GUEST_CONTINUE;
     return 0;
 }
 

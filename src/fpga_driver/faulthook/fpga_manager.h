@@ -17,6 +17,15 @@ enum fh_action {
     FH_ACTION_UNDEF = -1,
     FH_ACTION_GUEST_CONTINUE = 1,
     FH_ACTION_ALLOC_GUEST = 10,
+    FH_ACTION_OPEN_DEVICE = 11,
+    FH_ACTION_CLOSE_DEVICE = 12,
+};
+
+#define ACTION_MODIFIER __attribute__((__packed__))
+struct ACTION_MODIFIER action_openclose_device {
+    char device[128];
+    int fd;
+    int ret;
 };
 
 

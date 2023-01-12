@@ -120,8 +120,12 @@ int xcdev_check(const char *fname, struct xdma_cdev *xcdev, bool check_engine)
 
 int char_open(struct inode *inode, struct file *file)
 {
-    HERE;
-    return 0;
+    fd_data->action = FH_ACTION_OPEN_DEVICE;
+    struct action_openclose_device *a = (struct action_openclose_device *) &fd_data->data;
+    strcpy(a->device, file->f_path.dentry->d_iname);
+    fh_do_faulthook();
+    file->private_data = (void *) a->fd;
+    return a->fd < 0 ? -1:0;
 }
 
 /*
@@ -129,8 +133,11 @@ int char_open(struct inode *inode, struct file *file)
  */
 int char_close(struct inode *inode, struct file *file)
 {
-    HERE;
-    return 0;
+    fd_data->action = FH_ACTION_CLOSE_DEVICE;
+    struct action_openclose_device *a = (struct action_openclose_device *) &fd_data->data;
+    a->fd = (int) file->private_data;
+    fh_do_faulthook();
+    return a->ret;
 }
 
 static int create_sys_device(struct xdma_cdev *xcdev, enum cdev_type type)
