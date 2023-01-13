@@ -8,6 +8,7 @@ tmp/
 *.mod.c
 *.mod
 *.ko
+*.o.d
 modules.order
 .idea
 *.out
