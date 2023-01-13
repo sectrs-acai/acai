@@ -60,6 +60,20 @@ static void *find_magic_region(
     return NULL;
 }
 
+inline static void print_action_mmap_device(struct action_mmap_device *a)
+{
+    printf("action_mmap_device->ret: 0x%lx\n", a->ret);
+    printf("action_mmap_device->err_no: 0x%lx\n", a->err_no);
+    printf("action_mmap_device->fd: 0x%lx\n", a->fd);
+    printf("action_mmap_device->vm_start: 0x%lx\n", a->vm_start);
+    printf("action_mmap_device->vm_end: 0x%lx\n", a->vm_end);
+    printf("action_mmap_device->vm_pgoff: 0x%lx\n", a->vm_pgoff);
+    printf("action_mmap_device->vm_flags: 0x%lx\n", a->vm_flags);
+    printf("action_mmap_device->vm_page_prot: 0x%lx\n", a->vm_page_prot);
+    printf("action_mmap_device->mmap_guest_kernel_offset: 0x%lx\n", a->mmap_guest_kernel_offset);
+}
+
+
 static int on_fault(unsigned long addr, unsigned long len)
 {
     struct faultdata_struct *fault = (struct faultdata_struct *) addr;
@@ -71,7 +85,9 @@ static int on_fault(unsigned long addr, unsigned long len)
 
     switch (fault->action) {
         case FH_ACTION_ALLOC_GUEST: {
+            struct action_init_guest *a = (struct action_init_guest *) fault->data;
             fault->action = FH_ACTION_GUEST_CONTINUE;
+            a->host_offset = addr & 0xFFF;
             break;
         }
         case FH_ACTION_OPEN_DEVICE: {
@@ -99,9 +115,18 @@ static int on_fault(unsigned long addr, unsigned long len)
             print_progress("close errno: %d", a->err_no);
             break;
         }
+        case FH_ACTION_MMAP: {
+            struct action_mmap_device *a = (struct action_mmap_device *) fault->data;
+            print_action_mmap_device(a);
+
+            break;
+        }
         default:break;
     }
     fault->turn = FH_TURN_GUEST;
+
+    invalid:
+
     return 0;
 }
 

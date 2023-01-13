@@ -8,9 +8,7 @@ struct __attribute__((__packed__))  faultdata_struct {
     volatile unsigned long nonce; // fault
     volatile unsigned long turn;
     volatile unsigned long length;
-    volatile unsigned long data_host_page_offset;
     volatile unsigned long action;
-    unsigned long padding[24];
     char data[0];
 };
 
@@ -26,6 +24,7 @@ enum fh_action {
     FH_ACTION_ALLOC_GUEST = 10,
     FH_ACTION_OPEN_DEVICE = 11,
     FH_ACTION_CLOSE_DEVICE = 12,
+    FH_ACTION_MMAP = 13
 };
 
 
@@ -37,6 +36,7 @@ static inline const char *fh_action_to_str(int action)
         case FH_ACTION_ALLOC_GUEST:return "FH_ACTION_ALLOC_GUEST";
         case FH_ACTION_OPEN_DEVICE:return "FH_ACTION_OPEN_DEVICE";
         case FH_ACTION_CLOSE_DEVICE:return "FH_ACTION_CLOSE_DEVICE";
+        case FH_ACTION_MMAP:return "FH_ACTION_MMAP";
         default:return "unknown action";
     }
 }
@@ -48,6 +48,24 @@ struct ACTION_MODIFIER action_openclose_device {
     int fd;
     int ret;
     int err_no;
+};
+
+
+struct ACTION_MODIFIER action_mmap_device {
+    int ret;
+    int err_no;
+    int fd;
+    unsigned long vm_start;
+    unsigned long vm_end;
+    unsigned long vm_pgoff;
+    unsigned long vm_flags;
+    unsigned long vm_page_prot;
+    unsigned long mmap_guest_kernel_offset;
+};
+
+
+struct ACTION_MODIFIER action_init_guest {
+    unsigned long host_offset;
 };
 
 

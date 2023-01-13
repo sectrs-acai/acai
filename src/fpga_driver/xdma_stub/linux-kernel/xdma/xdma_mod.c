@@ -61,31 +61,28 @@ static void xpdev_free(void)
 }
 
 
-struct faultdata_struct *fd_data = NULL;
-static unsigned long fh_nonce = 0;
-static struct page *page;
+// struct faultdata_struct *fd_data = NULL;
+// static unsigned long fh_nonce = 0;
+// static struct page *page;
+
+struct faultdata_driver_struct fd_ctx;
 
 // 2^3 = 8
 #define PAGE_ORDER 3
 
 static int faulthook_init(void)
 {
-#if 0
-    const size_t len = 4 * 4096;
-    // TODO use something else
-    volatile char *ptr = (char *) kmalloc(len, GFP_KERNEL);
-    if (!ptr) {
-        return -1;
-    }
-#else
-    const size_t len = (1 << PAGE_ORDER) * 4096;
-    page = alloc_pages(GFP_KERNEL, PAGE_ORDER);
-    if (!page) {
+    memset(&fd_ctx, 0, sizeof(struct faultdata_driver_struct));
+    const size_t len = (1 << FAULTDATA_PAGE_ORDER) * 4096;
+    fd_ctx.page_order = FAULTDATA_PAGE_ORDER;
+    fd_ctx.page = alloc_pages(GFP_KERNEL, FAULTDATA_PAGE_ORDER);
+
+    if (!fd_ctx.page) {
         printk("alloc_page failed\n");
         return -ENOMEM;
     }
-    volatile char *ptr = (volatile char *) page_address(page);
-#endif
+    volatile char *ptr = (volatile char *) page_address(fd_ctx.page);
+
 
     pr_info("Allocated magic page at addr: " PTR_FMT "\n", ptr);
 
@@ -93,9 +90,8 @@ static int faulthook_init(void)
     fd_data = (struct faultdata_struct *) ptr;
     fd_data->magic = FAULTDATA_MAGIC;
     fd_data->length = len;
-    faultdata_flush(fd_data);
-
     fd_data->action = FH_ACTION_ALLOC_GUEST;
+
     int i = 0;
     int max = 20;
     do {
@@ -107,6 +103,9 @@ static int faulthook_init(void)
     if (fd_data->action!=FH_ACTION_GUEST_CONTINUE) {
         pr_err("no action from host\n");
         return -1;
+    } else {
+        struct action_init_guest *a = (struct action_init_guest*) &fd_data->data;
+        fd_ctx.host_pg_offset = a->host_offset;
     }
 
     return 0;
@@ -114,7 +113,7 @@ static int faulthook_init(void)
 
 void fh_do_faulthook()
 {
-    unsigned long nonce = fh_nonce++;
+    unsigned long nonce = fd_ctx.fh_nonce++;
     fd_data->turn = FH_TURN_HOST;
 
     fd_data->nonce = nonce; /* faulthook */
@@ -134,8 +133,7 @@ static int faulthook_cleanup(void)
          * We clear magic such that upon reload we dont get several hits with the same magic
          */
         fd_data->magic = 0;
-        __free_pages(page, PAGE_ORDER);
-        // kfree(fd_data);
+        __free_pages(fd_ctx.page, FAULTDATA_PAGE_ORDER);
     }
     return 0;
 }

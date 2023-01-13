@@ -59,7 +59,7 @@
 #define NOT_SUPPORTED pr_alert("Operation not supported: %s/%s: %d\n", __FILE__, __FUNCTION__, __LINE__)
 #define PTR_FMT "0x%llx"
 
-extern struct faultdata_struct *fd_data;
+
 
 void fh_do_faulthook(void);
 
@@ -72,6 +72,22 @@ flush_cache_all()
 #define faultdata_flush(faultdata) \
 asm volatile("dmb sy"); flush_cache_all()
 #endif
+
+#define FAULTDATA_PAGE_ORDER 4
+
+struct faultdata_driver_struct {
+    struct faultdata_struct *fd_data;
+    struct page *page;
+    unsigned long page_order;
+    unsigned long fh_nonce;
+    unsigned long host_pg_offset;
+    unsigned long mmap_page;
+    unsigned long mmap_page_len;
+    bool mmap_busy;
+};
+#define fd_data (fd_ctx.fd_data)
+
+extern struct faultdata_driver_struct fd_ctx;
 
 struct faulthook_priv_data {
     int fd;
