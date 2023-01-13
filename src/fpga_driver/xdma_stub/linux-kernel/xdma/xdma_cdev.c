@@ -73,7 +73,6 @@ static DEVICE_ATTR_RO(xdma_dev_instance);
 
 static int config_kobject(struct xdma_cdev *xcdev, enum cdev_type type)
 {
-    HERE;
     int rv = -EINVAL;
     struct xdma_dev *xdev = xcdev->xdev;
     struct xdma_engine *engine = xcdev->engine;
@@ -115,7 +114,7 @@ static int config_kobject(struct xdma_cdev *xcdev, enum cdev_type type)
 
 int xcdev_check(const char *fname, struct xdma_cdev *xcdev, bool check_engine)
 {
-    HERE;
+    NOT_SUPPORTED;
     return 0;
 }
 
@@ -126,8 +125,9 @@ int char_open(struct inode *inode, struct file *file)
 
     fd_data->action = FH_ACTION_OPEN_DEVICE;
     struct action_openclose_device *a = (struct action_openclose_device *) &fd_data->data;
-    strcpy(a->device, file->f_path.dentry->d_iname);
-    // strreplace(a->device, DEVNODE_NAME_REPLACED, DEVNODE_NAME_ORIG);
+
+    strcpy(a->device, "/dev/");
+    strcpy(a->device + strlen(a->device), file->f_path.dentry->d_iname);
     a->flags = file->f_flags;
 
     fh_do_faulthook();
@@ -214,7 +214,6 @@ static int create_xcdev(struct xdma_pci_dev *xpdev, struct xdma_cdev *xcdev,
                         enum cdev_type type
 )
 {
-    HERE;
     int rv;
     int minor;
     struct xdma_dev *xdev = xpdev->xdev;
@@ -244,10 +243,13 @@ static int create_xcdev(struct xdma_pci_dev *xpdev, struct xdma_cdev *xcdev,
     xcdev->engine = engine;
     xcdev->bar = bar;
 
+    // TODO: do we need to config kobjects?
+    #if 0
     rv = config_kobject(xcdev, type);
     if (rv < 0) {
         return rv;
     }
+    #endif
 
     switch (type) {
         case CHAR_USER:
@@ -311,7 +313,6 @@ static int create_xcdev(struct xdma_pci_dev *xpdev, struct xdma_cdev *xcdev,
 
 void xpdev_destroy_interfaces(struct xdma_pci_dev *xpdev)
 {
-    HERE;
     int i = 0;
     int rv;
 #ifdef __XDMA_SYSFS__
@@ -405,7 +406,6 @@ void xpdev_destroy_interfaces(struct xdma_pci_dev *xpdev)
 
 int xpdev_create_interfaces(struct xdma_pci_dev *xpdev)
 {
-    HERE;
     struct xdma_dev *xdev = xpdev->xdev;
     struct xdma_engine *engine;
     int i;
@@ -484,8 +484,6 @@ int xpdev_create_interfaces(struct xdma_pci_dev *xpdev)
                 goto fail;
             }
         }
-
-        HERE;
         pr_info("xpdev->c2h_channel_max: %d\n", xpdev->c2h_channel_max);
         for (i = 0; i < xpdev->c2h_channel_max; i++) {
             engine = &xdev->engine_c2h[i];
@@ -513,7 +511,6 @@ int xpdev_create_interfaces(struct xdma_pci_dev *xpdev)
     }
 
     /* initialize user character device */
-    HERE;
     pr_info("xdev->user_bar_idx: %d\n", xdev->user_bar_idx);
 
     if (xdev->user_bar_idx >= 0) {
@@ -545,7 +542,6 @@ int xpdev_create_interfaces(struct xdma_pci_dev *xpdev)
 
 int xdma_cdev_init(void)
 {
-    HERE;
     g_xdma_class = class_create(THIS_MODULE, XDMA_NODE_NAME);
     if (IS_ERR(g_xdma_class)) {
         pr_info(XDMA_NODE_NAME ": failed to create class");
@@ -567,7 +563,6 @@ int xdma_cdev_init(void)
 
 void xdma_cdev_cleanup(void)
 {
-    HERE;
     if (cdev_cache) {
         kmem_cache_destroy(cdev_cache);
     }

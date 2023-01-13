@@ -48,14 +48,11 @@ fh_host_fn void *_fh_fault_handler(void *vargp)
 
         if (revents & POLLIN) {
             if (fh_ctx.listener) {
-                HERE;
                 ret = (*fh_ctx.listener)();
-                print_progress("function returned: %d\n", ret);
-                HERE;
                 if (ret) {
+                    print_err("fault handler returned: %d, exiting", ret);
                     goto exit;
                 }
-                HERE;
             }
             ret = ioctl(fh_ctx.fd_hook, FAULTHOOK_IOCTL_CMD_HOOK_COMPLETED);
             if (ret < 0) {

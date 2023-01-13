@@ -21,4 +21,4 @@ transferCount=1
 isStreaming=0
 h2cChannels=0
 
-$tool_path/reg_rw /dev/xdma_stub0_control 0x0${i}00 w
+$tool_path/reg_rw /dev/xdma0_control 0x0${i}00 w

@@ -77,10 +77,6 @@ struct faulthook_priv_data {
     int fd;
 };
 
-#define DEVNODE_NAME_ORIG "/dev/xdma0"
-#define DEVNODE_NAME_REPLACED "/dev/xdma0_stub"
-
-
 // -----------------------------------------------
 
 

@@ -8,7 +8,7 @@
 #include "xdma_cdev.h"
 #include "version.h"
 
-#define DRV_MODULE_NAME        "xdma_stub"
+#define DRV_MODULE_NAME        "xdma"
 #define DRV_MODULE_DESC        "Stub for Xilinx XDMA Driver"
 
 static char version[] =
@@ -62,11 +62,12 @@ static void xpdev_free(void)
 
 
 struct faultdata_struct *fd_data = NULL;
-static unsigned long fh_turn = 0;
+static unsigned long fh_nonce = 0;
 static struct page *page;
 
 // 2^3 = 8
 #define PAGE_ORDER 3
+
 static int faulthook_init(void)
 {
 #if 0
@@ -77,8 +78,8 @@ static int faulthook_init(void)
         return -1;
     }
 #else
-    const size_t len = (1 << PAGE_ORDER)  * 4096;
-     page = alloc_pages(GFP_KERNEL, PAGE_ORDER);
+    const size_t len = (1 << PAGE_ORDER) * 4096;
+    page = alloc_pages(GFP_KERNEL, PAGE_ORDER);
     if (!page) {
         printk("alloc_page failed\n");
         return -ENOMEM;
@@ -96,7 +97,7 @@ static int faulthook_init(void)
 
     fd_data->action = FH_ACTION_ALLOC_GUEST;
     int i = 0;
-    int max = 10;
+    int max = 20;
     do {
         pr_info("Waiting for host to connect %d/%d\n", i, max);
         fh_do_faulthook();
@@ -113,9 +114,17 @@ static int faulthook_init(void)
 
 void fh_do_faulthook()
 {
-    fh_turn++;
-    fd_data->turn = fh_turn;
+    unsigned long nonce = fh_nonce++;
+    fd_data->turn = FH_TURN_HOST;
+
+    fd_data->nonce = nonce; /* faulthook */
+    /*
+     * TODO: Is flush needed? or do we cause several faults?
+     */
     faultdata_flush(fd_data);
+    if (fd_data->turn!=FH_TURN_GUEST) {
+        pr_err("Host did not reply to request. Nonce: 0x%lx. Is host listening?", nonce);
+    }
 }
 
 static int faulthook_cleanup(void)

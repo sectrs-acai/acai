@@ -3,17 +3,9 @@
 #include "xdma_cdev.h"
 #include "cdev_xvc.h"
 
-#define COMPLETION_LOOP_MAX    100
-
-#define XVC_BAR_LENGTH_REG    0x0
-#define XVC_BAR_TMS_REG        0x4
-#define XVC_BAR_TDI_REG        0x8
-#define XVC_BAR_TDO_REG        0xC
-#define XVC_BAR_CTRL_REG    0x10}
-
 static long xvc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
-    HERE;
+    NOT_SUPPORTED;
     return 0;
 }
 
@@ -28,7 +20,7 @@ static const struct file_operations xvc_fops = {
 };
 
 void cdev_xvc_init(struct xdma_cdev *xcdev)
-        {
+{
 #ifdef __XVC_BAR_NUM__
     xcdev->bar = __XVC_BAR_NUM__;
 #endif
