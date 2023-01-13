@@ -24,8 +24,10 @@ enum fh_action {
 #define ACTION_MODIFIER __attribute__((__packed__))
 struct ACTION_MODIFIER action_openclose_device {
     char device[128];
+    unsigned int flags;
     int fd;
     int ret;
+    int err_no;
 };
 
 

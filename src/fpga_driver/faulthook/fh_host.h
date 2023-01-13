@@ -44,7 +44,7 @@ typedef struct fh_extract_region {
     int region_type;
 } extract_region_t;
 
-typedef int *fh_listener_fn (void);
+typedef int (*fh_listener_fn) (void);
 
 struct fh_host_context {
     bool hook_enabled;
@@ -53,7 +53,7 @@ struct fh_host_context {
     pid_t victim_pid;
     unsigned long victim_addr;
 
-    fh_listener_fn *listener;
+    fh_listener_fn listener;
     pthread_t listener_thread;
 
     char *mmap_host;
@@ -64,7 +64,7 @@ struct fh_host_context {
 
 extern struct fh_host_context fh_ctx;
 
-fh_host_fn pthread_t* run_thread(fh_listener_fn *fn);
+fh_host_fn pthread_t* run_thread(fh_listener_fn fn);
 
 fh_host_fn int fh_init(const char *device);
 
@@ -76,9 +76,21 @@ fh_host_fn int fh_clean_up(void);
 
 fh_host_fn void fh_print_region(extract_region_t *r);
 
-fh_host_fn int fh_memory_unmap(void);
 
-fh_host_fn int fh_memory_map(pid_t pid, unsigned long addr, unsigned long num_of_pages);
+struct fh_memory_map_ctx {
+    pid_t pid;
+    unsigned long addr;
+    char * host_mem;
+    unsigned long len;
+
+    ptedit_entry_t _host_pt;
+    size_t *_host_pt_entry;
+};
+
+
+fh_host_fn int fh_memory_unmap(struct fh_memory_map_ctx *);
+
+fh_host_fn int fh_memory_map(struct fh_memory_map_ctx* req);
 
 fh_host_fn int fh_scan_guest_memory(pid_t pid,
                          unsigned long magic,

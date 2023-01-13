@@ -9,9 +9,10 @@
 #include <time.h>
 #include <stdlib.h>
 #include <pthread.h>
-
+#include <errno.h>
 #include "fh_host_header.h"
 #include "fpga_manager.h"
+#include "fh_host.h"
 
 static void *find_magic_region(
         pid_t pid,
@@ -59,48 +60,106 @@ static void *find_magic_region(
     return NULL;
 }
 
-
-static int on_fault(void)
+static int on_fault(unsigned long addr, unsigned long len)
 {
-    unsigned long victim_offset = fh_ctx.victim_addr & 0xFFF;
-    unsigned long len = PAGE_SIZE - victim_offset;
-    unsigned long victim_addr = fh_ctx.victim_addr & ~(0xFFF);
-    unsigned long addr = ((unsigned long) fh_ctx.mmap_host) + victim_offset - /* magic field */ 8;
-
     print_progress("on_fault");
-    hex_dump((void *) addr, 64);
+    // hex_dump((void *) addr, len);
 
     struct faultdata_struct *fault = (struct faultdata_struct *) addr;
 
     switch (fault->action) {
         case FH_ACTION_ALLOC_GUEST: {
             print_progress("FH_ACTION_ALLOC_GUEST");
+            HERE;
             fault->action = FH_ACTION_GUEST_CONTINUE;
+            HERE;
             break;
         }
         case FH_ACTION_OPEN_DEVICE: {
             print_progress("FH_ACTION_OPEN_DEVICE");
             struct action_openclose_device *a = (struct action_openclose_device *) fault->data;
-            int fd = open(a->device, O_RDWR);
+            print_progress("device: %s\n", a->device);
+            print_progress("flags: %d\n", a->flags);
+            int fd = open(a->device, a->flags);
+            print_progress("return: %d\n", fd);
+            print_progress("errno: %d\n", errno);
             a->ret = fd;
             a->fd = fd;
+            a->err_no = errno;
+            HERE;
             break;
         }
         case FH_ACTION_CLOSE_DEVICE: {
             print_progress("FH_ACTION_CLOSE_DEVICE");
             struct action_openclose_device *a = (struct action_openclose_device *) fault->data;
+            print_progress("close fd: %d\n", a->fd);
             a->ret = close(a->fd);
+            print_progress("close return: %d\n", a->ret);
+            a->err_no = errno;
+            print_progress("close errno: %d\n", errno);
+            HERE;
         }
-        default:break;
-            print_err("unknown action: %d", fault->action);
+        default:print_err("unknown action: %d", fault->action);
+            break;
     }
+    HERE;
     return 0;
+}
+
+static char *host = NULL;
+static unsigned host_len = 10 * PAGE_SIZE;
+
+static int _on_fault(void)
+{
+    unsigned long victim_offset = fh_ctx.victim_addr & 0xFFF;
+    unsigned long len = PAGE_SIZE - victim_offset;
+    unsigned long victim_addr = fh_ctx.victim_addr & ~(0xFFF);
+    // unsigned long addr = ((unsigned long) fh_ctx.mmap_host) + victim_offset - /* magic field */ 8;
+
+    print_progress("victim_offset: %lx", victim_offset);
+    print_progress("len: %lx", len);
+    print_progress("victim_addr: %lx", fh_ctx.victim_addr);
+    print_progress("victim_addr aligned: %lx", victim_addr);
+    // print_progress("addr: %lx", addr);
+    // return on_fault(addr, len);
+
+    if (host==NULL) {
+        host = mmap(0,
+                    host_len,
+                    PROT_READ | PROT_WRITE,
+                    MAP_PRIVATE | MAP_ANONYMOUS,
+                    -1,
+                    0);
+        if (!host) {
+            print_err("ERROR: could not mmap shared buf");
+            return -1;
+        }
+        memset(host, 0, host_len);
+    }
+
+    struct fh_memory_map_ctx req;
+    req.addr = fh_ctx.victim_addr;
+    req.len = 4096;
+    req.pid = fh_ctx.victim_pid;
+    req.host_mem = host;
+
+    int  ret = fh_memory_map(&req);
+    if (ret != 0) {
+        print_err("fh_memory_map error");
+        return ret;
+    }
+    unsigned long addr = ((unsigned long) host) + victim_offset - /* magic field */ 8;
+    ret = on_fault(addr, len);
+    fh_memory_unmap(&req);
+
+    return ret;
 }
 
 
 int main(int argc, char *argv[])
 {
     int ret = 0;
+
     if (argc < 2) {
         print_err("Need pid as argument\n");
         return -1;
@@ -122,6 +181,7 @@ int main(int argc, char *argv[])
     }
     print_ok("identified target address: 0x%xl in pid %d", addr, pid);
 
+
     if (fh_memory_map(pid, (unsigned long) addr, 1)) {
         print_err("fh_memory_map failed\n");
         ret = -1;
@@ -129,7 +189,7 @@ int main(int argc, char *argv[])
     }
     print_ok("Mapped target 0x%lx into address space of host", addr);
 
-    pthread_t *th = run_thread((int *(*)(void)) on_fault);
+    pthread_t *th = run_thread((fh_listener_fn) _on_fault);
 
     /*
      * We enable faulthook on 8 bytes starting at index 8
@@ -141,7 +201,6 @@ int main(int argc, char *argv[])
     ret = 0;
     clean_up:
     fh_disable_trace();
-    fh_memory_unmap();
     fh_clean_up();
     return ret;
 }

@@ -23,6 +23,7 @@ struct fh_host_context fh_ctx;
 
 fh_host_fn void _fh_crash_handler(int code)
 {
+    printf("Crash handler called\n");
     fh_disable_trace();
     fh_clean_up();
 }
@@ -47,10 +48,14 @@ fh_host_fn void *_fh_fault_handler(void *vargp)
 
         if (revents & POLLIN) {
             if (fh_ctx.listener) {
-                ret = *(fh_ctx.listener)();
+                HERE;
+                ret = (*fh_ctx.listener)();
+                print_progress("function returned: %d\n", ret);
+                HERE;
                 if (ret) {
                     goto exit;
                 }
+                HERE;
             }
             ret = ioctl(fh_ctx.fd_hook, FAULTHOOK_IOCTL_CMD_HOOK_COMPLETED);
             if (ret < 0) {
@@ -138,9 +143,9 @@ fh_host_fn void fh_print_region(extract_region_t *r)
 }
 
 fh_host_fn int fh_scan_guest_memory(pid_t pid,
-                         unsigned long magic,
-                         extract_region_t **ret_regions,
-                         int *ret_regions_len
+                                    unsigned long magic,
+                                    extract_region_t **ret_regions,
+                                    int *ret_regions_len
 )
 {
     char magic_buf[64];
@@ -170,65 +175,36 @@ fh_host_fn int fh_scan_guest_memory(pid_t pid,
     return 0;
 }
 
-fh_host_fn int fh_memory_unmap(void)
+fh_host_fn int fh_memory_unmap(struct fh_memory_map_ctx *req)
 {
-    if (fh_ctx.mmap_host==NULL) {
+    if (req->host_mem==NULL) {
         return 0;
     }
-    assert(fh_ctx.host_pte_orig!=NULL);
-    *fh_ctx.host_pte_orig = fh_ctx.host_pte.pte;
-    ptedit_cleanup();
-
-    munmap(fh_ctx.mmap_host, fh_ctx.mmap_num_of_pages * PAGE_SIZE);
-    fh_ctx.mmap_host = NULL;
-    fh_ctx.mmap_num_of_pages = 0;
-    fh_ctx.host_pte_orig = NULL;
-
+    *(req->_host_pt_entry) = req->_host_pt.pte;
+    // TODO: invalidate tlb?
     return 0;
 }
 
-fh_host_fn int fh_memory_map(
-        pid_t pid,
-        unsigned long addr,
-        unsigned long num_of_pages)
+fh_host_fn int fh_memory_map(struct fh_memory_map_ctx *req)
 {
     int ret = 0;
     char *pt;
-    assert(addr!=0);
-    assert(num_of_pages==1);
-    const size_t tot_len = 4096 * num_of_pages;
 
-    char *host = mmap(0,
-                      tot_len,
-                      PROT_READ | PROT_WRITE,
-                      MAP_PRIVATE | MAP_ANONYMOUS,
-                      -1,
-                      0);
-    if (!host) {
-        print_err("ERROR: could not mmap shared buf");
-        ret = -1;
-        goto clean_up;
-    }
-    memset(host, 0, tot_len);
-
-    if (ptedit_init()) {
-        print_err("Error: Could not initalize PTEditor,"
-                  " did you load the kernel module?\n");
-        ret = -1;
-        goto clean_up;
-    }
+    unsigned long addr = req->addr;
+    int pid = req->pid;
+    char *host_mem = req->host_mem;
 
     ptedit_entry_t victim = ptedit_resolve((void *) addr, pid);
 
     /* "target" uses the manipulated page-table entry */
-    ptedit_entry_t host_entry = ptedit_resolve(host, 0);
+    ptedit_entry_t host_entry = ptedit_resolve(host_mem, 0);
 
     /* "pt" should map the page table corresponding to "target" */
     size_t pt_pfn = ptedit_cast(host_entry.pmd, ptedit_pmd_t).pfn;
     pt = ptedit_pmap(pt_pfn * ptedit_get_pagesize(), ptedit_get_pagesize());
 
     /* "target" entry is bits 12 to 20 of "target" virtual address */
-    size_t entry = (((size_t) host) >> 12) & 0x1ff;
+    size_t entry = (((size_t) host_mem) >> 12) & 0x1ff;
     size_t *mapped_entry = ((size_t *) pt) + entry;
 
     /* "mapped_entry" is a user-space-accessible pointer to the PTE of "target" */
@@ -239,20 +215,15 @@ fh_host_fn int fh_memory_map(
     /* let "target" point to "secret" */
     *mapped_entry = ptedit_set_pfn(*mapped_entry, ptedit_get_pfn(victim.pte));
 
-    ptedit_invalidate_tlb(host);
+    ptedit_invalidate_tlb(host_mem);
     /*
      * host points page aligned to the target page of interest
      */
-    fh_ctx.mmap_host = host;
-    fh_ctx.mmap_num_of_pages = num_of_pages;
-    fh_ctx.host_pte = host_entry;
-    fh_ctx.host_pte_orig = mapped_entry;
+    req->_host_pt = host_entry;
+    req->_host_pt_entry = mapped_entry;
 
     return 0;
     clean_up:
-    if (host) {
-        free(host);
-    }
     return ret;
 }
 
@@ -303,15 +274,14 @@ fh_host_fn int fh_disable_trace(void)
 
 fh_host_fn int fh_clean_up(void)
 {
-    if (fh_ctx.mmap_host) {
-        fh_memory_unmap();
-    }
     close(fh_ctx.fd_hook);
     memset(&fh_ctx, 0, sizeof(struct fh_host_context));
+
+    ptedit_cleanup();
     return 0;
 }
 
-fh_host_fn pthread_t* run_thread(fh_listener_fn *fn)
+fh_host_fn pthread_t *run_thread(fh_listener_fn fn)
 {
     fh_ctx.listener = fn;
     pthread_create(
@@ -337,6 +307,12 @@ fh_host_fn int fh_init(const char *device)
     signal(SIGTERM, _fh_crash_handler);
     signal(SIGSEGV, _fh_crash_handler);
     signal(SIGABRT, _fh_crash_handler);
+
+    if (ptedit_init()) {
+        print_err("Error: Could not initalize PTEditor,"
+                  " did you load the kernel module?\n");
+        return -1;
+    }
 
     int fd = open(device, O_RDWR | O_NONBLOCK);
     if (fd < 0) {

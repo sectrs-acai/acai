@@ -112,6 +112,7 @@ static int config_kobject(struct xdma_cdev *xcdev, enum cdev_type type)
     return rv;
 }
 
+
 int xcdev_check(const char *fname, struct xdma_cdev *xcdev, bool check_engine)
 {
     HERE;
@@ -120,12 +121,21 @@ int xcdev_check(const char *fname, struct xdma_cdev *xcdev, bool check_engine)
 
 int char_open(struct inode *inode, struct file *file)
 {
+    struct faulthook_priv_data *info = kmalloc(sizeof(struct faulthook_priv_data), GFP_KERNEL);
+    file->private_data = info;
+
     fd_data->action = FH_ACTION_OPEN_DEVICE;
     struct action_openclose_device *a = (struct action_openclose_device *) &fd_data->data;
     strcpy(a->device, file->f_path.dentry->d_iname);
+    // strreplace(a->device, DEVNODE_NAME_REPLACED, DEVNODE_NAME_ORIG);
+    a->flags = file->f_flags;
+
     fh_do_faulthook();
-    file->private_data = (void *) a->fd;
-    return a->fd < 0 ? -1:0;
+    /*
+     * We use fd as key to query device on host
+     */
+    info->fd = a->fd;
+    return a->err_no;
 }
 
 /*
@@ -133,11 +143,18 @@ int char_open(struct inode *inode, struct file *file)
  */
 int char_close(struct inode *inode, struct file *file)
 {
+    int ret;
+
+    struct faulthook_priv_data *info = file->private_data;
     fd_data->action = FH_ACTION_CLOSE_DEVICE;
     struct action_openclose_device *a = (struct action_openclose_device *) &fd_data->data;
-    a->fd = (int) file->private_data;
+    a->fd = info->fd;
+
     fh_do_faulthook();
-    return a->ret;
+    ret = a->err_no;
+
+    kfree(file->private_data);
+    return ret;
 }
 
 static int create_sys_device(struct xdma_cdev *xcdev, enum cdev_type type)

@@ -63,14 +63,29 @@ static void xpdev_free(void)
 
 struct faultdata_struct *fd_data = NULL;
 static unsigned long fh_turn = 0;
+static struct page *page;
 
+// 2^3 = 8
+#define PAGE_ORDER 3
 static int faulthook_init(void)
 {
+#if 0
     const size_t len = 4 * 4096;
+    // TODO use something else
     volatile char *ptr = (char *) kmalloc(len, GFP_KERNEL);
     if (!ptr) {
         return -1;
     }
+#else
+    const size_t len = (1 << PAGE_ORDER)  * 4096;
+     page = alloc_pages(GFP_KERNEL, PAGE_ORDER);
+    if (!page) {
+        printk("alloc_page failed\n");
+        return -ENOMEM;
+    }
+    volatile char *ptr = (volatile char *) page_address(page);
+#endif
+
     pr_info("Allocated magic page at addr: " PTR_FMT "\n", ptr);
 
     memset((char *) ptr, 0, len);
@@ -81,13 +96,14 @@ static int faulthook_init(void)
 
     fd_data->action = FH_ACTION_ALLOC_GUEST;
     int i = 0;
-    int max = 30;
+    int max = 10;
     do {
+        pr_info("Waiting for host to connect %d/%d\n", i, max);
         fh_do_faulthook();
-        usleep_range(1000000, 1000001);
-    } while(fd_data->action != FH_ACTION_GUEST_CONTINUE && i++ < 60);
+        usleep_range(3000000, 3000001);
+    } while (fd_data->action!=FH_ACTION_GUEST_CONTINUE && i++ < max);
 
-    if (fd_data->action != FH_ACTION_GUEST_CONTINUE) {
+    if (fd_data->action!=FH_ACTION_GUEST_CONTINUE) {
         pr_err("no action from host\n");
         return -1;
     }
@@ -97,7 +113,6 @@ static int faulthook_init(void)
 
 void fh_do_faulthook()
 {
-    pr_info("Doing faulthook...\n");
     fh_turn++;
     fd_data->turn = fh_turn;
     faultdata_flush(fd_data);
@@ -110,7 +125,8 @@ static int faulthook_cleanup(void)
          * We clear magic such that upon reload we dont get several hits with the same magic
          */
         fd_data->magic = 0;
-        kfree(fd_data);
+        __free_pages(page, PAGE_ORDER);
+        // kfree(fd_data);
     }
     return 0;
 }
