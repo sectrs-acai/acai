@@ -23,6 +23,7 @@
 #include "version.h"
 #include "xdma_cdev.h"
 #include "cdev_ctrl.h"
+#include <linux/memory.h>
 
 #if ACCESS_OK_2_ARGS
 #define xlx_access_ok(X, Y, Z) access_ok(Y, Z)
@@ -127,6 +128,420 @@ static long version_ioctl(struct xdma_cdev *xcdev, void __user *arg)
     return 0;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 7, 0)
+#define KPROBE_KALLSYMS_LOOKUP 1
+
+#include <linux/kprobes.h>
+
+typedef unsigned long (*kallsyms_lookup_name_t)(const char *name);
+
+kallsyms_lookup_name_t kallsyms_lookup_name_func;
+#define kallsyms_lookup_name kallsyms_lookup_name_func
+
+static struct kprobe kp = {
+        .symbol_name = "kallsyms_lookup_name"
+};
+#endif
+
+int (*orig_do_munmap)(struct mm_struct *, unsigned long, size_t,
+                      struct list_head *uf);
+
+void (*orig_flush_tlb_all)(void);
+
+void (*orig_unmap_mapping_page)(struct page *page);
+
+static int kprobe_init = 0;
+
+typedef struct {
+    size_t pid;
+    pgd_t *pgd;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0)
+    p4d_t *p4d;
+#else
+    size_t *p4d;
+#endif
+    pud_t *pud;
+    pmd_t *pmd;
+    pte_t *pte;
+    size_t valid;
+} vm_t;
+
+
+static int resolve_vm(struct mm_struct *mm, size_t addr, vm_t *entry, int lock)
+{
+
+    if (!entry) return 1;
+    entry->pud = NULL;
+    entry->pmd = NULL;
+    entry->pgd = NULL;
+    entry->pte = NULL;
+    entry->p4d = NULL;
+    entry->valid = 0;
+
+    /* Lock mm */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 8, 0)
+    if (lock) mmap_read_lock(mm);
+#else
+    if(lock) down_read(&mm->mmap_sem);
+#endif
+
+    /* Return PGD (page global directory) entry */
+    entry->pgd = pgd_offset(mm, addr);
+    if (pgd_none(*(entry->pgd)) || pgd_bad(*(entry->pgd))) {
+        entry->pgd = NULL;
+        goto error_out;
+    }
+
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0)
+    /* Return p4d offset */
+    entry->p4d = p4d_offset(entry->pgd, addr);
+    if (p4d_none(*(entry->p4d)) || p4d_bad(*(entry->p4d))) {
+        entry->p4d = NULL;
+        goto error_out;
+    }
+
+    /* Get offset of PUD (page upper directory) */
+    entry->pud = pud_offset(entry->p4d, addr);
+    if (pud_none(*(entry->pud))) {
+        entry->pud = NULL;
+        goto error_out;
+    }
+#else
+    /* Get offset of PUD (page upper directory) */
+  entry->pud = pud_offset(entry->pgd, addr);
+  if (pud_none(*(entry->pud))) {
+    entry->pud = NULL;
+    goto error_out;
+  }
+  entry->valid |= PTEDIT_VALID_MASK_PUD;
+#endif
+
+
+    /* Get offset of PMD (page middle directory) */
+    entry->pmd = pmd_offset(entry->pud, addr);
+    if (pmd_none(*(entry->pmd)) || pud_large(*(entry->pud))) {
+        entry->pmd = NULL;
+        goto error_out;
+    }
+
+    /* Map PTE (page table entry) */
+    entry->pte = pte_offset_map(entry->pmd, addr);
+    if (entry->pte==NULL || pmd_large(*(entry->pmd))) {
+        entry->pte = NULL;
+        goto error_out;
+    }
+
+    /* Unmap PTE, fine on x86 and ARM64 -> unmap is NOP */
+    pte_unmap(entry->pte);
+
+    /* Unlock mm */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 8, 0)
+    if (lock) mmap_read_unlock(mm);
+#else
+    if(lock) up_read(&mm->mmap_sem);
+#endif
+
+    return 0;
+
+    error_out:
+
+    /* Unlock mm */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 8, 0)
+    if (lock) mmap_read_unlock(mm);
+#else
+    if(lock) up_read(&mm->mmap_sem);
+#endif
+
+    return 1;
+}
+
+
+static bool low_pfn(unsigned long pfn)
+{
+    return true;
+}
+
+static void dump_pagetable(unsigned long address)
+{
+    pgd_t *base = __va(read_cr3_pa());
+    pgd_t *pgd = &base[pgd_index(address)];
+    p4d_t *p4d;
+    pud_t *pud;
+    pmd_t *pmd;
+    pte_t *pte;
+
+#ifdef CONFIG_X86_PAE
+    pr_info("*pdpt = %016Lx ", pgd_val(*pgd));
+    if (!low_pfn(pgd_val(*pgd) >> PAGE_SHIFT) || !pgd_present(*pgd))
+        goto out;
+#define pr_pde pr_cont
+#else
+#define pr_pde pr_info
+#endif
+    p4d = p4d_offset(pgd, address);
+    pud = pud_offset(p4d, address);
+    pmd = pmd_offset(pud, address);
+            pr_pde("*pde = %0*Lx ", sizeof(*pmd) * 2, (u64) pmd_val(*pmd));
+#undef pr_pde
+
+    /*
+     * We must not directly access the pte in the highpte
+     * case if the page table is located in highmem.
+     * And let's rather not kmap-atomic the pte, just in case
+     * it's allocated already:
+     */
+    if (!low_pfn(pmd_pfn(*pmd)) || !pmd_present(*pmd) || pmd_large(*pmd))
+        goto out;
+
+    pte = pte_offset_kernel(pmd, address);
+    pr_cont("*pte = %0*Lx ", sizeof(*pte) * 2, (u64) pte_val(*pte));
+    out:
+    pr_cont("\n");
+}
+
+static inline struct mm_struct *get_mm(size_t pid)
+{
+    struct task_struct *task;
+    struct pid *vpid;
+
+    /* Find mm */
+    task = current;
+    if (pid!=0) {
+        vpid = find_vpid(pid);
+        if (!vpid)
+            return NULL;
+        task = pid_task(vpid, PIDTYPE_PID);
+        if (!task)
+            return NULL;
+    }
+    if (task->mm) {
+        return task->mm;
+    } else {
+        return task->active_mm;
+    }
+    return NULL;
+}
+
+void (*_flush_tlb_mm_range)(struct mm_struct *mm, unsigned long start,
+                            unsigned long end, unsigned int stride_shift,
+                            bool freed_tables);
+
+#define TLB_FLUSH_ALL    -1UL
+#define _flush_tlb_mm(mm)                        \
+        _flush_tlb_mm_range(mm, 0UL, TLB_FLUSH_ALL, 0UL, true)
+
+static bool ensure_lookup_init = 0;
+
+static int ensure_lookup(void)
+{
+    if (!ensure_lookup_init) {
+        #ifdef KPROBE_KALLSYMS_LOOKUP
+        ensure_lookup_init = 1;
+        register_kprobe(&kp);
+        kallsyms_lookup_name = (kallsyms_lookup_name_t) kp.addr;
+        unregister_kprobe(&kp);
+
+        if (!unlikely(kallsyms_lookup_name)) {
+            pr_alert("Could not retrieve kallsyms_lookup_name address\n");
+            return -ENXIO;
+        }
+        #endif
+
+        _flush_tlb_mm_range = (void *) kallsyms_lookup_name("flush_tlb_mm_range");
+        if (_flush_tlb_mm_range==NULL) {
+            pr_info("lookup failed flush_tlb_mm_range\n");
+            return -ENXIO;
+        }
+    }
+
+    return 0;
+}
+
+static long char_mmap_ioctl(struct file *filp, struct xdma_ioc_faulthook_mmap *io)
+{
+    int ret = 0;
+    unsigned long addr = io->addr;
+    unsigned long size = io->size;
+
+    ret = ensure_lookup();
+    if (ret != 0) {
+        pr_info("lookup failed\n");
+        return ret;
+    }
+
+    struct vm_area_struct *vma = find_vma(current->mm, addr);
+    if (vma==NULL) {
+        pr_info("addr not found in vma\n");
+        return -EFAULT;
+    }
+    if (addr >= vma->vm_end) {
+        pr_info("addr not found in vma\n");
+        return -EFAULT;
+    }
+    struct mm_struct *mm = current->mm;
+    if (io->pid!=0) {
+        pr_info("using other process pid\n");
+        mm = get_mm(io->pid);
+        if (mm==NULL) {
+            pr_info("invalid pid\n");
+            return -EFAULT;
+        }
+    }
+    vm_t vm;
+    ret = resolve_vm(mm, addr, &vm, 1);
+    if (ret!=0) {
+        pr_info("pte lookup failed\n");
+        return -ENXIO;
+    }
+
+
+    // TODO: is cache flush needed? Test it
+    // flush_cache_mm(mm);
+
+    pr_info("page table before mapping\n");
+    dump_pagetable(addr);
+    /* clear mapping, we dont care about restoring for now */
+    vm.pte->pte = 0;
+    vma->vm_pgoff = io->vm_pgoff;
+
+    // TODO: flags and protection from user
+
+    _flush_tlb_mm(mm);
+
+    ret = bridge_mmap(filp, vma);
+    pr_info("page table after mapping\n");
+    dump_pagetable(addr);
+
+    return ret;
+}
+
+#if 0
+// experiments
+static long char_mmap_ioctl(struct file *filp, struct xdma_ioc_faulthook_mmap *io)
+{
+    int ret = 0;
+    unsigned long addr = io->addr;
+    unsigned long size = io->size;
+    pr_info("ok addr: 0x%lx, size: 0x%lx\n", addr, size);
+    struct vm_area_struct *vma = find_vma(current->mm, addr);
+    if (vma==NULL) {
+        return -EFAULT;
+    }
+    if (addr >= vma->vm_end) {
+        return -EFAULT;
+    }
+    pr_info("vma start: 0x%lx: \n", vma->vm_start);
+    pr_info("vma end: 0x%lx: \n", vma->vm_end);
+    /*
+     * we have to clear backing before we can
+     * remap pf range
+     */
+
+#ifdef KPROBE_KALLSYMS_LOOKUP
+    if (!kprobe_init) {
+        kprobe_init = 1;
+        register_kprobe(&kp);
+        kallsyms_lookup_name = (kallsyms_lookup_name_t) kp.addr;
+        unregister_kprobe(&kp);
+
+        if (!unlikely(kallsyms_lookup_name)) {
+            pr_alert("Could not retrieve kallsyms_lookup_name address\n");
+            return -ENXIO;
+        }
+    }
+#endif
+#if 0
+    unsigned long pfn = 0;
+    ret = follow_pfn(vma, addr, &pfn);
+    if (ret != 0) {
+        pr_info("lookup follow_pfn failed: 0x%x\n", ret);
+        return -ENXIO;
+    }
+    struct page *page = pfn_to_page(pfn);
+
+#endif
+    struct task_struct *task = current;
+    vm_t vm;
+    ret = resolve_vm(task->mm, addr, &vm, 1);
+    if (ret!=0) {
+        pr_info("pte lookup failed\n");
+        return -ENXIO;
+    }
+
+
+#if 0
+        down_read(&task->mm->mmap_lock);
+        HERE;
+        struct page *page;
+        struct vm_area_struct *_vma;
+        ret = get_user_pages_fast(addr, 1, (FOLL_GET | FOLL_WRITE), &page);
+        up_read(&task->mm->mmap_lock);
+        HERE;
+        if (ret < 0) {
+            pr_info("lookup failed get_user_pages\n");
+            return -ENXIO;
+        }
+
+        pr_info("page: %lx\n", page);
+        unsigned long pfn = page_to_pfn(page);
+#endif
+
+    HERE;
+#if 0
+    orig_unmap_mapping_page = (void *) kallsyms_lookup_name("unmap_mapping_page");
+    if (orig_unmap_mapping_page == NULL) {
+        pr_info("lookup failed munmap\n");
+        return -ENXIO;
+    }
+    orig_unmap_mapping_page(page);
+
+#endif
+
+    HERE;
+#if 0
+    orig_do_munmap = (void *) kallsyms_lookup_name("do_munmap");
+    if (orig_do_munmap == NULL) {
+        pr_info("lookup failed munmap\n");
+        return -ENXIO;
+    }
+
+    ret = orig_do_munmap(vma->vm_mm, vma->vm_start, size, NULL);
+    if (ret < 0) {
+        pr_info("munmap failed: %d\n", ret);
+    }
+#endif
+
+
+    orig_flush_tlb_all = (void *) kallsyms_lookup_name("flush_tlb_all");
+    if (orig_flush_tlb_all==NULL) {
+        pr_info("lookup failed munmap\n");
+        return -ENXIO;
+    }
+    pr_info("flushing tlb\n");
+
+
+    dump_pagetable(addr);
+    HERE;
+    unsigned long old_pte = (vm.pte->pte);
+    vm.pte->pte = 0;
+
+    vma->vm_pgoff = 0;
+
+
+    orig_flush_tlb_all();
+    dump_pagetable(addr);
+
+    ret = bridge_mmap(filp, vma);
+    orig_flush_tlb_all();
+    dump_pagetable(addr);
+
+    HERE;
+    pr_info("mmap ioctl reeturns: %d\n", ret);
+    return ret;
+}
+#endif
+
 long char_ctrl_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
     HERE;
@@ -183,6 +598,23 @@ long char_ctrl_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
             break;
         case XDMA_IOCONLINE: xdma_device_online(xdev->pdev, xdev);
             break;
+        case XDMA_IOCMMAP: {
+            struct xdma_ioc_faulthook_mmap obj;
+            rv = copy_from_user((void *) &obj,
+                                (void __user *) arg,
+                                sizeof(struct xdma_ioc_faulthook_mmap));
+            if (rv) {
+                pr_info("copy from user failed %d/%ld.\n",
+                        rv, sizeof(struct xdma_ioc_faulthook_mmap));
+                return -EFAULT;
+            }
+            pr_info("FAULTHOOK_IOMMAP");
+            rv = char_mmap_ioctl(filp, &obj);
+            if (rv) {
+                return rv;
+            }
+            break;
+        }
         default: pr_err("UNKNOWN ioctl cmd 0x%x.\n", cmd);
             return -ENOTTY;
     }
@@ -193,6 +625,7 @@ long char_ctrl_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 int bridge_mmap(struct file *file, struct vm_area_struct *vma)
 {
     HERE;
+    #define dbg_sg pr_info
     struct xdma_dev *xdev;
     struct xdma_cdev *xcdev = (struct xdma_cdev *) file->private_data;
     unsigned long off;
@@ -214,18 +647,23 @@ int bridge_mmap(struct file *file, struct vm_area_struct *vma)
     psize = pci_resource_end(xdev->pdev, xcdev->bar) -
             pci_resource_start(xdev->pdev, xcdev->bar) + 1 - off;
 
-    dbg_sg("mmap(): xcdev = 0x%08lx\n", (unsigned long) xcdev);
-    dbg_sg("mmap(): cdev->bar = %d\n", xcdev->bar);
-    dbg_sg("mmap(): xdev = 0x%p\n", xdev);
-    dbg_sg("mmap(): pci_dev = 0x%08lx\n", (unsigned long) xdev->pdev);
-    dbg_sg("off = 0x%lx, vsize 0x%lu, psize 0x%lu.\n", off, vsize, psize);
-    dbg_sg("start = 0x%llx\n",
-           (unsigned long long) pci_resource_start(xdev->pdev,
-                                                   xcdev->bar));
-    dbg_sg("phys = 0x%lx\n", phys);
+            dbg_sg("mmap(): xcdev = 0x%08lx\n", (unsigned long) xcdev);
+            dbg_sg("mmap(): cdev->bar = %d\n", xcdev->bar);
+            dbg_sg("mmap(): xdev = 0x%p\n", xdev);
+            dbg_sg("mmap(): pci_dev = 0x%08lx\n", (unsigned long) xdev->pdev);
+            dbg_sg("off = 0x%lx, vsize 0x%lx, psize 0x%lx.\n", off, vsize, psize);
+            dbg_sg("start = 0x%llx\n",
+                   (unsigned long long) pci_resource_start(xdev->pdev,
+                                                           xcdev->bar));
+            dbg_sg("phys = 0x%lx\n", phys);
 
-    if (vsize > psize)
+    if (vsize > psize) {
+        HERE;
         return -EINVAL;
+    }
+
+
+
     /*
      * pages must not be cached as this would result in cache line sized
      * accesses to the end point
@@ -237,80 +675,26 @@ int bridge_mmap(struct file *file, struct vm_area_struct *vma)
      */
     vma->vm_flags |= VMEM_FLAGS;
     /* make MMIO accessible to user space */
+    HERE;
+    pr_info("vma->vma_start: %lx\n", vma->vm_start);
+    pr_info("vma->page prot: %lx\n", vma->vm_page_prot);
+    pr_info("vma->page pgoff: %lx\n", vma->vm_pgoff);
+    pr_info("vma->page flags: %lx\n", vma->vm_flags);
+
+
     rv = io_remap_pfn_range(vma, vma->vm_start, phys >> PAGE_SHIFT,
                             vsize, vma->vm_page_prot);
-    dbg_sg("vma=0x%p, vma->vm_start=0x%lx, phys=0x%lx, size=%lu = %d\n",
-           vma, vma->vm_start, phys >> PAGE_SHIFT, vsize, rv);
-
-    if (rv)
-        return -EAGAIN;
-    return 0;
-}
-
-/* maps the PCIe BAR into user space for memory-like access using mmap() */
-int bridge_mmap(
-        struct file *file,
-        unsigned long vm_start,
-        unsigned long vm_end,
-        unsigned long vm_pgoff,
-        struct vm_area_struct* vma
-                )
-{
     HERE;
-    struct xdma_dev *xdev;
-    struct xdma_cdev *xcdev = (struct xdma_cdev *) file->private_data;
-    unsigned long off;
-    unsigned long phys;
-    unsigned long vsize;
-    unsigned long psize;
-    int rv;
-
-    rv = xcdev_check(__func__, xcdev, 0);
-    if (rv < 0)
-        return rv;
-    xdev = xcdev->xdev;
-
-    off = vm_pgoff << PAGE_SHIFT;
-    /* BAR physical address */
-    phys = pci_resource_start(xdev->pdev, xcdev->bar) + off;
-    vsize = vm_end - vm_start;
-    /* complete resource */
-    psize = pci_resource_end(xdev->pdev, xcdev->bar) -
-            pci_resource_start(xdev->pdev, xcdev->bar) + 1 - off;
-
-    dbg_sg("mmap(): xcdev = 0x%08lx\n", (unsigned long) xcdev);
-    dbg_sg("mmap(): cdev->bar = %d\n", xcdev->bar);
-    dbg_sg("mmap(): xdev = 0x%p\n", xdev);
-    dbg_sg("mmap(): pci_dev = 0x%08lx\n", (unsigned long) xdev->pdev);
-    dbg_sg("off = 0x%lx, vsize 0x%lu, psize 0x%lu.\n", off, vsize, psize);
-    dbg_sg("start = 0x%llx\n",
-           (unsigned long long) pci_resource_start(xdev->pdev,
-                                                   xcdev->bar));
-    dbg_sg("phys = 0x%lx\n", phys);
-
-    if (vsize > psize)
-        return -EINVAL;
-    /*
-     * pages must not be cached as this would result in cache line sized
-     * accesses to the end point
-     */
-    vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
-    /*
-     * prevent touching the pages (byte access) for swap-in,
-     * and prevent the pages from being swapped out
-     */
-    vma->vm_flags |= VMEM_FLAGS;
-    /* make MMIO accessible to user space */
-    rv = io_remap_pfn_range(vma, vm_start, phys >> PAGE_SHIFT,
-                            vsize, vma->vm_page_prot);
-    dbg_sg("vma=0x%p, vma->vm_start=0x%lx, phys=0x%lx, size=%lu = %d\n",
-           vma, vma->vm_start, phys >> PAGE_SHIFT, vsize, rv);
+            dbg_sg("vma=0x%p, vma->vm_start=0x%lx, phys=0x%lx, size=%lu = %d\n",
+                   vma, vma->vm_start, phys >> PAGE_SHIFT, vsize, rv);
 
     if (rv)
         return -EAGAIN;
     return 0;
 }
 
+
+#if 0
 /* maps the PCIe BAR into user space for memory-like access using mmap() */
 static int bridge_mmap2(
         struct file *file,
@@ -397,6 +781,7 @@ static int bridge_mmap2(
         return -EAGAIN;
     return 0;
 }
+#endif
 
 /*
  * character device file operations for control bus (through control bridge)

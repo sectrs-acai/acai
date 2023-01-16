@@ -23,7 +23,7 @@
 #include <linux/ioctl.h>
 
 /* Use 'x' as magic number */
-#define XDMA_IOC_MAGIC	'x'
+#define XDMA_IOC_MAGIC    'x'
 /* XL OpenCL X->58(ASCII), L->6C(ASCII), O->0 C->C L->6C(ASCII); */
 #define XDMA_XCL_MAGIC 0X586C0C6C
 
@@ -47,41 +47,58 @@
  */
 
 enum XDMA_IOC_TYPES {
-	XDMA_IOC_NOP,
-	XDMA_IOC_INFO,
-	XDMA_IOC_OFFLINE,
-	XDMA_IOC_ONLINE,
-	XDMA_IOC_MAX
+    XDMA_IOC_NOP,
+    XDMA_IOC_INFO,
+    XDMA_IOC_OFFLINE,
+    XDMA_IOC_ONLINE,
+    XDMA_IOC_MAX,
+
+    XDMA_IOC_MMAP,
 };
 
 struct xdma_ioc_base {
-	unsigned int magic;
-	unsigned int command;
+    unsigned int magic;
+    unsigned int command;
 };
 
 struct xdma_ioc_info {
-	struct xdma_ioc_base	base;
-	unsigned short		vendor;
-	unsigned short		device;
-	unsigned short		subsystem_vendor;
-	unsigned short		subsystem_device;
-	unsigned int		dma_engine_version;
-	unsigned int		driver_version;
-	unsigned long long	feature_id;
-	unsigned short		domain;
-	unsigned char		bus;
-	unsigned char		dev;
-	unsigned char		func;
+    struct xdma_ioc_base base;
+    unsigned short vendor;
+    unsigned short device;
+    unsigned short subsystem_vendor;
+    unsigned short subsystem_device;
+    unsigned int dma_engine_version;
+    unsigned int driver_version;
+    unsigned long long feature_id;
+    unsigned short domain;
+    unsigned char bus;
+    unsigned char dev;
+    unsigned char func;
+};
+
+struct xdma_ioc_faulthook_mmap {
+    struct xdma_ioc_base base;
+    unsigned long addr;
+    unsigned long size;
+    pid_t pid;
+    unsigned long vm_pgoff;
+    unsigned long vm_flags;
+    unsigned long vm_page_prot;
+
 };
 
 /* IOCTL codes */
-#define XDMA_IOCINFO		_IOWR(XDMA_IOC_MAGIC, XDMA_IOC_INFO, \
-					struct xdma_ioc_info)
-#define XDMA_IOCOFFLINE		_IO(XDMA_IOC_MAGIC, XDMA_IOC_OFFLINE)
-#define XDMA_IOCONLINE		_IO(XDMA_IOC_MAGIC, XDMA_IOC_ONLINE)
+#define XDMA_IOCINFO        _IOWR(XDMA_IOC_MAGIC, XDMA_IOC_INFO, \
+                    struct xdma_ioc_info)
 
-#define IOCTL_XDMA_ADDRMODE_SET	_IOW('q', 4, int)
-#define IOCTL_XDMA_ADDRMODE_GET	_IOR('q', 5, int)
-#define IOCTL_XDMA_ALIGN_GET	_IOR('q', 6, int)
+#define XDMA_IOCMMAP        _IOWR(XDMA_IOC_MAGIC, XDMA_IOC_MMAP, \
+                    struct xdma_ioc_faulthook_mmap)
+
+#define XDMA_IOCOFFLINE        _IO(XDMA_IOC_MAGIC, XDMA_IOC_OFFLINE)
+#define XDMA_IOCONLINE        _IO(XDMA_IOC_MAGIC, XDMA_IOC_ONLINE)
+
+#define IOCTL_XDMA_ADDRMODE_SET    _IOW('q', 4, int)
+#define IOCTL_XDMA_ADDRMODE_GET    _IOR('q', 5, int)
+#define IOCTL_XDMA_ALIGN_GET    _IOR('q', 6, int)
 
 #endif /* _XDMA_IOCALLS_POSIX_H_ */

@@ -65,7 +65,7 @@ int bridge_mmap(struct file *file, struct vm_area_struct *vma)
 
 
     vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
-    vma->vm_flags |= VMEM_FLAGS;
+    vma->vm_flags |= (VM_IO | VM_DONTEXPAND | VM_DONTDUMP);
 
     ret = remap_pfn_range(vma, vma->vm_start, pfn_start, size, vma->vm_page_prot);
 

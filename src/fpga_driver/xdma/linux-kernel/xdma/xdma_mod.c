@@ -380,3 +380,4 @@ static void xdma_mod_exit(void)
 
 module_init(xdma_mod_init);
 module_exit(xdma_mod_exit);
+MODULE_LICENSE("GPL");
