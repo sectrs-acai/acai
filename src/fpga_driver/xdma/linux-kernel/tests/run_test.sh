@@ -22,6 +22,7 @@ isStreaming=0
 h2cChannels=0
 for ((i=0; i<=3; i++)); do
 	v=`$tool_path/reg_rw /dev/xdma0_control 0x0${i}00 w`
+	echo $v
 	returnVal=$?
 	if [ $returnVal -ne 0 ]; then
 		break;
@@ -45,6 +46,7 @@ echo "Info: Number of enabled h2c channels = $h2cChannels"
 c2hChannels=0
 for ((i=0; i<=3; i++)); do
 	v=`$tool_path/reg_rw /dev/xdma0_control 0x1${i}00 w`
+	echo $v
 	returnVal=$?
 	if [ $returnVal -ne 0 ]; then
 		break;
@@ -80,8 +82,10 @@ testError=0
 if [ $isStreaming -eq 0 ]; then
 
 	# Run the PCIe DMA memory mapped write read test
+	set -x
 	./dma_memory_mapped_test.sh xdma0 $transferSize $transferCount $h2cChannels $c2hChannels
 	returnVal=$?
+	set +x
 	 if [ $returnVal -eq 1 ]; then
 		testError=1
 	fi
@@ -91,8 +95,10 @@ else
 	# Run the PCIe DMA streaming test
 	channelPairs=$(($h2cChannels < $c2hChannels ? $h2cChannels : $c2hChannels))
 	if [ $channelPairs -gt 0 ]; then
+		set -x
 		./dma_streaming_test.sh $transferSize $transferCount $channelPairs
 		returnVal=$?
+		set +x
 		if [ $returnVal -eq 1 ]; then
 			testError=1
 		fi

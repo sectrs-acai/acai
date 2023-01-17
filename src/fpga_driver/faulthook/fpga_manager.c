@@ -1,7 +1,6 @@
 //
 // Created by abertschi on 1/12/23.
 //
-
 #define _GNU_SOURCE
 
 #include <stdio.h>
@@ -10,9 +9,162 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <errno.h>
-#include "fh_host_header.h"
 #include "fpga_manager.h"
-#include "fh_host.h"
+#include "../xdma/linux-kernel/xdma/cdev_ctrl.h"
+#include "fh_host_header.h"
+
+inline static void print_status(int action, struct action_common *c)
+{
+    print_progress("action: %s, ret: %d, err_no: %d, fd: %d",
+                   fh_action_to_str(action),
+                   c->ret, c->err_no, c->fd);
+
+    print_progress("perror: \n");
+}
+
+inline static void print_action_mmap_device(struct action_mmap_device *a)
+{
+    printf("action_mmap_device->vm_start: 0x%lx\n", a->vm_start);
+    printf("action_mmap_device->vm_end: 0x%lx\n", a->vm_end);
+    printf("action_mmap_device->vm_pgoff: 0x%lx\n", a->vm_pgoff);
+    printf("action_mmap_device->vm_flags: 0x%lx\n", a->vm_flags);
+    printf("action_mmap_device->vm_page_prot: 0x%lx\n", a->vm_page_prot);
+    printf("action_mmap_device->mmap_guest_kernel_offset: 0x%lx\n", a->mmap_guest_kernel_offset);
+}
+
+#define set_ret_and_err_no(a, ret) \
+    a->common.fd = ret; \
+    a->common.err_no = ret < 0 ? errno:0;
+
+int on_fault(unsigned long addr,
+             unsigned long len,
+             pid_t pid)
+{
+    struct faultdata_struct *fault = (struct faultdata_struct *) addr;
+    if (fault->turn!=FH_TURN_HOST) {
+        /* fault was caused unintentionally */
+        return 0;
+    }
+    print_progress("action: %s", fh_action_to_str(fault->action));
+
+    switch (fault->action) {
+        case FH_ACTION_ALLOC_GUEST: {
+            struct action_init_guest *a = (struct action_init_guest *) fault->data;
+            fault->action = FH_ACTION_GUEST_CONTINUE;
+            a->host_offset = addr & 0xFFF;
+            set_ret_and_err_no(a, 0);
+            break;
+        }
+        case FH_ACTION_OPEN_DEVICE: {
+            struct action_openclose_device *a = (struct action_openclose_device *) fault->data;
+            int fd = open(a->device, a->flags);
+            a->common.fd = fd;
+
+            print_status(fault->action, &a->common);
+            print_progress("device: %s", a->device);
+            print_progress("flags: %d", a->flags);
+            set_ret_and_err_no(a, fd);
+            break;
+        }
+        case FH_ACTION_CLOSE_DEVICE: {
+            struct action_openclose_device *a = (struct action_openclose_device *) fault->data;
+            int ret = close(a->common.fd);
+            print_status(fault->action, &a->common);
+            set_ret_and_err_no(a, ret);
+            break;
+        }
+        case FH_ACTION_MMAP: {
+            struct action_mmap_device *a = (struct action_mmap_device *) fault->data;
+            int ret = 0;
+            const long allowed_size = 4096;
+            const long size = a->vm_end - a->vm_start;
+
+            if (size > allowed_size) {
+                print_err("Cannot map more than 0x%lx \n", allowed_size);
+                ret = -EINVAL;
+                errno = -EINVAL;
+                goto clean_up;
+            }
+
+            void *p = (void *) addr + a->mmap_guest_kernel_offset;
+            print_progress("mprotect at addr 0x%lx and len: %lx", p, allowed_size);
+
+            ret = mprotect(p,
+                           allowed_size,
+                           PROT_EXEC | PROT_READ | PROT_WRITE);
+            if (ret < 0) {
+                perror("mprotect failed");
+                goto clean_up;
+            }
+
+            /*
+             * XXX: Unlike other calls we have to forward this
+             * to a custom ioctl as we dont mmap into the calling process
+             */
+            pid_t target_pid = pid==getpid() ? 0:pid;
+            print_progress("xdma_ioc_faulthook_mmap with pid: %d", target_pid);
+            struct xdma_ioc_faulthook_mmap ioc = {
+                    .map_type = 0 /*map */,
+                    .addr = (unsigned long) p,
+                    .size = allowed_size,
+                    .pid = target_pid,
+                    .vm_pgoff = a->vm_pgoff,
+                    .vm_page_prot = a->vm_page_prot,
+                    .vm_flags = a->vm_flags,
+            };
+            ret = ioctl(a->common.fd, XDMA_IOCMMAP, &ioc);
+            if (ret < 0) {
+                perror("error ioctl fd\n");
+                goto clean_up;
+            }
+
+            clean_up:
+            print_status(fault->action, &a->common);
+            a->common.fd = ret;
+            set_ret_and_err_no(a, ret);
+            break;
+        }
+        case FH_ACTION_UNMAP: {
+            int ret = 0;
+            struct action_unmap *a = (struct action_unmap *) fault->data;
+            struct xdma_ioc_faulthook_mmap ioc = {0};
+            ioc.map_type = 1 /*unmap */;
+            ioc.addr = (unsigned long) a->mmap_guest_kernel_offset;
+            ret = ioctl(a->common.fd, XDMA_IOCMMAP, &ioc);
+            if (ret < 0) {
+                perror("error ioctl for unmap\n");
+            }
+            a->common.fd = ret;
+            print_status(fault->action, &a->common);
+            set_ret_and_err_no(a, ret);
+            break;
+        }
+        case FH_ACTION_READ: {
+            struct action_read *a = (struct action_read *) fault->data;
+            ssize_t ret = read(a->common.fd, a->buffer, a->count);
+            a->count = ret;
+            set_ret_and_err_no(a, ret);
+            print_status(fault->action, &a->common);
+            break;
+        }
+        case FH_ACTION_WRITE: {
+            struct action_write *a = (struct action_write *) fault->data;
+            ssize_t ret = write(a->common.fd, a->buffer, a->buffer_size);
+            a->count = ret;
+            // XXX: We ignore offset for now
+            print_status(fault->action, &a->common);
+            set_ret_and_err_no(a, ret);
+            break;
+        }
+        default: {
+
+        }
+    }
+    fault->turn = FH_TURN_GUEST;
+    invalid:
+
+    return 0;
+}
 
 static void *find_magic_region(
         pid_t pid,
@@ -60,75 +212,6 @@ static void *find_magic_region(
     return NULL;
 }
 
-inline static void print_action_mmap_device(struct action_mmap_device *a)
-{
-    printf("action_mmap_device->ret: 0x%lx\n", a->ret);
-    printf("action_mmap_device->err_no: 0x%lx\n", a->err_no);
-    printf("action_mmap_device->fd: 0x%lx\n", a->fd);
-    printf("action_mmap_device->vm_start: 0x%lx\n", a->vm_start);
-    printf("action_mmap_device->vm_end: 0x%lx\n", a->vm_end);
-    printf("action_mmap_device->vm_pgoff: 0x%lx\n", a->vm_pgoff);
-    printf("action_mmap_device->vm_flags: 0x%lx\n", a->vm_flags);
-    printf("action_mmap_device->vm_page_prot: 0x%lx\n", a->vm_page_prot);
-    printf("action_mmap_device->mmap_guest_kernel_offset: 0x%lx\n", a->mmap_guest_kernel_offset);
-}
-
-
-static int on_fault(unsigned long addr, unsigned long len)
-{
-    struct faultdata_struct *fault = (struct faultdata_struct *) addr;
-    if (fault->turn!=FH_TURN_HOST) {
-        /* fault was caused unintentionally */
-        return 0;
-    }
-    print_progress("action: %s", fh_action_to_str(fault->action));
-
-    switch (fault->action) {
-        case FH_ACTION_ALLOC_GUEST: {
-            struct action_init_guest *a = (struct action_init_guest *) fault->data;
-            fault->action = FH_ACTION_GUEST_CONTINUE;
-            a->host_offset = addr & 0xFFF;
-            break;
-        }
-        case FH_ACTION_OPEN_DEVICE: {
-            struct action_openclose_device *a = (struct action_openclose_device *) fault->data;
-            int fd = open(a->device, a->flags);
-            a->ret = fd;
-            a->fd = fd;
-            a->err_no = fd < 0 ? errno:0;
-
-            print_progress("device: %s", a->device);
-            print_progress("flags: %d", a->flags);
-            print_progress("return: %d", fd);
-            print_progress("errno: %d", a->err_no);
-
-            break;
-        }
-        case FH_ACTION_CLOSE_DEVICE: {
-            struct action_openclose_device *a = (struct action_openclose_device *) fault->data;
-            int ret = close(a->fd);
-            a->ret = ret;
-            a->err_no = ret < 0 ? errno:0;
-
-            print_progress("close fd: %d", a->fd);
-            print_progress("close return: %d", a->ret);
-            print_progress("close errno: %d", a->err_no);
-            break;
-        }
-        case FH_ACTION_MMAP: {
-            struct action_mmap_device *a = (struct action_mmap_device *) fault->data;
-            print_action_mmap_device(a);
-
-            break;
-        }
-        default:break;
-    }
-    fault->turn = FH_TURN_GUEST;
-
-    invalid:
-
-    return 0;
-}
 
 static char *host = NULL;
 static unsigned host_len = 10 * PAGE_SIZE;
@@ -166,7 +249,7 @@ static int _on_fault(void)
     }
     print_ok("Mapped target 0x%lx@pid:%d into host memory %lx", req.addr, req.pid, host);
     unsigned long addr = ((unsigned long) host) + victim_offset - /* magic field */ 8;
-    ret = on_fault(addr, len);
+    ret = on_fault(addr, len, fh_ctx.victim_pid);
 
     fh_memory_unmap(&req);
     print_ok("Unmapping target 0x%lx@pid:%d", req.addr, req.pid);
@@ -174,6 +257,8 @@ static int _on_fault(void)
     return ret;
 }
 
+
+#ifndef DOING_UNIT_TESTS
 
 int main(int argc, char *argv[])
 {
@@ -215,3 +300,5 @@ int main(int argc, char *argv[])
     fh_clean_up();
     return ret;
 }
+
+#endif

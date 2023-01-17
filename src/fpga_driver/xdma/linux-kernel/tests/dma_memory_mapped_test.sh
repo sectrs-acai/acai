@@ -28,6 +28,8 @@ testError=0
 echo "Info: Running PCIe DMA memory mapped write read test"
 echo -e "\ttransfer size:  $transferSz, count: $transferCount"
 
+set -x
+
 # Write to all enabled h2cChannels in parallel
 if [ $h2cChannels -gt 0 ]; then
 	# Loop over four blocks of size $transferSz and write to them

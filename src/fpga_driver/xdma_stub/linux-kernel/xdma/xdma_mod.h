@@ -81,7 +81,7 @@ struct faultdata_driver_struct {
     unsigned long page_order;
     unsigned long fh_nonce;
     unsigned long host_pg_offset;
-    unsigned long mmap_page;
+    unsigned long mmap_page; /* address to mapped page of mmap operation  (this->page with some offset) */
     unsigned long mmap_page_len;
     bool mmap_busy;
 };

@@ -174,6 +174,10 @@ static int test_dma(char *devname, uint64_t addr, uint64_t aperture,
 		    uint64_t size, uint64_t offset, uint64_t count,
 		    char *infname, char *ofname)
 {
+	printf("dma_to_device: devname: %s, addr: 0x%lx, aperture: %lx, size: %lx, offset: %lx, count: %lx, ofname: %s\n",
+		   devname, addr, aperture, size, offset, count, ofname);
+
+
 	uint64_t i;
 	ssize_t rc;
 	size_t bytes_done = 0;

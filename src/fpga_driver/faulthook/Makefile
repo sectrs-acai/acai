@@ -5,7 +5,7 @@ SHELL := /bin/bash
 CFLAGS += -ggdb3 -O2 -Wno-unused-function -Wno-unused-result -Wno-unused-function -static
 LIBS += -lpthread -lscanmem -lptedit
 
-all: fpga_manager header fh_host.o
+all: fpga_manager header fh_host.o fpga_manager_test
 
 header: fh_host.c fh_host.h
 	echo "#pragma once" > fh_host_header.h
@@ -16,7 +16,10 @@ header: fh_host.c fh_host.h
 fpga_manager: header
 	$(CC) $(CFLAGS) fpga_manager.c -o fpga_manager.o  $(LIBS)
 
+fpga_manager_test: fpga_manager_test.c
+	$(CC) $(CFLAGS) -o $@ $^  $(LIBS)
+
 
 clean:
-	rm -f *.o ptedit/*.o
+	rm -f *.o ptedit/*.o fpga_manager_test fpga_manager
 

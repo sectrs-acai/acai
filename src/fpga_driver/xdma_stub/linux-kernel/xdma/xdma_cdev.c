@@ -134,8 +134,8 @@ int char_open(struct inode *inode, struct file *file)
     /*
      * We use fd as key to query device on host
      */
-    info->fd = a->fd;
-    return a->err_no;
+    info->fd = a->common.fd;
+    return a->common.err_no;
 }
 
 /*
@@ -148,10 +148,10 @@ int char_close(struct inode *inode, struct file *file)
     struct faulthook_priv_data *info = file->private_data;
     fd_data->action = FH_ACTION_CLOSE_DEVICE;
     struct action_openclose_device *a = (struct action_openclose_device *) &fd_data->data;
-    a->fd = info->fd;
+    a->common.fd = info->fd;
 
     fh_do_faulthook();
-    ret = a->err_no;
+    ret = a->common.err_no;
 
     kfree(file->private_data);
     return ret;

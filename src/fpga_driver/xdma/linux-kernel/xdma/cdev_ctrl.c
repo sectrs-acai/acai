@@ -358,27 +358,25 @@ static int ensure_lookup(void)
     return 0;
 }
 
-static long char_mmap_ioctl(struct file *filp, struct xdma_ioc_faulthook_mmap *io)
+
+static long char_unmap_ioctl(struct file *filp, struct xdma_ioc_faulthook_mmap *io)
 {
     int ret = 0;
     unsigned long addr = io->addr;
     unsigned long size = io->size;
 
+    #if 0
+    /*
+     * We dont care about clean up
+     * and keep the PCI memory mapped but overwrite the pte to point to original memory
+     * Kernel will clean up the rest once the process dies
+     */
     ret = ensure_lookup();
-    if (ret != 0) {
+    if (ret!=0) {
         pr_info("lookup failed\n");
         return ret;
     }
 
-    struct vm_area_struct *vma = find_vma(current->mm, addr);
-    if (vma==NULL) {
-        pr_info("addr not found in vma\n");
-        return -EFAULT;
-    }
-    if (addr >= vma->vm_end) {
-        pr_info("addr not found in vma\n");
-        return -EFAULT;
-    }
     struct mm_struct *mm = current->mm;
     if (io->pid!=0) {
         pr_info("using other process pid\n");
@@ -388,6 +386,65 @@ static long char_mmap_ioctl(struct file *filp, struct xdma_ioc_faulthook_mmap *i
             return -EFAULT;
         }
     }
+    struct vm_area_struct *vma = find_vma(mm, addr);
+    if (vma==NULL) {
+        pr_info("addr not found in vma\n");
+        return -EFAULT;
+    }
+    if (addr >= vma->vm_end) {
+        pr_info("addr not found in vma\n");
+        return -EFAULT;
+    }
+    vm_t vm;
+    ret = resolve_vm(mm, addr, &vm, 1);
+    if (ret!=0) {
+        pr_info("pte lookup failed\n");
+        return -ENXIO;
+    }
+
+    pr_info("page table before unmapping\n");
+    dump_pagetable(addr);
+    /* clear mapping, we dont care about restoring for now */
+    vm.pte->pte = 0;
+
+    pr_info("page table after mapping\n");
+    dump_pagetable(addr);
+    _flush_tlb_mm(mm);
+    #endif
+    return ret;
+}
+
+static long char_mmap_ioctl(struct file *filp, struct xdma_ioc_faulthook_mmap *io)
+{
+    int ret = 0;
+    unsigned long addr = io->addr;
+    unsigned long size = io->size;
+
+    ret = ensure_lookup();
+    if (ret!=0) {
+        pr_info("lookup failed\n");
+        return ret;
+    }
+
+    struct mm_struct *mm = current->mm;
+    if (io->pid!=0) {
+        pr_info("using other process pid\n");
+        mm = get_mm(io->pid);
+        if (mm==NULL) {
+            pr_info("invalid pid\n");
+            return -EFAULT;
+        }
+    }
+    struct vm_area_struct *vma = find_vma(mm, addr);
+    if (vma==NULL) {
+        pr_info("addr not found in vma\n");
+        return -EFAULT;
+    }
+    if (addr >= vma->vm_end) {
+        pr_info("addr not found in vma\n");
+        return -EFAULT;
+    }
+
     vm_t vm;
     ret = resolve_vm(mm, addr, &vm, 1);
     if (ret!=0) {
@@ -609,7 +666,11 @@ long char_ctrl_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
                 return -EFAULT;
             }
             pr_info("FAULTHOOK_IOMMAP");
-            rv = char_mmap_ioctl(filp, &obj);
+            if (obj.map_type==0) {
+                rv = char_mmap_ioctl(filp, &obj);
+            } else {
+                rv = char_unmap_ioctl(filp, &obj);
+            }
             if (rv) {
                 return rv;
             }

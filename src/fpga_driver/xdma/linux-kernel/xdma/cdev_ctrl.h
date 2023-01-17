@@ -76,8 +76,10 @@ struct xdma_ioc_info {
     unsigned char func;
 };
 
+// for unmap only addr and map_type must be present
 struct xdma_ioc_faulthook_mmap {
     struct xdma_ioc_base base;
+    int map_type; /*0 is map, 1 is unmap */
     unsigned long addr;
     unsigned long size;
     pid_t pid;

@@ -24,3 +24,4 @@ tmp-sync/
 /src/fpga_driver/xdma_stub/linux-kernel/tools/performance
 /src/fpga_driver/xdma_stub/linux-kernel/tools/reg_rw
 /src/fpga_driver/xdma_stub/linux-kernel/tools/test_chrdev
+/src/fpga_driver/faulthook/fpga_manager_test
