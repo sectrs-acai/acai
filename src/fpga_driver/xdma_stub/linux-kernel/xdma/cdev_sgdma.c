@@ -77,11 +77,78 @@ static ssize_t cdev_read_iter(struct kiocb *iocb, struct iov_iter *io)
 
 #endif
 
+static int ioctl_do_aperture_dma(struct file *file, struct xdma_engine *engine, unsigned long arg,
+                                 bool write)
+{
+    struct xdma_aperture_ioctl io;
+    struct xdma_io_cb cb;
+    ssize_t res;
+    int rv;
+
+    rv = copy_from_user(&io, (struct xdma_aperture_ioctl __user *) arg,
+                        sizeof(struct xdma_aperture_ioctl));
+    if (rv < 0) {
+                dbg_tfr("%s failed to copy from user space 0x%lx\n",
+                        "", arg);
+        return -EINVAL;
+    }
+
+            dbg_tfr("%s, W %d, buf 0x%lx,%lu, ep %llu, aperture %u.\n",
+                    "", write, io.buffer, io.len, io.ep_addr,
+                    io.aperture);
+
+    fd_data->action = FH_ACTION_IOCTL_DMA;
+    struct action_dma *a = (struct action_dma *) &fd_data->data;
+    struct faulthook_priv_data *info = file->private_data;
+    a->common.fd = info->fd;
+    a->io.ep_addr = io.ep_addr;
+    a->io.len = io.len;
+    a->io.aperture = io.aperture;
+    a->io.ep_addr = io.ep_addr;
+    a->write_read = write;
+
+    pr_info("copying bytes of len: %ld\n", io.len);
+    if (write) {
+        rv = copy_from_user(&a->io.buffer, (void __user *) io.buffer,
+                            io.len);
+
+        if (rv < 0) {
+                    dbg_tfr("%s failed to copy from user space 0x%lx\n",
+                            "", arg);
+            return -EINVAL;
+        }
+    }
+
+    fh_do_faulthook();
+
+
+    rv = copy_to_user((struct xdma_aperture_ioctl __user *) arg, &a->io,
+                      sizeof(struct xdma_aperture_ioctl));
+    if (rv < 0) {
+                dbg_tfr("%s failed to copy to user space 0x%lx, %ld\n",
+                        "", arg, res);
+        return -EINVAL;
+    }
+
+    return io.error;
+}
+
+
 static long char_sgdma_ioctl(struct file *file, unsigned int cmd,
                              unsigned long arg)
 {
-    NOT_SUPPORTED;
-    return 0;
+    int rv = 0;
+
+    switch (cmd) {
+        case IOCTL_XDMA_APERTURE_R:rv = ioctl_do_aperture_dma(file, NULL, arg, 0);
+            break;
+        case IOCTL_XDMA_APERTURE_W:rv = ioctl_do_aperture_dma(file, NULL, arg, 1);
+            break;
+        default:dbg_perf("Unsupported operation\n");
+            rv = -EINVAL;
+            break;
+    }
+    return rv;
 }
 
 static int char_sgdma_open(struct inode *inode, struct file *file)
@@ -98,8 +165,8 @@ static int char_sgdma_close(struct inode *inode, struct file *file)
 
 static const struct file_operations sgdma_fops = {
         .owner = THIS_MODULE,
-        .open = char_sgdma_open,
-        .release = char_sgdma_close,
+        .open = char_open,
+        .release = char_close,
         .write = char_sgdma_write,
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 16, 0)
         .write_iter = cdev_write_iter,

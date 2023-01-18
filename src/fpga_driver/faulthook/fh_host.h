@@ -49,6 +49,7 @@ typedef int (*fh_listener_fn) (void);
 struct fh_host_context {
     bool hook_enabled;
     bool hook_init;
+    bool pedit_init;
     int fd_hook;
     pid_t victim_pid;
     unsigned long victim_addr;
@@ -66,6 +67,7 @@ extern struct fh_host_context fh_ctx;
 
 fh_host_fn pthread_t* run_thread(fh_listener_fn fn);
 
+fh_host_fn int fh_init_pedit();
 fh_host_fn int fh_init(const char *device);
 
 fh_host_fn int fh_enable_trace(unsigned long address, unsigned long len, pid_t pid);
@@ -87,6 +89,17 @@ struct fh_memory_map_ctx {
     size_t *_host_pt_entry;
 };
 
+struct fh_mmap_region_ctx {
+    unsigned long len;
+    struct fh_memory_map_ctx *entries;
+};
+
+fh_host_fn int fh_unmmap_region(struct fh_mmap_region_ctx *ctx);
+fh_host_fn int fh_mmap_region(pid_t pid,
+                              unsigned long target_addr,
+                              unsigned long len,
+                              char *host_mem,
+                              struct fh_mmap_region_ctx *ret_ctx);
 
 fh_host_fn int fh_memory_unmap(struct fh_memory_map_ctx *);
 

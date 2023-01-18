@@ -17,6 +17,9 @@ reg_rw: reg_rw.o
 test_chrdev: test_chrdev.o
 	$(CC) -o $@ $<
 
+test_mmap: test_mmap.o
+	$(CC) -o $@ $<
+
 %.o: %.c
 	$(CC) -c -std=c99 -o $@ $< -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -D_LARGE_FILE_SOURCE
 

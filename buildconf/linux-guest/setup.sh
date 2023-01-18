@@ -59,7 +59,7 @@ function do_run {
 
     cd $BUILDROOT_OUTPUT_DIR
     exec qemu-system-aarch64 \
-        -M virt -cpu cortex-a53 -nographic -smp 2 \
+        -s -M virt -cpu cortex-a53 -nographic -smp 2 \
         -kernel ./images/Image -append "rootwait root=/dev/vda console=ttyAMA0 nokaslr" \
         -netdev user,id=eth0 -device virtio-net-device,netdev=eth0 \
         -drive file=./images/rootfs.ext4,if=none,format=raw,id=hd0 -device virtio-blk-device,drive=hd0 \

@@ -97,6 +97,7 @@ int main(int argc, char **argv)
 		return -errno;
 	}
 	printf("character device %s opened.\n", argv[1]);
+    printf("mmap: len: %d, target_aligned: %d\n", offset + 4, target_aligned);
 
 	map = mmap(NULL, offset + 4, PROT_READ | PROT_WRITE, MAP_SHARED, fd,
 		       	target_aligned);

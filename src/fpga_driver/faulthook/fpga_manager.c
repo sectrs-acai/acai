@@ -10,9 +10,11 @@
 #include <pthread.h>
 #include <errno.h>
 #include "fpga_manager.h"
-#include "../xdma/linux-kernel/xdma/cdev_ctrl.h"
 #include "fh_host_header.h"
+#include <stdint.h>
+#include "../xdma/linux-kernel/xdma/cdev_ctrl.h"
 
+static unsigned long _addr_host;
 inline static void print_status(int action, struct action_common *c)
 {
     print_progress("action: %s, ret: %d, err_no: %d, fd: %d",
@@ -32,19 +34,50 @@ inline static void print_action_mmap_device(struct action_mmap_device *a)
     printf("action_mmap_device->mmap_guest_kernel_offset: 0x%lx\n", a->mmap_guest_kernel_offset);
 }
 
-#define set_ret_and_err_no(a, ret) \
-    a->common.fd = ret; \
-    a->common.err_no = ret < 0 ? errno:0;
+#define set_ret_and_err_no(a, _r) \
+    a->common.fd = _r; \
+    a->common.ret = _r; \
+    a->common.err_no = _r < 0 ? errno:0;
+
+#define MAP_MORE 0
 
 int on_fault(unsigned long addr,
              unsigned long len,
-             pid_t pid)
+             pid_t pid,
+             unsigned long target_addr)
 {
     struct faultdata_struct *fault = (struct faultdata_struct *) addr;
     if (fault->turn!=FH_TURN_HOST) {
+        print_err("not turn host\n");
         /* fault was caused unintentionally */
         return 0;
     }
+
+    print_progress("length: %ld", fault->length);
+
+    #if MAP_MORE
+    struct fh_memory_map_ctx mappings[20];
+    unsigned long i;
+    for (i = 1; i < fault->length / 4096; i += 1) {
+        struct fh_memory_map_ctx *req = &mappings[i - 1];
+        req->addr = (target_addr& ~0xFFF) + (i * 4096);
+        req->len = 4096;
+        req->pid = pid;
+        req->host_mem = (char *) _addr_host + i * 4096;
+
+        print_progress("mapping addr %d %lx\n", i, req->addr);
+        int ret = fh_memory_map(req);
+        print_progress("mapping addr ok %lx\n", req->addr);
+        if (ret!=0) {
+            printf("error: %d, ret: %d\n", ret, i);
+            return 1;
+        }
+    }
+    int mapping_count = i - 1;
+
+    hex_dump((char*)_addr_host, fault->length);
+    #endif
+
     print_progress("action: %s", fh_action_to_str(fault->action));
 
     switch (fault->action) {
@@ -58,19 +91,19 @@ int on_fault(unsigned long addr,
         case FH_ACTION_OPEN_DEVICE: {
             struct action_openclose_device *a = (struct action_openclose_device *) fault->data;
             int fd = open(a->device, a->flags);
+            printf("opening: fd: %d\n", fd);
             a->common.fd = fd;
-
+            set_ret_and_err_no(a, fd);
             print_status(fault->action, &a->common);
             print_progress("device: %s", a->device);
             print_progress("flags: %d", a->flags);
-            set_ret_and_err_no(a, fd);
             break;
         }
         case FH_ACTION_CLOSE_DEVICE: {
             struct action_openclose_device *a = (struct action_openclose_device *) fault->data;
             int ret = close(a->common.fd);
-            print_status(fault->action, &a->common);
             set_ret_and_err_no(a, ret);
+            print_status(fault->action, &a->common);
             break;
         }
         case FH_ACTION_MMAP: {
@@ -88,7 +121,10 @@ int on_fault(unsigned long addr,
 
             void *p = (void *) addr + a->mmap_guest_kernel_offset;
             print_progress("mprotect at addr 0x%lx and len: %lx", p, allowed_size);
+            print_action_mmap_device(a);
 
+            #if 0
+            // we cant mprotect here since target is not this process
             ret = mprotect(p,
                            allowed_size,
                            PROT_EXEC | PROT_READ | PROT_WRITE);
@@ -96,18 +132,18 @@ int on_fault(unsigned long addr,
                 perror("mprotect failed");
                 goto clean_up;
             }
+            #endif
 
             /*
              * XXX: Unlike other calls we have to forward this
              * to a custom ioctl as we dont mmap into the calling process
              */
-            pid_t target_pid = pid==getpid() ? 0:pid;
-            print_progress("xdma_ioc_faulthook_mmap with pid: %d", target_pid);
+            print_progress("xdma_ioc_faulthook_mmap with pid: %d", pid);
             struct xdma_ioc_faulthook_mmap ioc = {
                     .map_type = 0 /*map */,
                     .addr = (unsigned long) p,
                     .size = allowed_size,
-                    .pid = target_pid,
+                    .pid = pid,
                     .vm_pgoff = a->vm_pgoff,
                     .vm_page_prot = a->vm_page_prot,
                     .vm_flags = a->vm_flags,
@@ -119,9 +155,9 @@ int on_fault(unsigned long addr,
             }
 
             clean_up:
-            print_status(fault->action, &a->common);
             a->common.fd = ret;
             set_ret_and_err_no(a, ret);
+            print_status(fault->action, &a->common);
             break;
         }
         case FH_ACTION_UNMAP: {
@@ -156,10 +192,30 @@ int on_fault(unsigned long addr,
             set_ret_and_err_no(a, ret);
             break;
         }
+        case FH_ACTION_PING: {
+            char *a = (char*) fault->data;
+            for(int i = 0; i < PING_LEN; i ++) {
+                *(a + i) += 1;
+            }
+            print_progress("done\n");
+            break;
+        }
         default: {
 
         }
     }
+
+    #if MAP_MORE
+    for (int j = 0; i < mapping_count; j ++) {
+        struct fh_memory_map_ctx *req = &mappings[j];
+        int ret = fh_memory_unmap(req);
+        if (ret!=0) {
+            printf("unmap error: %d, ret: %d\n", ret, j);
+            return 1;
+        }
+    }
+    #endif
+
     fault->turn = FH_TURN_GUEST;
     invalid:
 
@@ -214,7 +270,8 @@ static void *find_magic_region(
 
 
 static char *host = NULL;
-static unsigned host_len = 10 * PAGE_SIZE;
+static unsigned host_len = 20 * PAGE_SIZE;
+static bool init_map = 0;
 
 static int _on_fault(void)
 {
@@ -242,17 +299,27 @@ static int _on_fault(void)
     req.pid = fh_ctx.victim_pid;
     req.host_mem = host;
 
-    int ret = fh_memory_map(&req);
-    if (ret!=0) {
-        print_err("fh_memory_map error");
-        return ret;
+    if (!init_map) {
+        init_map = 1;
+        int ret = fh_memory_map(&req);
+        if (ret!=0) {
+            print_err("fh_memory_map error");
+            return ret;
+        }
     }
+
     print_ok("Mapped target 0x%lx@pid:%d into host memory %lx", req.addr, req.pid, host);
     unsigned long addr = ((unsigned long) host) + victim_offset - /* magic field */ 8;
-    ret = on_fault(addr, len, fh_ctx.victim_pid);
 
-    fh_memory_unmap(&req);
-    print_ok("Unmapping target 0x%lx@pid:%d", req.addr, req.pid);
+    _addr_host = ((unsigned long) host);
+    int ret = on_fault(addr,
+                   len,
+                   fh_ctx.victim_pid,
+                   fh_ctx.victim_addr);
+
+
+    // fh_memory_unmap(&req);
+    // print_ok("Unmapping target 0x%lx@pid:%d", req.addr, req.pid);
 
     return ret;
 }

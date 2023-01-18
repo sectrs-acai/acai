@@ -231,6 +231,8 @@
 	#define VMEM_FLAGS (VM_IO | VM_RESERVED)
 #endif
 
+#define __LIBXDMA_DEBUG__
+
 #ifdef __LIBXDMA_DEBUG__
 #define dbg_io		pr_err
 #define dbg_fops	pr_err

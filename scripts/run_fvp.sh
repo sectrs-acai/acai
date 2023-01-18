@@ -12,15 +12,16 @@ function run_fvp {
 	local rootfs=$4
 	local p9_folder=$5
   local mount_tag=host0
-
-	$FVP \
+		#-C cache_state_modelled=1                                      \
+	LD_PRELOAD=/home/b/2.5bay/mthesis-unsync/projects/trusted-periph/src/fpga_driver/faulthook/libhook2.so $FVP \
+	-C bp.dummy_ram.fill1='' \
+	-C bp.dummy_ram.fill2='' \
 		-C bp.secureflashloader.fname=${bl1}          \
 		-C bp.flashloader0.fname=${fip}               \
 		-C bp.refcounter.non_arch_start_at_default=1                   \
 		-C bp.refcounter.use_real_time=0                               \
 		-C bp.ve_sysregs.exit_on_shutdown=1                            \
-		-C cache_state_modelled=1                                      \
-		-C bp.dram_size=2                                              \
+		-C bp.dram_size=10                                              \
 		-C bp.secure_memory=1                                          \
 		-C pci.pci_smmuv3.mmu.SMMU_ROOT_IDR0=3                         \
 		-C pci.pci_smmuv3.mmu.SMMU_ROOT_IIDR=0x43B                     \
@@ -64,6 +65,10 @@ function run_fvp {
 		-C pctl.startup=0.0.0.0                                        \
 		-C bp.smsc_91c111.enabled=1 \
 		--data cluster0.cpu0=${image}@0x84000000         \
+		-C cluster1.has_4k_granule=1 \
+		-C cluster0.has_64k_granule=1 \
+		-C cluster1.has_64k_granule=1 \
+		-C cluster1.has_4k_granule=1 \
 		-C cache_state_modelled=0 \
 		-C bp.virtiop9device.root_path=${p9_folder} \
 		-C bp.virtiop9device.mount_tag=${mount_tag} \

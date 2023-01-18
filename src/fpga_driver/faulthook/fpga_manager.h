@@ -1,7 +1,8 @@
 #ifndef TRUSTED_PERIPH_FPGA_MANAGER_H
 #define TRUSTED_PERIPH_FPGA_MANAGER_H
 
-#define FAULTDATA_MAGIC 0xAABBCCDDEEFF9987
+#define FAULTDATA_MAGIC 0xAABBCCDDEEFF9984
+
 
 struct __attribute__((__packed__))  faultdata_struct {
     volatile unsigned long magic;
@@ -9,12 +10,13 @@ struct __attribute__((__packed__))  faultdata_struct {
     volatile unsigned long turn;
     volatile unsigned long length;
     volatile unsigned long action;
-    char data[0];
+    volatile char data[0];
 };
 
 int on_fault(unsigned long addr,
              unsigned long len,
-             pid_t pid);
+             pid_t target_pid,
+             unsigned long target_addr);
 
 
 enum fh_turn {
@@ -32,8 +34,11 @@ enum fh_action {
     FH_ACTION_READ = 14,
     FH_ACTION_WRITE = 15,
     FH_ACTION_UNMAP = 16,
+    FH_ACTION_PING = 17,
+    FH_ACTION_IOCTL_DMA = 18,
 };
 
+#define PING_LEN 512
 
 static inline const char *fh_action_to_str(int action)
 {
@@ -101,6 +106,14 @@ struct ACTION_MODIFIER action_unmap {
     /* the offset starting from the base page in the fvp shared buffer */
     unsigned long mmap_guest_kernel_offset;
 };
+
+struct ACTION_MODIFIER action_dma {
+    struct action_common common;
+    // struct xdma_aperture_ioctl io;
+    int write_read; // 1 is write
+    char *buffer;
+};
+
 
 
 struct ACTION_MODIFIER action_init_guest {

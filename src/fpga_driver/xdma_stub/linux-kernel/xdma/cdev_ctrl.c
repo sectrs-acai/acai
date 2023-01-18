@@ -93,8 +93,8 @@ int bridge_mmap(struct file *file, struct vm_area_struct *vma)
     struct faulthook_priv_data *info = file->private_data;
     size = vma->vm_end - vma->vm_start;
 
-    if (size >= 4096) {
-        pr_err("We dont support larger mappings but 1 page\n");
+    if (size > 4096) {
+        pr_err("We dont support larger mappings but 1 page. Got: 0x%lx\n", size);
         return -EINVAL;
     }
     if (vma->vm_pgoff > 0) {

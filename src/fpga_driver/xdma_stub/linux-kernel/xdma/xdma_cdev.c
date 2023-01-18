@@ -218,6 +218,7 @@ static int create_xcdev(struct xdma_pci_dev *xpdev, struct xdma_cdev *xcdev,
     int minor;
     struct xdma_dev *xdev = xpdev->xdev;
     dev_t dev;
+    HERE;
 
     spin_lock_init(&xcdev->lock);
     /* new instance? */
@@ -232,6 +233,7 @@ static int create_xcdev(struct xdma_pci_dev *xpdev, struct xdma_cdev *xcdev,
         }
         xpdev->major = MAJOR(dev);
     }
+    HERE;
 
     /*
      * do not register yet, create kobjects and name them,
@@ -251,6 +253,7 @@ static int create_xcdev(struct xdma_pci_dev *xpdev, struct xdma_cdev *xcdev,
     }
     #endif
 
+    HERE;
     switch (type) {
         case CHAR_USER:
         case CHAR_CTRL:
@@ -286,6 +289,8 @@ static int create_xcdev(struct xdma_pci_dev *xpdev, struct xdma_cdev *xcdev,
     }
     xcdev->cdevno = MKDEV(xpdev->major, minor);
 
+    HERE;
+
     /* bring character device live */
     rv = cdev_add(&xcdev->cdev, xcdev->cdevno, 1);
     if (rv < 0) {
@@ -302,6 +307,7 @@ static int create_xcdev(struct xdma_pci_dev *xpdev, struct xdma_cdev *xcdev,
             goto del_cdev;
         }
     }
+    HERE;
     return 0;
 
     del_cdev:
@@ -438,9 +444,12 @@ int xpdev_create_interfaces(struct xdma_pci_dev *xpdev)
         engine = &xdev->engine_h2c[i];
 
         if (engine->magic!=MAGIC_ENGINE) {
+            pr_info("engine mismatch\n");
+            HERE;
             continue;
         }
 
+        pr_info("creatnig xcdev for sgdma h2c %d\n", i);
         rv = create_xcdev(xpdev, &xpdev->sgdma_h2c_cdev[i], i, engine,
                           CHAR_XDMA_H2C);
         if (rv < 0) {

@@ -73,6 +73,7 @@ flush_cache_all()
 asm volatile("dmb sy"); flush_cache_all()
 #endif
 
+#define USE_PAGES 0
 #define FAULTDATA_PAGE_ORDER 4
 
 struct faultdata_driver_struct {

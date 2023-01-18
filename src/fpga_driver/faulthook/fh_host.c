@@ -186,6 +186,7 @@ fh_host_fn int fh_memory_map(struct fh_memory_map_ctx *req)
 {
     int ret = 0;
     char *pt;
+    assert(fh_ctx.pedit_init == 1);
 
     unsigned long addr = req->addr;
     int pid = req->pid;
@@ -196,21 +197,29 @@ fh_host_fn int fh_memory_map(struct fh_memory_map_ctx *req)
     /* "target" uses the manipulated page-table entry */
     ptedit_entry_t host_entry = ptedit_resolve(host_mem, 0);
 
+
     /* "pt" should map the page table corresponding to "target" */
     size_t pt_pfn = ptedit_cast(host_entry.pmd, ptedit_pmd_t).pfn;
+
     pt = ptedit_pmap(pt_pfn * ptedit_get_pagesize(), ptedit_get_pagesize());
+
 
     /* "target" entry is bits 12 to 20 of "target" virtual address */
     size_t entry = (((size_t) host_mem) >> 12) & 0x1ff;
     size_t *mapped_entry = ((size_t *) pt) + entry;
 
+
     /* "mapped_entry" is a user-space-accessible pointer to the PTE of "target" */
     if (*mapped_entry!=host_entry.pte) {
+        printf("*mapped_entry!=host_entry.pte\n");
+        printf("*mapped_entry = %lx\n", *mapped_entry);
+        printf("host_entry.pte = %lx\n", host_entry.pte);
         ret = -1;
         goto clean_up;
     }
     /* let "target" point to "secret" */
     *mapped_entry = ptedit_set_pfn(*mapped_entry, ptedit_get_pfn(victim.pte));
+
 
     ptedit_invalidate_tlb(host_mem);
     /*
@@ -221,6 +230,72 @@ fh_host_fn int fh_memory_map(struct fh_memory_map_ctx *req)
 
     return 0;
     clean_up:
+    return ret;
+}
+
+
+
+fh_host_fn int fh_unmmap_region(struct fh_mmap_region_ctx *ctx) {
+    for(int i = 0; i < ctx->len; i ++) {
+        print_progress("unmapping entry %d", i);
+        fh_memory_unmap(ctx->entries + i);
+    }
+}
+
+fh_host_fn int fh_mmap_region(pid_t pid,
+                              unsigned long target_addr,
+                              unsigned long len,
+                              char *host_mem,
+                              struct fh_mmap_region_ctx *ret_ctx)
+{
+    assert(len % 4096==0);
+    assert(host_mem!=NULL);
+    assert(ret_ctx != NULL);
+    assert(fh_ctx.pedit_init == 1);
+
+    unsigned long count = len / 4096;
+    unsigned long i;
+    unsigned long j;
+    int ret;
+    int status;
+    struct fh_mmap_region_ctx *result;
+
+    struct fh_memory_map_ctx *entries
+            = calloc(count,
+                     sizeof(struct fh_memory_map_ctx));
+    if (entries == NULL) {
+        return -1;
+    }
+
+    for (i = 0; i < count; i += 1) {
+        struct fh_memory_map_ctx *req = entries + i;
+        req->addr = (target_addr & ~0xFFF) + (i * 4096);
+        req->len = 4096;
+        req->pid = pid;
+        req->host_mem = (char *) host_mem + i * 4096;
+        print_progress("mapping addr %d/%d %lx", i, count, req->addr);
+        ret = fh_memory_map(req);
+        print_progress("mapping addr ok %lx", req->addr);
+        if (ret!=0) {
+            printf("error: %d, ret: %d", ret, i);
+            goto clean_up;
+        }
+    }
+
+    ret_ctx->len = count;
+    ret_ctx->entries = entries;
+
+
+    ret = 0;
+    return ret;
+    clean_up:
+    for (j = 0; i < i; j += 1) {
+        struct fh_memory_map_ctx *req = entries + j;
+        status = fh_memory_unmap(req);
+        if (status != 0) {
+            print_err("clean up (j=%ld) returned: %d\n", j, ret);
+        }
+    }
     return ret;
 }
 
@@ -289,8 +364,19 @@ fh_host_fn pthread_t *run_thread(fh_listener_fn fn)
     return &fh_ctx.listener_thread;
 }
 
+fh_host_fn int fh_init_pedit() {
+    if (ptedit_init()) {
+        print_err("Error: Could not initalize PTEditor,"
+                  " did you load the kernel module?\n");
+        return -1;
+    }
+    fh_ctx.pedit_init = 1;
+    return 0;
+}
+
 fh_host_fn int fh_init(const char *device)
 {
+    int ret = 0;
     if (device==NULL) {
         device = FAULTHOOK_DIR "hook";
     }
@@ -305,10 +391,10 @@ fh_host_fn int fh_init(const char *device)
     signal(SIGSEGV, _fh_crash_handler);
     signal(SIGABRT, _fh_crash_handler);
 
-    if (ptedit_init()) {
-        print_err("Error: Could not initalize PTEditor,"
-                  " did you load the kernel module?\n");
-        return -1;
+    ret = fh_init_pedit();
+    if (ret != 0) {
+        print_err("pedit failed: %d\n", ret);
+        return ret;
     }
 
     int fd = open(device, O_RDWR | O_NONBLOCK);

@@ -231,6 +231,7 @@ static int test_dma(char *devname, uint64_t addr, uint64_t aperture,
 		goto out;
 	}
 	buffer = allocated + offset;
+    printf("%p\n", buffer);
 	if (verbose)
 		fprintf(stdout, "host buffer 0x%lx = %p\n",
 			size + 4096, buffer); 
