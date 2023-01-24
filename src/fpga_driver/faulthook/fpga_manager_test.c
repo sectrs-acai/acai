@@ -146,22 +146,35 @@ static int test(unsigned long addr,
     return ret;
 }
 
-static void read_file()
+static void read_file(int argc, char *argv[])
 {
-    char file[] = "/tmp/hooks_mmap";
+
     int ret;
     FILE *f;
     unsigned long from = 0;
     unsigned long to = 0;
     unsigned long size = 0;
-    int pid = 62335;
+
+    char file[256];
+
+    if (argc < 2) {
+        print_err("Need pid as argument\n");
+    }
+    pid_t pid = strtol(argv[1], NULL, 10);
+    print_progress("pid: %d", pid);
+
+    sprintf(file, "/tmp/hooks_mmap_%d", pid);
 
     f = fopen(file, "r");
+    if (f==NULL) {
+        printf("open failed: %s\n", file);
+        exit(1);
+    }
     fscanf(f, "0x%lx", &from);
     fscanf(f, "-0x%lx", &to);
     // fscanf(f, ";%d", &pid);
     printf("from: %lx, to %lx\n", from, to);
-    printf("pid: %d\n",pid);
+    printf("pid: %d\n", pid);
     fclose(f);
 
 
@@ -176,26 +189,69 @@ static void read_file()
 
     fh_init_pedit();
 
-    char *map = mmap(NULL,
-                     size,
-                     PROT_READ | PROT_WRITE,
-                     MAP_PRIVATE | MAP_ANONYMOUS ,
-                     -1,
-                     0);
-    if (map == MAP_FAILED) {
+    printf("start\n");
+    char *map2 = mmap(NULL,
+                      size,
+                      PROT_READ | PROT_WRITE,
+                      MAP_SHARED | MAP_ANONYMOUS | MAP_POPULATE,
+                      -1,
+                      0);
+    if (map2==MAP_FAILED) {
         perror("mmap failed\n");
         exit(1);
     }
-    struct fh_mmap_region_ctx mmap_ctx;
+    printf("ok\n");
 
-    ret = fh_mmap_region(pid,
-                   from,
-                   size,
-                   map,
-                   &mmap_ctx);
-    if (ret != 0) {
+    // print_status("mapping memory into my addr space\n");
+//    ret = fh_mmap_region(pid,
+//                   from,
+//                   size,
+//                   map,
+//                   &mmap_ctx);
+    if (ret!=0) {
         printf("mmap region failed: %d\n", ret);
     }
+
+    char buffer[256];
+    sprintf(buffer, "/proc/%d/mem", pid);
+    int mem_fd = open(buffer, O_RDWR);
+//    char *map = mmap(NULL,
+//                     size,
+//                     PROT_READ | PROT_WRITE,
+//                     MAP_SHARED | MAP_ANONYMOUS  ,
+//                     mem_fd,
+//                     from);
+//    if (map == MAP_FAILED) {
+//        perror("mmap failed\n");
+//        exit(1);
+//    }
+
+    while (1) {
+    unsigned long data;
+    lseek(mem_fd, 0x7f3f6032d008L, SEEK_SET);
+    read(mem_fd, &data, 8);
+
+    printf("%ld\n", data);
+    sleep(1);
+   }
+
+
+
+//    lseek(mem_fd, 0x7f3f6032d000L, SEEK_SET);
+//    read(mem_fd, &data, 8);
+//
+//
+//    printf("%lx\n", data);
+
+
+
+
+    // ptrace(PTRACE_ATTACH, pid, NULL, NULL);
+    // waitpid(pid, NULL, 0);
+    // lseek(mem_fd, offset, SEEK_SET);
+    // read(mem_fd, buf, _SC_PAGE_SIZE);
+    // ptrace(PTRACE_DETACH, pid, NULL, NULL);
+
 }
 
 int main(int argc, char *argv[])
@@ -213,7 +269,7 @@ int main(int argc, char *argv[])
                      0);
 
 
-    read_file();
+    read_file(argc, argv);
 
 
     #if 0

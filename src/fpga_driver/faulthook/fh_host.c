@@ -192,6 +192,8 @@ fh_host_fn int fh_memory_map(struct fh_memory_map_ctx *req)
     int pid = req->pid;
     char *host_mem = req->host_mem;
 
+    *((volatile char*) (host_mem));
+
     ptedit_entry_t victim = ptedit_resolve((void *) addr, pid);
 
     /* "target" uses the manipulated page-table entry */
@@ -273,11 +275,12 @@ fh_host_fn int fh_mmap_region(pid_t pid,
         req->len = 4096;
         req->pid = pid;
         req->host_mem = (char *) host_mem + i * 4096;
-        print_progress("mapping addr %d/%d %lx", i, count, req->addr);
+        // print_progress("mapping addr %d/%d %lx, host=%lx, pid=%d", i, count, req->addr, req->host_mem, pid);
         ret = fh_memory_map(req);
-        print_progress("mapping addr ok %lx", req->addr);
+        // print_progress("mapping addr ok %lx", req->addr);
         if (ret!=0) {
             printf("error: %d, ret: %d", ret, i);
+            print_progress("mapping addr %d/%d %lx, host=%lx, pid=%d", i, count, req->addr, req->host_mem, pid);
             goto clean_up;
         }
     }
