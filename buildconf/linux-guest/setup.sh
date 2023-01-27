@@ -50,16 +50,17 @@ function do_compile {
     set -x
     env -u LD_LIBRARY_PATH \
         time make BR2_JLEVEL=$BR2_JLEVEL O=$BUILDROOT_OUTPUT_DIR \
-        all
+        linux-rebuild all
 }
 
 
 function do_run {
     # source $SCRIPTS_DIR/env-aarch64.sh
 
+    # -s -M virt -cpu cortex-a53 -nographic -smp 2 \
     cd $BUILDROOT_OUTPUT_DIR
     exec qemu-system-aarch64 \
-        -s -M virt -cpu cortex-a53 -nographic -smp 2 \
+        -s -M virt -m 2G -cpu cortex-a53 -nographic -smp 2 \
         -kernel ./images/Image -append "rootwait root=/dev/vda console=ttyAMA0 nokaslr" \
         -netdev user,id=eth0 -device virtio-net-device,netdev=eth0 \
         -drive file=./images/rootfs.ext4,if=none,format=raw,id=hd0 -device virtio-blk-device,drive=hd0 \
@@ -78,7 +79,17 @@ function do_run_fvp {
 	local p9_folder=$ROOT_DIR
 
     $SCRIPTS_DIR/run_fvp.sh $bl1 $fip $image $rootfs $p9_folder
+}
 
+function do_compilationdb {
+    local buildroot_kernel=$BUILDROOT_OUTPUT_DIR/build/linux-custom
+    local src_kernel=$SRC_LINUX
+    local out=$src_kernel/compile_commands.json
+
+    cd $BUILDROOT_OUTPUT_DIR/build/linux-custom/
+    ./scripts/clang-tools/gen_compile_commands.py -o $out
+    cd $src_kernel
+    sed -i "s#$buildroot_kernel#$src_kernel#g" compile_commands.json
 }
 
 # "${@:2}"
@@ -108,6 +119,9 @@ case "$1" in
         ;;
     run_fvp)
         do_run_fvp
+        ;;
+    compilationdb)
+        do_compilationdb
         ;;
     *)
         echo "unknown"
