@@ -44,7 +44,7 @@ typedef struct fh_extract_region {
     int region_type;
 } extract_region_t;
 
-typedef int (*fh_listener_fn) (void);
+typedef int (*fh_listener_fn) (void*);
 
 struct fh_host_context {
     bool signals_init;
@@ -66,7 +66,7 @@ struct fh_host_context {
 
 extern struct fh_host_context fh_ctx;
 
-fh_host_fn pthread_t* run_thread(fh_listener_fn fn);
+fh_host_fn pthread_t* run_thread(fh_listener_fn fn, void* ctx);
 
 fh_host_fn int fh_init_pedit();
 fh_host_fn int fh_init(const char *device);

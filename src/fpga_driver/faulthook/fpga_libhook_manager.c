@@ -9,44 +9,10 @@
 #include "fpga_manager.h"
 #include "fh_host_header.h"
 #include <stdint.h>
+#include "fvp_escape_setup.h"
 
 #define STATS_FILE "/tmp/hooks_mmap"
 
-#define FVP_CONTROL_MAGIC 0xCAFECAFECAFECA00
-#define FVP_ESCAPE_MAGIC 0xCAFECAFECAFECA01
-
-enum fvp_escape_turn {
-    fvp_escape_turn_guest = 1,
-    fvp_escape_turn_host = 2,
-};
-
-enum fvp_escape_action {
-    fvp_escape_action_undef = 0,
-    fvp_escape_action_wait_guest = 1,
-    fvp_escape_action_continue_guest = 2,
-    fvp_escape_action_addr_mapping = 3,
-    fvp_escape_action_addr_mapping_success = 4,
-};
-
-struct __attribute__((__packed__)) fvp_escape_struct {
-    /* common for all tagged pages */
-    volatile unsigned long ctrl_magic;
-    volatile unsigned long addr_tag;
-
-    /* escape */
-    volatile unsigned long escape_magic;
-    volatile unsigned long escape_turn;
-    volatile unsigned long escape_hook;
-    volatile unsigned long action;
-    volatile unsigned long data_size;
-    char data[0];
-};
-
-struct __attribute__((__packed__)) fvp_escape_scan_struct {
-    volatile unsigned long ctrl_magic;
-    volatile unsigned long addr_tag;
-    volatile unsigned long escape_magic;
-};
 
 #define HAS_FAULTHOOK 0
 
@@ -100,9 +66,10 @@ struct ctx_struct {
     unsigned long target_from;
     unsigned long target_to;
 
-    struct fvp_escape_struct *escape_page;
+    char *escape_page;
     struct fh_mmap_region_ctx escape_page_mmap_ctx;
     unsigned long escape_page_pfn;
+    unsigned long escape_vaddr;
     unsigned long escape_page_reserve_size;
 
     unsigned long *addr_map;
@@ -166,7 +133,8 @@ inline static unsigned long get_addr_map_vaddr(struct ctx_struct *ctx, unsigned 
     if (pfn >= ctx->addr_map_pfn_min && pfn <= ctx->addr_map_pfn_max) {
         return *(ctx->addr_map + (pfn - ctx->addr_map_pfn_min));
     } else {
-        printf("BUG: get_addr_map_vaddr out of range, pfn: %ld, max: %ld, min: %ld\n",
+        printf("BUG: get_addr_map_vaddr out of range,"
+               " pfn: %ld, max: %ld, min: %ld\n",
                pfn, ctx->addr_map_pfn_max, ctx->addr_map_pfn_min);
     }
     return 0;
@@ -179,14 +147,17 @@ inline static unsigned long set_addr_map_vaddr(struct ctx_struct *ctx,
     if (pfn >= ctx->addr_map_pfn_min && pfn <= ctx->addr_map_pfn_max) {
         *(ctx->addr_map + (pfn - ctx->addr_map_pfn_min)) = vaddr;
     } else {
-        printf("BUG: set_addr_map_vaddr out of range, pfn: %ld, max: %ld, min: %ld, vaddr: %ld\n",
+        printf("BUG: set_addr_map_vaddr out of range,"
+               " pfn: %ld, max: %ld, min: %ld, vaddr: %ld\n",
                pfn, ctx->addr_map_pfn_max, ctx->addr_map_pfn_min, vaddr);
     }
     return 0;
 }
 
 
-static long map_fvp_memory_find_magic_page(struct ctx_struct *ctx, unsigned long *ret_escape_vaddr)
+static long map_fvp_memory_find_magic_page(struct ctx_struct *ctx,
+                                           unsigned long *ret_escape_vaddr,
+                                           unsigned long *ret_escape_pfn)
 {
     struct fvp_escape_scan_struct escape;
     ssize_t ret = 0;
@@ -212,6 +183,7 @@ static long map_fvp_memory_find_magic_page(struct ctx_struct *ctx, unsigned long
                 printf("found escape page: %p=%ld\n", addr, escape.addr_tag);
 
                 escape_page_vaddr = addr;
+                *ret_escape_pfn = escape.addr_tag;
                 break;
             }
         }
@@ -276,12 +248,17 @@ static long map_fvp_memory(struct ctx_struct *ctx)
 {
     long ret;
     unsigned long escape_page_vaddr;
-    unsigned long escape_page_reserved_size;
+    unsigned long escape_page_pfn;
+    struct fvp_escape_setup_struct *escape;
 
-    ret = map_fvp_memory_find_magic_page(ctx, &escape_page_vaddr);
+    ret = map_fvp_memory_find_magic_page(ctx,
+                                         &escape_page_vaddr,
+                                         &escape_page_pfn);
     if (ret!=0) {
         return ret;
     }
+    ctx->escape_page_pfn = escape_page_pfn;
+    ctx->escape_vaddr = escape_page_vaddr;
 
     ctx->escape_page = mmap(NULL,
                             2 * 4096,
@@ -294,12 +271,13 @@ static long map_fvp_memory(struct ctx_struct *ctx)
         perror("mmap failed\n");
         return -1;
     }
+    escape = (struct fvp_escape_setup_struct *) ctx->escape_page;
 
     ret = fh_mmap_region(
             ctx->target_pid,
             escape_page_vaddr,
             4096,
-            (char *) ctx->escape_page,
+            (char *) escape,
             &ctx->escape_page_mmap_ctx);
     if (ret!=0) {
         printf("fh_mmap_region failed: %ld\n", ret);
@@ -307,11 +285,12 @@ static long map_fvp_memory(struct ctx_struct *ctx)
     }
 
 
-    ctx->escape_page_reserve_size = *((unsigned long*)ctx->escape_page->data);
+    ctx->escape_page_reserve_size = *((unsigned long *) escape->data);
     printf("guest reserved 0x%lx bytes for escape\n", ctx->escape_page_reserve_size);
 
     /* Make fvp wait until further notice */
-    ctx->escape_page->action = fvp_escape_action_wait_guest;
+    escape->action = fvp_escape_setup_action_wait_guest;
+
 
     ret = map_fvp_memory_scan_memory_dims(ctx);
     if (ret!=0) {
@@ -339,17 +318,33 @@ static long map_fvp_memory(struct ctx_struct *ctx)
     return 0;
 }
 
-static long unmap_fvp_memory(struct ctx_struct *ctx) {
+static long unmap_fvp_memory(struct ctx_struct *ctx)
+{
     fh_unmmap_region(&ctx->escape_page_mmap_ctx);
     free_addr_map(ctx);
     close(ctx->target_mem_fd);
 }
 
+
+static int _on_fault(void *arg)
+{
+    struct ctx_struct *ctx = (struct ctx_struct *) arg;
+    unsigned long victim_offset = fh_ctx.victim_addr & 0xFFF;
+    unsigned long len = PAGE_SIZE - victim_offset;
+    unsigned long victim_addr = fh_ctx.victim_addr & ~(0xFFF);
+
+
+    int ret = on_fault((unsigned long) ctx->escape_page,
+                       MIN(ctx->escape_page_reserve_size, PAGE_SIZE),
+                       ctx->target_pid,
+                       ctx->escape_vaddr);
+    return ret;
+}
+
+
 int main(int argc, char *argv[])
 {
-    HERE;
     ssize_t ret = 0;
-    char buffer[128];
     unsigned long addr_from, addr_to;
 
     struct ctx_struct ctx;
@@ -386,17 +381,26 @@ int main(int argc, char *argv[])
     }
 
     printf("continuing guest\n");
-    ctx.escape_page->escape_turn = fvp_escape_turn_guest;
-    ctx.escape_page->action = fvp_escape_action_addr_mapping_success;
+    ((struct fvp_escape_setup_struct *) ctx.escape_page)->escape_turn = fvp_escape_setup_turn_guest;
+    ((struct fvp_escape_setup_struct *) ctx.escape_page)->action
+            = fvp_escape_setup_action_addr_mapping_success;
 
-    if (HAS_FAULTHOOK) {
-
+    if (HAS_FAULTHOOK || 1) {
+        pthread_t *th = run_thread((fh_listener_fn) _on_fault, &ctx);
+        ret = fh_enable_trace((unsigned long) /*offset in struct to fault */ 8, 8, pid);
+        if (ret!=0) {
+            printf("fh_enable_trace failed: %d\n", ret);
+            goto clean_up;
+        }
+        pthread_join(*th, NULL);
     }
 
-    while(1) {
+#if 0
+    while (1) {
         hex_dump(ctx.escape_page, 64);
         sleep(5);
     }
+#endif
 
     clean_up:
     unmap_fvp_memory(&ctx);

@@ -273,7 +273,7 @@ static char *host = NULL;
 static unsigned host_len = 20 * PAGE_SIZE;
 static bool init_map = 0;
 
-static int _on_fault(void)
+static int _on_fault(void* arg)
 {
     unsigned long victim_offset = fh_ctx.victim_addr & 0xFFF;
     unsigned long len = PAGE_SIZE - victim_offset;
@@ -352,7 +352,7 @@ int main(int argc, char *argv[])
     }
     print_ok("identified target address: 0x%xl in pid %d", addr, pid);
 
-    pthread_t *th = run_thread((fh_listener_fn) _on_fault);
+    pthread_t *th = run_thread((fh_listener_fn) _on_fault, NULL);
 
     /*
      * We enable faulthook on 8 bytes starting at index 8

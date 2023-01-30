@@ -27,3 +27,9 @@ tmp-sync/
 /src/fpga_driver/faulthook/fpga_manager_test
 /buildconf/linux-guest/err.txt
 faulthook/libhook.so
+/buildconf/linux-guest/err2.txt
+/buildconf/linux-guest/out
+/issues.txt
+/scripts/abertschi/bl1.bin
+/scripts/abertschi/fip.bin
+/src/boot-wrapper-aarch64/

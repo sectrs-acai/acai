@@ -29,7 +29,7 @@ fh_host_fn void _fh_crash_handler(int code)
     exit(code);
 }
 
-fh_host_fn void *_fh_fault_handler(void *vargp)
+fh_host_fn void *_fh_fault_handler(void *ctx)
 {
     int ret = 0;
     short revents;
@@ -49,7 +49,7 @@ fh_host_fn void *_fh_fault_handler(void *vargp)
 
         if (revents & POLLIN) {
             if (fh_ctx.listener) {
-                ret = (*fh_ctx.listener)();
+                ret = (*fh_ctx.listener)(ctx);
                 if (ret) {
                     print_err("fault handler returned: %d, exiting", ret);
                     goto exit;
@@ -367,14 +367,14 @@ fh_host_fn int fh_clean_up(void)
     return 0;
 }
 
-fh_host_fn pthread_t *run_thread(fh_listener_fn fn)
+fh_host_fn pthread_t *run_thread(fh_listener_fn fn, void* ctx)
 {
     fh_ctx.listener = fn;
     pthread_create(
             &fh_ctx.listener_thread,
             NULL,
             _fh_fault_handler,
-            NULL);
+            ctx);
     return &fh_ctx.listener_thread;
 }
 
