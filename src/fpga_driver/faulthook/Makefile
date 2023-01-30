@@ -5,7 +5,7 @@ SHELL := /bin/bash
 CFLAGS += -ggdb3 -O2 -Wno-unused-function -Wno-unused-result -Wno-unused-function -static
 LIBS += -lpthread -lscanmem -lptedit
 
-all: fpga_manager header fh_host.o heap_target fpga_manager_test libhook.so
+all: fpga_manager header fh_host.o heap_target fpga_manager_test fpga_libhook_manager
 
 header: fh_host.c fh_host.h
 	echo "#pragma once" > fh_host_header.h
@@ -18,12 +18,11 @@ heap_target: heap_target.c
 fpga_manager: header
 	$(CC) $(CFLAGS) fpga_manager.c -o fpga_manager.o  $(LIBS)
 
-fpga_manager_test: fpga_manager_test.c
-	$(CC) $(CFLAGS) -o $@ $^  $(LIBS)
+fpga_manager_test: fpga_manager_test.c header
+	$(CC) $(CFLAGS) -o $@ $<  $(LIBS)
 
-libhook.so: hooks.c
-	$(CC) -fPIC -shared -o $@ $^
-
+fpga_libhook_manager: fpga_libhook_manager.c header
+	$(CC) $(CFLAGS) -o $@ $< -lpthread
 
 clean:
 	rm -f *.o ptedit/*.o fpga_manager_test fpga_manager heap_target hooks

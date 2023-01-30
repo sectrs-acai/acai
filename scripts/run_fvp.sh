@@ -4,6 +4,7 @@ SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPT_DIR/../env.sh
 
 FVP=FVP_Base_RevC-2xAEMvA
+LIBC_HOOK=$ASSETS_DIR/fvp/bin/libhook.so
 
 function run_fvp {
   local bl1=$1
@@ -13,10 +14,9 @@ function run_fvp {
   local p9_folder=$5
   local mount_tag=host0
 
-  #-C cache_state_modelled=1                                      \
 
-  LD_PRELOAD=/home/b/2.5bay/mthesis-unsync/projects/trusted-periph/src/fpga_driver/faulthook/libhook.so \
-	  faulthook_enable=1 faulthook_heap_gb=2 \
+  # XXX: libhook is in fvp bin directory along with fvp binary
+  LD_PRELOAD=$LIBC_HOOK \
 	  $FVP \
 	  -C bp.dummy_ram.fill1='' \
 	  -C bp.dummy_ram.fill2='' \

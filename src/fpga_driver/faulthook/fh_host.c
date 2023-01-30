@@ -23,9 +23,10 @@ struct fh_host_context fh_ctx;
 
 fh_host_fn void _fh_crash_handler(int code)
 {
-    printf("Crash handler called\n");
+    printf("Crash handler called: code: %d\n", code);
     fh_disable_trace();
     fh_clean_up();
+    exit(code);
 }
 
 fh_host_fn void *_fh_fault_handler(void *vargp)
@@ -186,13 +187,13 @@ fh_host_fn int fh_memory_map(struct fh_memory_map_ctx *req)
 {
     int ret = 0;
     char *pt;
-    assert(fh_ctx.pedit_init == 1);
+    assert(fh_ctx.pedit_init==1);
 
     unsigned long addr = req->addr;
     int pid = req->pid;
     char *host_mem = req->host_mem;
 
-    *((volatile char*) (host_mem));
+    *((volatile char *) (host_mem));
 
     ptedit_entry_t victim = ptedit_resolve((void *) addr, pid);
 
@@ -236,11 +237,16 @@ fh_host_fn int fh_memory_map(struct fh_memory_map_ctx *req)
 }
 
 
-
-fh_host_fn int fh_unmmap_region(struct fh_mmap_region_ctx *ctx) {
-    for(int i = 0; i < ctx->len; i ++) {
-        print_progress("unmapping entry %d", i);
-        fh_memory_unmap(ctx->entries + i);
+fh_host_fn int fh_unmmap_region(struct fh_mmap_region_ctx *ctx)
+{
+    if (ctx->entries) {
+        for (int i = 0; i < ctx->len; i++) {
+            print_progress("unmapping entry %d", i);
+            fh_memory_unmap(ctx->entries + i);
+        }
+        free(ctx->entries);
+        ctx->entries = NULL;
+        ctx->len = 0;
     }
 }
 
@@ -252,8 +258,8 @@ fh_host_fn int fh_mmap_region(pid_t pid,
 {
     assert(len % 4096==0);
     assert(host_mem!=NULL);
-    assert(ret_ctx != NULL);
-    assert(fh_ctx.pedit_init == 1);
+    assert(ret_ctx!=NULL);
+    assert(fh_ctx.pedit_init==1);
 
     unsigned long count = len / 4096;
     unsigned long i;
@@ -265,7 +271,7 @@ fh_host_fn int fh_mmap_region(pid_t pid,
     struct fh_memory_map_ctx *entries
             = calloc(count,
                      sizeof(struct fh_memory_map_ctx));
-    if (entries == NULL) {
+    if (entries==NULL) {
         return -1;
     }
 
@@ -280,7 +286,12 @@ fh_host_fn int fh_mmap_region(pid_t pid,
         // print_progress("mapping addr ok %lx", req->addr);
         if (ret!=0) {
             printf("error: %d, ret: %d", ret, i);
-            print_progress("mapping addr %d/%d %lx, host=%lx, pid=%d", i, count, req->addr, req->host_mem, pid);
+            print_progress("mapping addr %d/%d %lx, host=%lx, pid=%d",
+                           i,
+                           count,
+                           req->addr,
+                           req->host_mem,
+                           pid);
             goto clean_up;
         }
     }
@@ -295,7 +306,7 @@ fh_host_fn int fh_mmap_region(pid_t pid,
     for (j = 0; i < i; j += 1) {
         struct fh_memory_map_ctx *req = entries + j;
         status = fh_memory_unmap(req);
-        if (status != 0) {
+        if (status!=0) {
             print_err("clean up (j=%ld) returned: %d\n", j, ret);
         }
     }
@@ -367,7 +378,8 @@ fh_host_fn pthread_t *run_thread(fh_listener_fn fn)
     return &fh_ctx.listener_thread;
 }
 
-fh_host_fn int fh_init_pedit() {
+fh_host_fn int fh_init_pedit()
+{
     if (ptedit_init()) {
         print_err("Error: Could not initalize PTEditor,"
                   " did you load the kernel module?\n");
@@ -395,7 +407,7 @@ fh_host_fn int fh_init(const char *device)
     signal(SIGABRT, _fh_crash_handler);
 
     ret = fh_init_pedit();
-    if (ret != 0) {
+    if (ret!=0) {
         print_err("pedit failed: %d\n", ret);
         return ret;
     }

@@ -47,6 +47,7 @@ typedef struct fh_extract_region {
 typedef int (*fh_listener_fn) (void);
 
 struct fh_host_context {
+    bool signals_init;
     bool hook_enabled;
     bool hook_init;
     bool pedit_init;
