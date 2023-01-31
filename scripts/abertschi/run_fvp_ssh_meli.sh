@@ -25,6 +25,6 @@ fip=$target_dir/fip-fvp
 image=$target_dir/Image
 rootfs=$target_dir/rootfs.ext2
 p9_folder=$remote_home
-preload="/home/armcca/trusted-peripherals/src/fpga_driver/libc_hook/libhook.so"
+preload=$remote_home/assets/fvp/libhook.libc-2.31.so
 
 ssh -X $host $remote_home/scripts/run_fvp.sh $bl1 $fip $image $rootfs $p9_folder $preload

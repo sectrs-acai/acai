@@ -34,3 +34,6 @@ faulthook/libhook.so
 /scripts/abertschi/fip.bin
 /src/boot-wrapper-aarch64/
 /src/fpga_driver/libc_hook/snippets.txt
+/src/fpga_driver/faulthook/fpga_libhook_ctx.txt
+/src/fpga_driver/faulthook/libhook_mapping.txt
+/src/fpga_driver/faulthook/libhook_settings.txt
