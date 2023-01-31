@@ -17,13 +17,14 @@ ssh $host mkdir -p $target_dir
 sync $ASSETS_DIR/tfa/
 sync $OUTPUT_LINUX_GUEST_DIR/images/
 
-#bl1=$target_dir/bl1-fvp
-#fip=$target_dir/fip-fvp
-bl1=$target_dir/mem-prealloc/bl1.bin
-fip=$target_dir/mem-prealloc/fip.bin
+bl1=$target_dir/bl1-fvp
+fip=$target_dir/fip-fvp
+#bl1=$target_dir/mem-prealloc/bl1.bin
+#fip=$target_dir/mem-prealloc/fip.bin
 
 image=$target_dir/Image
 rootfs=$target_dir/rootfs.ext2
 p9_folder=$remote_home
+preload="/home/armcca/trusted-peripherals/src/fpga_driver/libc_hook/libhook.so"
 
-ssh -X $host $remote_home/scripts/run_fvp.sh $bl1 $fip $image $rootfs $p9_folder
+ssh -X $host $remote_home/scripts/run_fvp.sh $bl1 $fip $image $rootfs $p9_folder $preload

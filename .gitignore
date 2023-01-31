@@ -33,3 +33,4 @@ faulthook/libhook.so
 /scripts/abertschi/bl1.bin
 /scripts/abertschi/fip.bin
 /src/boot-wrapper-aarch64/
+/src/fpga_driver/libc_hook/snippets.txt

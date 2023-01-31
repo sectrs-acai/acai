@@ -13,10 +13,11 @@ function run_fvp {
   local rootfs=$4
   local p9_folder=$5
   local mount_tag=host0
+  local preload=$6
 
 
   # XXX: libhook is in fvp bin directory along with fvp binary
-  LD_PRELOAD=$LIBC_HOOK \
+  LD_PRELOAD=$preload \
 	  $FVP \
 	  -C bp.dummy_ram.fill1='' \
 	  -C bp.dummy_ram.fill2='' \
@@ -82,11 +83,14 @@ function run_fvp {
 	  -C bp.pl011_uart1.out_file=uart1.log \
 	  -C bp.pl011_uart2.out_file=uart2.log
 
+  echo $?
+  echo "return code"
+
 }
 
 function usage {
   echo "usage: "
-  echo "$0 bl1 fip image rootfs p9_folder"
+  echo "$0 bl1 fip image rootfs p9_folder [libchook preload so]"
   exit
 }
 
@@ -107,6 +111,13 @@ if [ -z "$5" ]; then
     usage
 fi
 
+preload=""
+if [ -z "$6" ]; then
+    preload=$LIBC_HOOK
+else
+	preload=$6
+fi
+
 set -x
-run_fvp $1 $2 $3 $4 $5
+run_fvp $1 $2 $3 $4 $5 $preload
 set +x

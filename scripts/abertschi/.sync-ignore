@@ -4,7 +4,7 @@
 tmp/
 .git/
 
-assets/
+assets/fvp/build
 **/.git/
 src/linux-guest
 src/linux-host
