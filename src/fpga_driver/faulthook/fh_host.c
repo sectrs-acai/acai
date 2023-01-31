@@ -25,6 +25,9 @@ fh_host_fn void _fh_crash_handler(int code)
 {
     printf("Crash handler called: code: %d\n", code);
     fh_disable_trace();
+    if (fh_ctx.clean_up_hook) {
+        (*fh_ctx.clean_up_hook)(fh_ctx.clean_up_hook_arg);
+    }
     fh_clean_up();
     exit(code);
 }
@@ -365,6 +368,12 @@ fh_host_fn int fh_clean_up(void)
 
     ptedit_cleanup();
     return 0;
+}
+
+
+fh_host_fn int fh_clean_up_hook(void (*hook) (void*), void* arg) {
+    fh_ctx.clean_up_hook = hook;
+    fh_ctx.clean_up_hook_arg = arg;
 }
 
 fh_host_fn pthread_t *run_thread(fh_listener_fn fn, void* ctx)

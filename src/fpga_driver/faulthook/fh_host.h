@@ -4,7 +4,7 @@
 
 #ifndef TRUSTED_PERIPH_FAULTHOOKLIB_H
 #define TRUSTED_PERIPH_FAULTHOOKLIB_H
-
+#include <stddef.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <stdbool.h>
@@ -44,7 +44,7 @@ typedef struct fh_extract_region {
     int region_type;
 } extract_region_t;
 
-typedef int (*fh_listener_fn) (void*);
+typedef int (*fh_listener_fn)(void *);
 
 struct fh_host_context {
     bool signals_init;
@@ -62,13 +62,20 @@ struct fh_host_context {
     unsigned long mmap_num_of_pages;
     ptedit_entry_t host_pte;
     size_t *host_pte_orig;
+
+    void (*clean_up_hook)(void *);
+    void *clean_up_hook_arg;
 };
 
 extern struct fh_host_context fh_ctx;
 
-fh_host_fn pthread_t* run_thread(fh_listener_fn fn, void* ctx);
+fh_host_fn int fh_clean_up_hook(void (*hook) (void*), void* arg);
+
+
+fh_host_fn pthread_t *run_thread(fh_listener_fn fn, void *ctx);
 
 fh_host_fn int fh_init_pedit();
+
 fh_host_fn int fh_init(const char *device);
 
 fh_host_fn int fh_enable_trace(unsigned long address, unsigned long len, pid_t pid);
@@ -83,7 +90,7 @@ fh_host_fn void fh_print_region(extract_region_t *r);
 struct fh_memory_map_ctx {
     pid_t pid;
     unsigned long addr;
-    char * host_mem;
+    char *host_mem;
     unsigned long len;
 
     ptedit_entry_t _host_pt;
@@ -96,6 +103,7 @@ struct fh_mmap_region_ctx {
 };
 
 fh_host_fn int fh_unmmap_region(struct fh_mmap_region_ctx *ctx);
+
 fh_host_fn int fh_mmap_region(pid_t pid,
                               unsigned long target_addr,
                               unsigned long len,
@@ -104,12 +112,12 @@ fh_host_fn int fh_mmap_region(pid_t pid,
 
 fh_host_fn int fh_memory_unmap(struct fh_memory_map_ctx *);
 
-fh_host_fn int fh_memory_map(struct fh_memory_map_ctx* req);
+fh_host_fn int fh_memory_map(struct fh_memory_map_ctx *req);
 
 fh_host_fn int fh_scan_guest_memory(pid_t pid,
-                         unsigned long magic,
-                         extract_region_t **ret_regions,
-                         int *ret_regions_len);
+                                    unsigned long magic,
+                                    extract_region_t **ret_regions,
+                                    int *ret_regions_len);
 
 // -------------------------------------------------------
 // kernel api
