@@ -2,23 +2,24 @@
 
 #include <stdio.h>
 #include <dlfcn.h>
-#include <stdio.h>
 #include <string.h>
 #include <time.h>
 #include <stdlib.h>
 #include <pthread.h>
 #include <sys/mman.h>
 #include <unistd.h>
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <assert.h>
 
 #define PAGE_SIZE (4096)
 #define FILE_PATH "/tmp/hooks_mmap"
-#define MMAP_PATH "/hooks_file"
-#define SIZE 4096
+
+#define HOOK_ENABLE 1
+#define HOOK_TRACE 1
+
+#define ENV_HOOK_ENABLE "fvp_libchook_enable"
+
+#define HERE fprintf(stderr, "%s/%s: %d\n", __FILE__, __FUNCTION__, __LINE__)
+
+#define HERE_NUMBER(i) fprintf(stderr, "%s/%s: %d (%ld)\n", __FILE__, __FUNCTION__, __LINE__, i)
 
 static void *(*real_malloc)(size_t) =NULL;
 
@@ -36,46 +37,51 @@ static void *map = NULL;
 static void *map_start;
 static size_t map_size = 1024L * 1024L * 1024L * 6L;
 
-static int stat_file_done = 0;
+static int is_do_init = 0;
+static int do_malloc_init = 0;
+static int do_calloc_init = 0;
+static size_t malloc_count = 0;
 
-static inline int is_map_address(void *p)
+inline static void *init_symbol(const char *name)
 {
-    return p >= map_start && p < (map_start + map_size);
+    void *s = dlsym(RTLD_NEXT, name);
+    if (s==NULL) {
+        fprintf(stderr, "Error in `dlsym` for symbol %s: %s\n", name, dlerror());
+        exit(10);
+    }
+    return s;
 }
 
-static void inline mmap_shm(void)
-{
-    int fd = shm_open(MMAP_PATH, O_RDWR | O_CREAT, 0777);
-    if (fd==-1) {
-        fprintf(stderr, "Open failed:%s\n", strerror(errno));
-        exit(1);
-    }
-    if (ftruncate(fd, map_size)==-1) {
-        fprintf(stderr, "ftruncate: %s\n",
-                strerror(errno));
-        exit(1);
-    }
-    pthread_mutex_lock(&lock);
-    map = mmap(NULL,
-               map_size,
-               PROT_READ | PROT_WRITE,
-               MAP_SHARED,
-               fd,
-               0);
+/*
+ * XXX: Chicken Egg problem
+ * Invocation of dlsym itself needs memory.
+ * Bootstrap invocations with stack memory until things are set up.
+ */
+static size_t _buffer_used = 0;
+static size_t _buffer_size = 40960;
+static char _buffer[40960];
 
-    if (map==MAP_FAILED) {
-        fprintf(stderr, "MAP_FAILED: %s\n", dlerror());
-        exit(1);
+static void *mm_alloc(size_t size)
+{
+    if (_buffer_used + size <= _buffer_size) {
+        void *res = _buffer + _buffer_used;
+        _buffer_used += size;
+        return res;
+    } else {
+        fprintf(stderr, "no mem left in mm_alloc: %ld\n", size);
+        exit(10);
     }
-    map_start = map;
-    pthread_mutex_unlock(&lock);
 }
+
+static int mm_is_address(void *p)
+{
+    void *b = (void *) _buffer;
+    return p >= b && p < b + _buffer_size;
+}
+
+
 static void inline stat_file()
 {
-    if (stat_file_done) {
-        return;
-    }
-    stat_file_done = 1;
     char buffer[128];
     pid_t pid = getpid();
     sprintf(buffer, "%s_%d", FILE_PATH, pid);
@@ -86,50 +92,12 @@ static void inline stat_file()
         fprintf(stderr, "fail to open file: %s %s\n", buffer, dlerror());
         exit(1);
     }
-    sprintf(buffer, "0x%lx-0x%lx;%d", map_start, map_start + map_size, pid);
+    sprintf(buffer, "0x%lx-0x%lx;%d",
+            (unsigned long) map_start,
+            (unsigned long) map_start + map_size, pid);
     fwrite(buffer, 1, strlen(buffer), f);
     fclose(f);
 
-}
-
-#define ENV_FAULTHOOK_ENABLE "faulthook_enable"
-static int env_faulthook_enable = 0;
-
-#define ENV_FAULTHOOK_HEAP_GB "faulthook_heap_gb"
-static int env_faulthook_heap_gb = 2;
-
-static void read_env_vars(void)
-{
-    const int buf_len = 256;
-    char buf[buf_len];
-    char *enable = getenv(ENV_FAULTHOOK_ENABLE);
-    if (enable == NULL) {
-        printf("enable is not set\n");
-    } else {
-        // printf("enable=%s", enable);
-    }
-    // exit(1);
-
-    // printf("%s=%s\n", ENV_FAULTHOOK_ENABLE, enable);
-    // printf("%s=%d\n", ENV_FAULTHOOK_HEAP_GB, env_faulthook_heap_gb);
-
-//    if () {
-//        printf
-////        if (snprintf(buf, buf_len, "%d", getenv(ENV_FAULTHOOK_ENABLE)) < buf_len) {
-////            env_faulthook_enable = (strtol(buf, NULL, 10)==1);
-////            printf("Setting %s=%d\n", ENV_FAULTHOOK_ENABLE, env_faulthook_enable);
-////        }
-//    }
-//
-//    if (getenv(ENV_FAULTHOOK_HEAP_GB)) {
-////        if (snprintf(buf, buf_len, "%d", getenv(ENV_FAULTHOOK_HEAP_GB)) < buf_len) {
-////            env_faulthook_heap_gb = strtol(buf, NULL, 10);
-////            printf("Setting %s=%d\n", ENV_FAULTHOOK_HEAP_GB, env_faulthook_heap_gb);
-////        }
-//    }
-//
-//    printf("%s=%d\n", ENV_FAULTHOOK_ENABLE, env_faulthook_enable);
-//    printf("%s=%d\n", ENV_FAULTHOOK_HEAP_GB, env_faulthook_heap_gb);
 }
 
 static void inline mmap_annon()
@@ -148,7 +116,7 @@ static void inline mmap_annon()
     }
 
     printf("mmap %lx(%lx) for %s/ %s\n",
-           map,
+           (unsigned long) map,
            map_size,
            program_invocation_name,
            program_invocation_short_name);
@@ -157,111 +125,108 @@ static void inline mmap_annon()
     pthread_mutex_unlock(&lock);
 }
 
-static void mtrace_init(void)
+static inline int is_map_address(void *p)
 {
-    if (pthread_mutex_init(&lock, NULL)!=0) {
-        printf("\n mutex init has failed\n");
-        exit(1);
-    }
-    // read_env_vars();
+    void *buf = (void *) map_start;
+    void *buf_end = (void *) map_start + map_size;
+    return p >= buf && p < buf_end;
+}
 
-    real_malloc = dlsym(RTLD_NEXT, "malloc");
-    if (NULL==real_malloc) {
-        fprintf(stderr, "Error in `dlsym`: %s\n", dlerror());
-    }
-    real_free = dlsym(RTLD_NEXT, "free");
-    if (NULL==real_free) {
-        fprintf(stderr, "Error for free in `dlsym`: %s\n", dlerror());
-    }
-    real_calloc = dlsym(RTLD_NEXT, "calloc");
-    if (NULL==real_calloc) {
-        fprintf(stderr, "Error for calloc in `dlsym`: %s\n", dlerror());
-    }
-    real_realloc = dlsym(RTLD_NEXT, "realloc");
-    if (NULL==real_realloc) {
-        fprintf(stderr, "Error for realloc in `dlsym`: %s\n", dlerror());
-    }
 
-    // mmap_shm();
+static inline void do_init(void)
+{
+    if (is_do_init) {
+        return;
+    }
+    is_do_init = 1;
     mmap_annon();
     stat_file();
 }
 
-unsigned long c = 0;
-
 void *malloc(size_t size)
 {
-
     if (real_malloc==NULL) {
-        mtrace_init();
+        if (do_malloc_init) {
+            return mm_alloc(size);
+        }
+        do_malloc_init = 1;
+        real_malloc = init_symbol("malloc");
+        HERE_NUMBER(size);
     }
-    void *p = NULL;
+    #if HOOK_ENABLE
+    do_init();
 
+    /* XXX: Magic number, FVP_Base_RevC-2xAEMvA_11.20_15_Linux64 specific!! */
     if (size==4128) {
-
         pthread_mutex_lock(&lock);
-        void *p = map;
-        void *a = map + PAGE_SIZE;
-        // map += 2 * PAGE_SIZE;
+        /*
+         * TODO: use 2 pages instead not to skip unknown holes
+         */
+        void *res = map;
         map += 1 * PAGE_SIZE;
         pthread_mutex_unlock(&lock);
         if (map >= map_start + map_size) {
             fprintf(stderr, "mmap region too small, libc hook\n");
             exit(1);
         }
-        fprintf(stderr, "page_malloc(%d)=%p, %ld\n", size, p, ++c);
-        return p;
+        #if HOOK_TRACE
+        fprintf(stderr, "page_malloc(%ld)=%p, %ld\n",
+                size, res, ++malloc_count);
+        #endif
+        return res;
     }
+    #endif
+    return real_malloc(size);
 
-    p = real_malloc(size);
-    if (size >= SIZE) {
-//        fprintf(stderr, "malloc(%d)=%p\n", size, p);
-        // fprintf(stderr, "%p\n", p);
-    }
-    return p;
+
 }
-
 
 void *calloc(size_t nmemb, size_t size)
 {
-
     if (real_calloc==NULL) {
-        mtrace_init();
+        if (do_calloc_init) {
+            char *p = mm_alloc(nmemb * size);
+            for (size_t i = 0; i < nmemb * size; i++) {
+                *(p + i) = 0;
+            }
+            return p;
+        }
+        do_calloc_init = 1;
+        real_calloc = init_symbol("calloc");
+        HERE_NUMBER(size * nmemb);
     }
+    #if HOOK_ENABLE
+    do_init();
+    #endif
+    return real_calloc(nmemb, size);
 
-    void *p = NULL;
-    p = real_calloc(nmemb, size);
-    if (size >= SIZE) {
-//        fprintf(stderr, "calloc(%d, %d)=%p\n", nmemb, size, p);
-        // fprintf(stderr, "%p\n", p);
-    }
-    return p;
 }
 
 void *realloc(void *ptr, size_t size)
 {
-
     if (real_realloc==NULL) {
-        mtrace_init();
+        real_realloc = init_symbol("realloc");
     }
-
-    void *p = NULL;
-    p = real_realloc(ptr, size);
-    if (size >= SIZE) {
-        // fprintf(stderr, "realloc(%p, %d)=%p\n", ptr, size, p);
-        // fprintf(stderr, "%p\n", p);
-    }
-    return p;
+    #if HOOK_ENABLE
+    do_init();
+    #endif
+    return real_realloc(ptr, size);
 }
-
 
 void free(void *p)
 {
+    if (mm_is_address(p)) {
+        HERE;
+        return;
+    }
     if (real_free==NULL) {
-        mtrace_init();
+        real_free = init_symbol("free");
     }
-    // fprintf(stderr, "free(%p)\n", p);
-    if (!is_map_address(p)) {
-        real_free(p);
+    #if HOOK_ENABLE
+    do_init();
+    if (is_map_address(p)) {
+        return;
     }
+    #endif
+    real_free(p);
 }
