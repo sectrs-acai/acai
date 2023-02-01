@@ -643,32 +643,44 @@ static int _on_fault(void *arg)
     return ret;
 }
 
-static int has_faulthook = 0;
+
+static pid_t get_pid(int argc, char *argv[])
+{
+    pid_t pid;
+    if (argc < 2)
+    {
+        print_err("Need pid as argument\n");
+        exit(- 1);
+    }
+    pid = strtol(argv[1], NULL, 10);
+    if (pid == 0)
+    {
+        print_err("invalid pid");
+        exit(- 1);
+    }
+    return pid;
+}
 
 int main(int argc, char *argv[])
 {
     ssize_t ret = 0;
     unsigned long addr_from, addr_to;
+    pid_t pid;
+    bool has_faulthook = 0;
 
     struct ctx_struct ctx;
     memset(&ctx, 0, sizeof(struct ctx_struct));
+    pid = get_pid(argc, argv);
+    print_progress("Using pid %d", pid);
 
-    if (argc < 2)
-    {
-        print_err("Need pid or program name as argument\n");
-        return - 1;
-    }
-    pid_t pid = strtol(argv[1], NULL, 10);
-    print_progress("pid: %d", pid);
-
-    has_faulthook = 1;
     if ((ret = fh_init(NULL)) != 0)
     {
-        print_err("fh_init failed: %d\n", ret);
-        has_faulthook = 0;
-    };
+        print_err("fh_init failed: %ld\n", ret);
+    } else
+    {
+        has_faulthook = 1;
+    }
     fh_clean_up_hook(_unmap_fvp_memory, &ctx);
-
     ret = read_stat_file(pid, &addr_from, &addr_to);
     if (ret != 0)
     {
@@ -726,22 +738,24 @@ int main(int argc, char *argv[])
         unsigned long vaddr_target = ctx.escape_vaddr;
         pthread_t *th = run_thread((fh_listener_fn) _on_fault, &ctx);
         ret = fh_enable_trace(
-                (unsigned long) vaddr_target + /*offset in struct to fault */ 8, 8, pid);
+                (unsigned long) vaddr_target + /*offset in struct to fault */ 8,
+                8,
+                pid);
         if (ret != 0)
         {
             printf("fh_enable_trace failed: %d\n", ret);
             goto clean_up;
         }
         pthread_join(*th, NULL);
-    }
-
-#if 1
-    while (1)
+    } else
     {
-        hex_dump(ctx.escape_page, 64);
-        sleep(5);
+        printf("no faulthook present on system\n");
+        while (1)
+        {
+            hex_dump(ctx.escape_page, 64);
+            sleep(5);
+        }
     }
-#endif
 
     clean_up:
     unmap_fvp_memory(&ctx);

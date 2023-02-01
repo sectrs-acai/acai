@@ -3,7 +3,7 @@ SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 source $SCRIPT_DIR/../env.sh
 
-FVP=FVP_Base_RevC-2xAEMvA
+FVP=$(which FVP_Base_RevC-2xAEMvA)
 LIBC_HOOK=$ASSETS_DIR/fvp/bin/libhook.so
 
 function run_fvp {
@@ -17,8 +17,9 @@ function run_fvp {
 
 
   # XXX: libhook is in fvp bin directory along with fvp binary
-  LD_PRELOAD=$preload \
-	  $FVP \
+  # XXX: We need sudo so we can pin fvp memory
+
+	sudo LD_PRELOAD=$preload $FVP \
 	  -C bp.dummy_ram.fill1='' \
 	  -C bp.dummy_ram.fill2='' \
 	  -C bp.secureflashloader.fname=${bl1}          \
