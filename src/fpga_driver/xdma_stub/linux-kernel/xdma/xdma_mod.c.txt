@@ -149,8 +149,8 @@ static struct kprobe kp = {
 
 void (*do__flush_dcache_area)(void *addr, size_t len);
 
-#if 0
-static void unused() {
+static int faulthook_init(void)
+{
     #ifdef KPROBE_KALLSYMS_LOOKUP
         register_kprobe(&kp);
         kallsyms_lookup_name = (kallsyms_lookup_name_t) kp.addr;
@@ -173,7 +173,9 @@ static void unused() {
     memset(&fd_ctx, 0, sizeof(struct faultdata_driver_struct));
     size_t len = (1 << FAULTDATA_PAGE_ORDER) * PAGE_SIZE;
     fd_ctx.page_order = FAULTDATA_PAGE_ORDER;
-        #if USE_PAGES
+
+
+    #if USE_PAGES
 //    fd_ctx.page = __get_free_pages(GFP_KERNEL, FAULTDATA_PAGE_ORDER);
 //
 //    if (!fd_ctx.page) {
@@ -226,37 +228,50 @@ static void unused() {
 
     #endif
 
-
-}
-#endif
-
-extern unsigned long *fvp_escape_page;
-extern unsigned long fvp_escape_size;
-
-
-static int faulthook_init(void)
-{
-    pr_info("size: %lx\n", fvp_escape_size);
-    memset(fvp_escape_page, 'A', fvp_escape_size);
-    fd_data = (struct faultdata_struct *) fvp_escape_page;
+    pr_info("Allocated magic page at addr: " PTR_FMT "\n", ptr);
+    fd_data = (struct faultdata_struct *) ptr;
     fd_data->magic = FAULTDATA_MAGIC;
-    fd_data->length = PAGE_SIZE;
+    fd_data->length = len;
+    fd_data->action = FH_ACTION_ALLOC_GUEST;
 
+    int i =0;
+    while(1) {
+        char *a = ptr + 7 * PAGE_SIZE;
+        pr_info("%d\n", i);
+        *a = i++;
+        usleep_range(1000000, 1000001);
+    }
+
+    int i = 0, j = 0;
+    int max = 20;
+    do {
+        pr_info("Waiting for host to connect %d/%d\n", i, max);
+        fh_do_faulthook();
+        usleep_range(3000000, 3000001);
+    } while (fd_data->action!=FH_ACTION_GUEST_CONTINUE && i++ < max);
+
+    if (fd_data->action!=FH_ACTION_GUEST_CONTINUE) {
+        pr_err("no action from host\n");
+        return 0;
+    } else {
+        struct action_init_guest *a = (struct action_init_guest *) &fd_data->data;
+        fd_ctx.host_pg_offset = a->host_offset;
+    }
     return 0;
 }
 
 
 void fh_do_faulthook()
 {
-    // faultdata_flush(fd_data);
+    faultdata_flush(fd_data);
     unsigned long nonce = fd_ctx.fh_nonce++;
-    // pr_info("flush with nonce: %ld\n", nonce);
+    pr_info("flush with nonce: %ld\n", nonce);
     fd_data->turn = FH_TURN_HOST;
     fd_data->nonce = nonce; /* faulthook */
-//    /*
-//     * TODO: Is flush needed? or do we cause several faults?
-//     */
-//    faultdata_flush(fd_data);
+    /*
+     * TODO: Is flush needed? or do we cause several faults?
+     */
+    faultdata_flush(fd_data);
     if (fd_data->turn!=FH_TURN_GUEST) {
         pr_err("Host did not reply to request. Nonce: 0x%lx. Is host listening?", nonce);
     }
@@ -269,12 +284,12 @@ static int faulthook_cleanup(void)
          * We clear magic such that upon reload we dont get several hits with the same magic
          */
         fd_data->magic = 0;
-//        #if USE_PAGES
-//        if (fd_ctx.page)
-//        __free_pages(fd_ctx.page, FAULTDATA_PAGE_ORDER);
-//        #else
-//        kfree(fd_data);
-//        #endif
+        #if USE_PAGES
+        if (fd_ctx.page)
+        __free_pages(fd_ctx.page, FAULTDATA_PAGE_ORDER);
+        #else
+        kfree(fd_data);
+        #endif
     }
     return 0;
 }

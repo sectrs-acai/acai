@@ -114,8 +114,10 @@ fi
 preload=""
 if [ -z "$6" ]; then
     preload=$LIBC_HOOK
+    echo "using default preload: $preload"
 else
 	preload=$6
+  echo "using preload: $preload"
 fi
 
 set -x

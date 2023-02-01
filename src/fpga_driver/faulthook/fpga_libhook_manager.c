@@ -151,7 +151,7 @@ static int free_addr_map(struct ctx_struct *ctx)
 {
     if (ctx->addr_map != NULL)
     {
-        free(ctx->addr_map);
+        munmap(ctx->addr_map, ctx->addr_map_size);
         ctx->addr_map = NULL;
         ctx->addr_map_pfn_min = 0;
         ctx->addr_map_pfn_max = 0;
@@ -269,6 +269,7 @@ static int read_mappings(struct ctx_struct *ctx)
     char line[256];
     unsigned long count = 0, total;
 
+    printf("Reading mappings from %s\n", MAPPING_FILE);
     if ((f = fopen(MAPPING_FILE, "r")) == NULL)
     {
         printf("Error! opening file: %s\n", MAPPING_FILE);
@@ -465,7 +466,7 @@ static void *create_escape_page(void)
                 0);
 }
 
-static long map_memory_from_file(struct ctx_struct *ctx)
+static long map_memory_from_file(struct ctx_struct *ctx, int pid)
 {
     long ret;
     ret = read_settings(ctx);
@@ -474,6 +475,12 @@ static long map_memory_from_file(struct ctx_struct *ctx)
         printf("restoring context from file failed: %ld\n", ret);
         return ret;
     }
+    if (ctx->target_pid != pid)
+    {
+        printf("Pid changed. Cant load from file. Old=%ld, new=%ld\n",
+               ctx->target_pid, pid);
+        return - 1;
+    }
     ctx->escape_page = create_escape_page();
     if (ctx->escape_page == MAP_FAILED)
     {
@@ -481,24 +488,31 @@ static long map_memory_from_file(struct ctx_struct *ctx)
         return - 1;
     }
 
-    printf("init_addr_map with pfn: 0x%lx-0x%lx\n",
-           ctx->addr_map_pfn_min,
-           ctx->addr_map_pfn_max);
-
+    // TODO: can we share more code with file appraoch?
+    printf("mapping vaddr 0x%lx into host\n", ctx->escape_vaddr);
+    ret = fh_mmap_region(
+            ctx->target_pid,
+            ctx->escape_vaddr,
+            4096,
+            (char *) ctx->escape_page,
+            &ctx->escape_page_mmap_ctx);
+    if (ret != 0)
+    {
+        printf("fh_mmap_region failed: %ld\n", ret);
+        return ret;
+    }
     ret = init_addr_map(ctx, ctx->addr_map_pfn_min, ctx->addr_map_pfn_max);
     if (ret != 0)
     {
         printf("init_addr_map failed: %ld\n", ret);
         return ret;
     }
-
     ret = read_mappings(ctx);
     if (ret != 0)
     {
         printf("read_mappings failed: %d\n", ret);
         return ret;
     }
-
     return 0;
 }
 
@@ -517,7 +531,6 @@ static long map_fvp_memory(struct ctx_struct *ctx)
     {
         return ret;
     }
-
     ctx->escape_page_pfn = escape_page_pfn;
     ctx->escape_vaddr = escape_page_vaddr;
     ctx->escape_page = create_escape_page();
@@ -529,11 +542,12 @@ static long map_fvp_memory(struct ctx_struct *ctx)
 
     escape = (struct fvp_escape_setup_struct *) ctx->escape_page;
 
+    printf("mapping vaddr 0x%lx into host\n", ctx->escape_vaddr);
     ret = fh_mmap_region(
             ctx->target_pid,
-            escape_page_vaddr,
+            ctx->escape_vaddr,
             4096,
-            (char *) escape,
+            (char *) ctx->escape_page,
             &ctx->escape_page_mmap_ctx);
     if (ret != 0)
     {
@@ -589,6 +603,7 @@ static void unmap_fvp_memory(struct ctx_struct *ctx)
 {
     printf("unmap_fvp_memory\n");
     fh_unmmap_region(&ctx->escape_page_mmap_ctx);
+    printf("fh_unmmap_region ok\n");
     free_addr_map(ctx);
     close(ctx->target_mem_fd);
 }
@@ -598,6 +613,7 @@ static void _unmap_fvp_memory(void *ctx)
     unmap_fvp_memory((struct ctx_struct *) ctx);
 }
 
+#if 0
 int on_fault(unsigned long addr,
              unsigned long len,
              pid_t pid,
@@ -614,6 +630,7 @@ int on_fault(unsigned long addr,
     print_progress("length: %ld", fault->length);
     return 0;
 }
+#endif
 
 static int _on_fault(void *arg)
 {
@@ -667,14 +684,17 @@ int main(int argc, char *argv[])
     ctx.target_from = addr_from;
     ctx.target_to = addr_to;
 
-    ret = map_memory_from_file(&ctx);
+    ret = map_memory_from_file(&ctx, pid);
     if (ret != 0)
     {
+        printf("map memory from file failed. "
+               "Restarting without file: %ld\n", ret);
         /*
          * Something went wrong. Either we running a new FVP instance or
          * there was an error while writing state to disk.
          * We restart and scan without loading old state.
          */
+
         memset(&ctx, 0, sizeof(struct ctx_struct));
         ctx.target_pid = pid;
         ctx.target_from = addr_from;
@@ -682,22 +702,24 @@ int main(int argc, char *argv[])
         ctx.target_mem_fd = mem_fd;
 
         ret = map_fvp_memory(&ctx);
+        if (ret != 0)
+        {
+            goto clean_up;
+        }
 
         /*
-         * We store settings such that we can restart manager without rebooting fvp.
+         * We store settings such that we can
+         * restart manager without rebooting fvp.
          */
         save_settings(&ctx);
-    }
-    if (ret != 0)
-    {
-        goto clean_up;
-    }
 
-    printf("continuing guest\n");
-    ((struct fvp_escape_setup_struct *) ctx.escape_page)
-            ->escape_turn = fvp_escape_setup_turn_guest;
-    ((struct fvp_escape_setup_struct *) ctx.escape_page)
-            ->action = fvp_escape_setup_action_addr_mapping_success;
+        printf("continuing guest\n");
+        ((struct fvp_escape_setup_struct *) ctx.escape_page)
+                ->escape_turn = fvp_escape_setup_turn_guest;
+
+        ((struct fvp_escape_setup_struct *) ctx.escape_page)
+                ->action = fvp_escape_setup_action_addr_mapping_success;
+    }
 
     if (has_faulthook)
     {

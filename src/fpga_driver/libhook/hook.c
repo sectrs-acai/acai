@@ -35,6 +35,11 @@ extern char *program_invocation_short_name;
 pthread_mutex_t lock;
 static void *map = NULL;
 static void *map_start;
+
+/*
+ * max size: does not MAP_POPULATE at creation time
+ * Increase if you need more
+ */
 static size_t map_size = 1024L * 1024L * 1024L * 6L;
 
 static int is_do_init = 0;
@@ -45,7 +50,8 @@ static size_t malloc_count = 0;
 inline static void *init_symbol(const char *name)
 {
     void *s = dlsym(RTLD_NEXT, name);
-    if (s==NULL) {
+    if (s == NULL)
+    {
         fprintf(stderr, "Error in `dlsym` for symbol %s: %s\n", name, dlerror());
         exit(10);
     }
@@ -63,11 +69,13 @@ static char _buffer[40960];
 
 static void *mm_alloc(size_t size)
 {
-    if (_buffer_used + size <= _buffer_size) {
+    if (_buffer_used + size <= _buffer_size)
+    {
         void *res = _buffer + _buffer_used;
         _buffer_used += size;
         return res;
-    } else {
+    } else
+    {
         fprintf(stderr, "no mem left in mm_alloc: %ld\n", size);
         exit(10);
     }
@@ -88,7 +96,8 @@ static void inline stat_file()
     printf("opening file %s\n", buffer);
     FILE *f = fopen(buffer, "w");
 
-    if (f==NULL) {
+    if (f == NULL)
+    {
         fprintf(stderr, "fail to open file: %s %s\n", buffer, dlerror());
         exit(1);
     }
@@ -102,15 +111,17 @@ static void inline stat_file()
 
 static void inline mmap_annon()
 {
+    int ret;
     pthread_mutex_lock(&lock);
     map = mmap(NULL,
                map_size,
                PROT_READ | PROT_WRITE,
                MAP_SHARED | MAP_ANONYMOUS,
-               -1,
+               - 1,
                0);
 
-    if (map==MAP_FAILED) {
+    if (map == MAP_FAILED)
+    {
         fprintf(stderr, "MAP_FAILED: %s\n", dlerror());
         exit(1);
     }
@@ -122,6 +133,18 @@ static void inline mmap_annon()
            program_invocation_short_name);
     printf("pid: %d\n", getpid());
     map_start = map;
+
+    /*
+     * Lock memory pages (and further page faults)
+     * such that they are not paged out when we alias them in another process
+     */
+    printf("locking all pages in range %p+%lx\n", map_start, map_size);
+    ret = mlock2(map_start, map_size, MLOCK_ONFAULT);
+    if (ret < 0)
+    {
+        perror("mlock failed. Are you running FVP as root? "
+               "This is required to pin memory pages\n");
+    }
     pthread_mutex_unlock(&lock);
 }
 
@@ -135,9 +158,11 @@ static inline int is_map_address(void *p)
 
 static inline void do_init(void)
 {
-    if (is_do_init) {
+    if (is_do_init)
+    {
         return;
     }
+
     is_do_init = 1;
     mmap_annon();
     stat_file();
@@ -145,8 +170,10 @@ static inline void do_init(void)
 
 void *malloc(size_t size)
 {
-    if (real_malloc==NULL) {
-        if (do_malloc_init) {
+    if (real_malloc == NULL)
+    {
+        if (do_malloc_init)
+        {
             return mm_alloc(size);
         }
         do_malloc_init = 1;
@@ -156,8 +183,15 @@ void *malloc(size_t size)
     #if HOOK_ENABLE
     do_init();
 
-    /* XXX: Magic number, FVP_Base_RevC-2xAEMvA_11.20_15_Linux64 specific!! */
-    if (size==4128) {
+    /*
+     * XXX: Magic number,
+     * FVP_Base_RevC-2xAEMvA_11.20_15_Linux64 specific.
+     *
+     * If we run into issues here we can allow other sizes to be served from mmap
+     * too. For instance everything > 4kb
+     * */
+    if (size == 4128)
+    {
         pthread_mutex_lock(&lock);
         /*
          * TODO: use 2 pages instead not to skip unknown holes
@@ -165,28 +199,33 @@ void *malloc(size_t size)
         void *res = map;
         map += 1 * PAGE_SIZE;
         pthread_mutex_unlock(&lock);
-        if (map >= map_start + map_size) {
+        if (map >= map_start + map_size)
+        {
             fprintf(stderr, "mmap region too small, libc hook\n");
             exit(1);
         }
         #if HOOK_TRACE
-        fprintf(stderr, "page_malloc(%ld)=%p, %ld\n",
-                size, res, ++malloc_count);
+        if (++ malloc_count % 10000 == 0)
+        {
+            fprintf(stderr, "page_malloc(%ld)=%p, %ld\n",
+                    size, res, malloc_count);
+        }
         #endif
         return res;
     }
     #endif
     return real_malloc(size);
-
-
 }
 
 void *calloc(size_t nmemb, size_t size)
 {
-    if (real_calloc==NULL) {
-        if (do_calloc_init) {
+    if (real_calloc == NULL)
+    {
+        if (do_calloc_init)
+        {
             char *p = mm_alloc(nmemb * size);
-            for (size_t i = 0; i < nmemb * size; i++) {
+            for (size_t i = 0; i < nmemb * size; i ++)
+            {
                 *(p + i) = 0;
             }
             return p;
@@ -204,7 +243,8 @@ void *calloc(size_t nmemb, size_t size)
 
 void *realloc(void *ptr, size_t size)
 {
-    if (real_realloc==NULL) {
+    if (real_realloc == NULL)
+    {
         real_realloc = init_symbol("realloc");
     }
     #if HOOK_ENABLE
@@ -215,16 +255,19 @@ void *realloc(void *ptr, size_t size)
 
 void free(void *p)
 {
-    if (mm_is_address(p)) {
+    if (mm_is_address(p))
+    {
         HERE;
         return;
     }
-    if (real_free==NULL) {
+    if (real_free == NULL)
+    {
         real_free = init_symbol("free");
     }
     #if HOOK_ENABLE
     do_init();
-    if (is_map_address(p)) {
+    if (is_map_address(p))
+    {
         return;
     }
     #endif

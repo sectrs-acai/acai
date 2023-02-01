@@ -4,7 +4,8 @@
 #define FAULTDATA_MAGIC 0xAABBCCDDEEFF9984
 
 
-struct __attribute__((__packed__))  faultdata_struct {
+struct __attribute__((__packed__))  faultdata_struct
+{
     volatile unsigned long magic;
     volatile unsigned long nonce; // fault
     volatile unsigned long turn;
@@ -19,12 +20,14 @@ int on_fault(unsigned long addr,
              unsigned long target_addr);
 
 
-enum fh_turn {
+enum fh_turn
+{
     FH_TURN_HOST = 1,
     FH_TURN_GUEST = 2
 };
 
-enum fh_action {
+enum fh_action
+{
     FH_ACTION_UNDEF = 1,
     FH_ACTION_GUEST_CONTINUE = 2,
     FH_ACTION_ALLOC_GUEST = 10,
@@ -36,13 +39,15 @@ enum fh_action {
     FH_ACTION_UNMAP = 16,
     FH_ACTION_PING = 17,
     FH_ACTION_IOCTL_DMA = 18,
+    FH_ACTION_VERIFY_MAPPING = 20,
 };
 
 #define PING_LEN 512
 
 static inline const char *fh_action_to_str(int action)
 {
-    switch (action) {
+    switch (action)
+    {
         case FH_ACTION_UNDEF: return "undef";
         case FH_ACTION_GUEST_CONTINUE:return "FH_ACTION_GUEST_CONTINUE";
         case FH_ACTION_ALLOC_GUEST:return "FH_ACTION_ALLOC_GUEST";
@@ -52,25 +57,40 @@ static inline const char *fh_action_to_str(int action)
         case FH_ACTION_READ:return "FH_ACTION_READ";
         case FH_ACTION_WRITE:return "FH_ACTION_WRITE";
         case FH_ACTION_UNMAP:return "FH_ACTION_UNMAP";
+        case FH_ACTION_PING: return "FH_ACTION_PING";
+        case FH_ACTION_VERIFY_MAPPING: return "FH_ACTION_VERIFY_MAPPING";
         default:return "unknown action";
     }
 }
 
 #define ACTION_MODIFIER __attribute__((__packed__))
 
-struct ACTION_MODIFIER action_common {
+struct ACTION_MODIFIER action_common
+{
     int fd;
     ssize_t ret;
     int err_no;
 };
 
-struct ACTION_MODIFIER action_openclose_device {
+struct ACTION_MODIFIER action_openclose_device
+{
     struct action_common common;
     char device[128];
     unsigned int flags;
 };
 
-struct ACTION_MODIFIER action_read {
+struct ACTION_MODIFIER action_ping
+{
+    int ping;
+};
+
+struct ACTION_MODIFIER action_verify_mappping
+{
+    size_t pfn;
+};
+
+struct ACTION_MODIFIER action_read
+{
     struct action_common common;
     size_t count; /* how much to read */
     loff_t offset; /* offset */
@@ -78,7 +98,8 @@ struct ACTION_MODIFIER action_read {
     char *buffer;
 };
 
-struct ACTION_MODIFIER action_write {
+struct ACTION_MODIFIER action_write
+{
     struct action_common common;
     size_t count; /* how much to write */
     loff_t offset; /* offset */
@@ -87,7 +108,8 @@ struct ACTION_MODIFIER action_write {
 };
 
 
-struct ACTION_MODIFIER action_mmap_device {
+struct ACTION_MODIFIER action_mmap_device
+{
     struct action_common common;
 
     unsigned long vm_start;
@@ -101,13 +123,15 @@ struct ACTION_MODIFIER action_mmap_device {
     unsigned long mmap_guest_kernel_offset;
 };
 
-struct ACTION_MODIFIER action_unmap {
+struct ACTION_MODIFIER action_unmap
+{
     struct action_common common;
     /* the offset starting from the base page in the fvp shared buffer */
     unsigned long mmap_guest_kernel_offset;
 };
 
-struct ACTION_MODIFIER action_dma {
+struct ACTION_MODIFIER action_dma
+{
     struct action_common common;
     // struct xdma_aperture_ioctl io;
     int write_read; // 1 is write
@@ -115,8 +139,8 @@ struct ACTION_MODIFIER action_dma {
 };
 
 
-
-struct ACTION_MODIFIER action_init_guest {
+struct ACTION_MODIFIER action_init_guest
+{
     struct action_common common;
     unsigned long host_offset;
 };

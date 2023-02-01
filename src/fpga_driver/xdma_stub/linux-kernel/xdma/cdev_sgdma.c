@@ -84,6 +84,7 @@ static int ioctl_do_aperture_dma(struct file *file, struct xdma_engine *engine, 
     struct xdma_io_cb cb;
     ssize_t res;
     int rv;
+    #if 0
 
     rv = copy_from_user(&io, (struct xdma_aperture_ioctl __user *) arg,
                         sizeof(struct xdma_aperture_ioctl));
@@ -131,6 +132,8 @@ static int ioctl_do_aperture_dma(struct file *file, struct xdma_engine *engine, 
     }
 
     return io.error;
+    #endif
+    return 0;
 }
 
 

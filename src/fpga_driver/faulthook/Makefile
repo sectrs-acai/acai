@@ -21,8 +21,8 @@ fpga_manager: header
 fpga_manager_test: fpga_manager_test.c header
 	$(CC) $(CFLAGS) -o $@ $<  $(LIBS)
 
-fpga_libhook_manager: fpga_libhook_manager.c header
-	$(CC) $(CFLAGS) -o $@ $< -lpthread
+fpga_libhook_manager: fpga_libhook_manager.c fpga_comm.c header
+	$(CC) $(CFLAGS) -o $@ fpga_libhook_manager.c fpga_comm.c -lpthread
 
 clean:
 	rm -f *.o ptedit/*.o fpga_manager_test fpga_manager heap_target hooks
