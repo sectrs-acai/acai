@@ -40,3 +40,4 @@ faulthook/libhook.so
 /src/fpga_driver/fh_host/fh_host_header.h
 libhook_mapping.txt
 libhook_settings.txt
+/src/fpga_driver/xdma/linux-kernel/xdma/cdev_ctrl.c.txt
