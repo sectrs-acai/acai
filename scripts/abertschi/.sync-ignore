@@ -4,6 +4,8 @@
 tmp/
 .git/
 
+*.temp*
+temp
 assets/fvp/build
 **/.git/
 src/linux-guest

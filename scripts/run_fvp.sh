@@ -1,12 +1,17 @@
 #!/usr/bin/env bash
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
+
 source $SCRIPT_DIR/../env.sh
 
 FVP=$(which FVP_Base_RevC-2xAEMvA)
-LIBC_HOOK=$ASSETS_DIR/fvp/bin/libhook.so
+
+LIBC_HOOK=$ASSETS_DIR/fvp/bin/libhook-libc-2.35.so
+
 
 function run_fvp {
+  set -euo pipefail
+
   local bl1=$1
   local fip=$2
   local image=$3
@@ -18,7 +23,6 @@ function run_fvp {
 
   # XXX: libhook is in fvp bin directory along with fvp binary
   # XXX: We need sudo so we can pin fvp memory
-
 	sudo LD_PRELOAD=$preload $FVP \
 	  -C bp.dummy_ram.fill1='' \
 	  -C bp.dummy_ram.fill2='' \
@@ -91,7 +95,7 @@ function run_fvp {
 
 function usage {
   echo "usage: "
-  echo "$0 bl1 fip image rootfs p9_folder [libchook preload so]"
+	echo "$0 <bl1 path> <fip path> <kernel image path> <rootfs path> <p9_folder endpoint path> <libc hook preload file path> <value: 'ssh' if using ssh to connect>"
   exit
 }
 
@@ -119,6 +123,13 @@ if [ -z "$6" ]; then
 else
 	preload=$6
   echo "using preload: $preload"
+fi
+
+if [ "$7" == "ssh" ]; then
+  echo "setting up xauth to use x11 forwarding with sudo"
+	set -x
+  xauth list | grep unix`echo $DISPLAY | cut -c10-12` > /tmp/xauth
+  sudo xauth add `cat /tmp/xauth`
 fi
 
 set -x
