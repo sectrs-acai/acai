@@ -4,9 +4,6 @@
 #define FVP_CONTROL_MAGIC 0xCAFECAFECAFECA00
 #define FVP_ESCAPE_MAGIC 0xCAFECAFECAFECA01
 
-#define FVP_CONTROL_MAGIC 0xCAFECAFECAFECA00
-#define FVP_ESCAPE_MAGIC 0xCAFECAFECAFECA01
-
 enum fvp_escape_setup_turn {
     fvp_escape_setup_turn_guest = 1,
     fvp_escape_setup_turn_host = 2,
