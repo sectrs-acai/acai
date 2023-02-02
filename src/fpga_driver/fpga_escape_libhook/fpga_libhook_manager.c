@@ -14,8 +14,8 @@
 
 #define STATS_FILE "/tmp/hooks_mmap"
 
-#define SETTING_FILE "./libhook_settings.txt"
-#define MAPPING_FILE "./libhook_mapping.txt"
+#define SETTING_FILE "./.temp.libhook_settings.txt"
+#define MAPPING_FILE "./.temp.libhook_mapping.txt"
 
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
@@ -159,9 +159,9 @@ static int free_addr_map(struct ctx_struct *ctx)
     }
 }
 
-inline static unsigned long get_addr_map_vaddr(
-        struct ctx_struct *ctx,
-        unsigned long pfn)
+
+unsigned long get_addr_map_vaddr(
+        ctx_struct ctx, unsigned long pfn)
 {
     if (pfn >= ctx->addr_map_pfn_min && pfn <= ctx->addr_map_pfn_max)
     {
@@ -174,6 +174,7 @@ inline static unsigned long get_addr_map_vaddr(
     }
     return 0;
 }
+
 
 inline static unsigned long set_addr_map_vaddr(
         struct ctx_struct *ctx,
@@ -636,10 +637,13 @@ static int _on_fault(void *arg)
 {
     struct ctx_struct *ctx = (struct ctx_struct *) arg;
 
+
+
     int ret = on_fault((unsigned long) ctx->escape_page,
                        MIN(ctx->escape_page_reserve_size, PAGE_SIZE),
                        ctx->target_pid,
-                       ctx->escape_vaddr);
+                       ctx->escape_vaddr,
+                       ctx);
     return ret;
 }
 
@@ -738,7 +742,7 @@ int main(int argc, char *argv[])
         unsigned long vaddr_target = ctx.escape_vaddr;
         pthread_t *th = run_thread((fh_listener_fn) _on_fault, &ctx);
         ret = fh_enable_trace(
-                (unsigned long) vaddr_target + /*offset in struct to fault */ 8,
+                (unsigned long) vaddr_target,
                 8,
                 pid);
         if (ret != 0)
@@ -747,6 +751,7 @@ int main(int argc, char *argv[])
             goto clean_up;
         }
         pthread_join(*th, NULL);
+
     } else
     {
         printf("no faulthook present on system\n");

@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: all clean
+.PHONY: all clean fpga_libhook_manager
 
 CFLAGS += -ggdb3 -O2 -Wno-unused-function -Wno-unused-result -Wno-unused-function -static
 INC += -I../fh_host

@@ -6,18 +6,22 @@
 
 struct __attribute__((__packed__))  faultdata_struct
 {
-    volatile unsigned long magic;
     volatile unsigned long nonce; // fault
     volatile unsigned long turn;
-    volatile unsigned long length;
     volatile unsigned long action;
+    volatile unsigned long data_size;
     volatile char data[0];
 };
+
+typedef struct ctx_struct *ctx_struct;
+unsigned long get_addr_map_vaddr(
+        ctx_struct ctx, unsigned long pfn);
 
 int on_fault(unsigned long addr,
              unsigned long len,
              pid_t target_pid,
-             unsigned long target_addr);
+             unsigned long target_addr,
+             ctx_struct ctx);
 
 
 enum fh_turn
@@ -28,6 +32,7 @@ enum fh_turn
 
 enum fh_action
 {
+    FH_ACTION_NOACTION = 0,
     FH_ACTION_UNDEF = 1,
     FH_ACTION_GUEST_CONTINUE = 2,
     FH_ACTION_ALLOC_GUEST = 10,
@@ -40,6 +45,8 @@ enum fh_action
     FH_ACTION_PING = 17,
     FH_ACTION_IOCTL_DMA = 18,
     FH_ACTION_VERIFY_MAPPING = 20,
+    FH_ACTION_SETUP = 21,
+    FH_ACTION_TEARDOWN = 22,
 };
 
 #define PING_LEN 512
@@ -58,8 +65,13 @@ static inline const char *fh_action_to_str(int action)
         case FH_ACTION_WRITE:return "FH_ACTION_WRITE";
         case FH_ACTION_UNMAP:return "FH_ACTION_UNMAP";
         case FH_ACTION_PING: return "FH_ACTION_PING";
+        case FH_ACTION_SETUP: return "FH_ACTION_SETUP";
+        case FH_ACTION_TEARDOWN: return "FH_ACTION_TEARDOWN";
         case FH_ACTION_VERIFY_MAPPING: return "FH_ACTION_VERIFY_MAPPING";
-        default:return "unknown action";
+        default:
+        {
+            return "unknown action";
+        }
     }
 }
 
@@ -112,15 +124,16 @@ struct ACTION_MODIFIER action_mmap_device
 {
     struct action_common common;
 
+    /* the offset starting from the base page in the fvp shared buffer */
+    unsigned long mmap_guest_kernel_offset;
     unsigned long vm_start;
     unsigned long vm_end;
 
     unsigned long vm_pgoff;
     unsigned long vm_flags;
     unsigned long vm_page_prot;
-
-    /* the offset starting from the base page in the fvp shared buffer */
-    unsigned long mmap_guest_kernel_offset;
+    unsigned long pfn_size;
+    unsigned long pfn[0];
 };
 
 struct ACTION_MODIFIER action_unmap
