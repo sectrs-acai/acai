@@ -80,12 +80,12 @@ struct xdma_ioc_info {
 struct xdma_ioc_faulthook_mmap {
     struct xdma_ioc_base base;
     int map_type; /*0 is map, 1 is unmap */
-    unsigned long addr;
-    unsigned long size;
     pid_t pid;
     unsigned long vm_pgoff;
     unsigned long vm_flags;
     unsigned long vm_page_prot;
+    unsigned long addr_size;
+    unsigned long *addr;
 
 };
 

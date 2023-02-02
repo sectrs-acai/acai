@@ -29,22 +29,25 @@ static int enable_stub_devices(void)
      * XXX We have to fake these devices because they dont exist
      */
     xpdev = kmalloc(sizeof(struct xdma_pci_dev), GFP_KERNEL);
-    if (!xpdev) {
-        return -ENOMEM;
+    if (! xpdev)
+    {
+        return - ENOMEM;
     }
     memset(xpdev, 0, sizeof(struct xdma_pci_dev));
 
 
     xdev = kmalloc(sizeof(struct xdma_dev), GFP_KERNEL);
-    if (!xdev) {
-        return -ENOMEM;
+    if (! xdev)
+    {
+        return - ENOMEM;
     }
     memset(xdev, 0, sizeof(struct xdma_dev));
     xpdev->xdev = xdev;
 
     pci_dev = kmalloc(sizeof(struct pci_dev), GFP_KERNEL);
-    if (!pci_dev) {
-        return -ENOMEM;
+    if (! pci_dev)
+    {
+        return - ENOMEM;
     }
     memset(pci_dev, 0, sizeof(struct pci_dev));
     xpdev->pdev = pci_dev;
@@ -54,22 +57,27 @@ static int enable_stub_devices(void)
 
     HERE;
 
-    for (i = 0; i < xpdev->c2h_channel_max; i++) {
+    for (i = 0; i < xpdev->c2h_channel_max; i ++)
+    {
         xpdev->xdev->engine_c2h[i].magic = MAGIC_ENGINE;
     }
-    for (i = 0; i < xpdev->h2c_channel_max; i++) {
+    for (i = 0; i < xpdev->h2c_channel_max; i ++)
+    {
         xpdev->xdev->engine_h2c[i].magic = MAGIC_ENGINE;
     }
-    for (i = 0; i < xpdev->c2h_channel_max; i++) {
+    for (i = 0; i < xpdev->c2h_channel_max; i ++)
+    {
         xpdev->sgdma_c2h_cdev[i].engine = &xpdev->xdev->engine_c2h[i];
     }
-    for (i = 0; i < xpdev->h2c_channel_max; i++) {
+    for (i = 0; i < xpdev->h2c_channel_max; i ++)
+    {
         xpdev->sgdma_h2c_cdev[i].engine = &xpdev->xdev->engine_h2c[i];
     }
 
     rv = xpdev_create_interfaces(xpdev);
-    if (rv) {
-        return -ENOMEM;
+    if (rv)
+    {
+        return - ENOMEM;
     }
     return 0;
 }
@@ -101,23 +109,31 @@ static inline void hex_dump(
     char ascii[17];
     size_t i, j;
     ascii[16] = '\0';
-    for (i = 0; i < size; ++i) {
+    for (i = 0; i < size; ++ i)
+    {
         printk("%02X ", ((unsigned char *) data)[i]);
-        if (((unsigned char *) data)[i] >= ' ' && ((unsigned char *) data)[i] <= '~') {
+        if (((unsigned char *) data)[i] >= ' ' && ((unsigned char *) data)[i] <= '~')
+        {
             ascii[i % 16] = ((unsigned char *) data)[i];
-        } else {
+        } else
+        {
             ascii[i % 16] = '.';
         }
-        if ((i + 1) % 8==0 || i + 1==size) {
+        if ((i + 1) % 8 == 0 || i + 1 == size)
+        {
             printk(" ");
-            if ((i + 1) % 16==0) {
+            if ((i + 1) % 16 == 0)
+            {
                 printk("|  %s \n", ascii);
-            } else if (i + 1==size) {
+            } else if (i + 1 == size)
+            {
                 ascii[(i + 1) % 16] = '\0';
-                if ((i + 1) % 16 <= 8) {
+                if ((i + 1) % 16 <= 8)
+                {
                     printk(" ");
                 }
-                for (j = (i + 1) % 16; j < 16; ++j) {
+                for (j = (i + 1) % 16; j < 16; ++ j)
+                {
                     printk("   ");
                 }
                 printk("|  %s \n", ascii);
@@ -151,7 +167,7 @@ void (*do__flush_dcache_area)(void *addr, size_t len);
 
 #if 0
 static void unused() {
-    #ifdef KPROBE_KALLSYMS_LOOKUP
+#ifdef KPROBE_KALLSYMS_LOOKUP
         register_kprobe(&kp);
         kallsyms_lookup_name = (kallsyms_lookup_name_t) kp.addr;
         unregister_kprobe(&kp);
@@ -160,7 +176,7 @@ static void unused() {
             pr_alert("Could not retrieve kallsyms_lookup_name address\n");
             return -ENXIO;
         }
-    #endif
+#endif
 
     do__flush_dcache_area = (void *) kallsyms_lookup_name("__flush_dcache_area");
     if (do__flush_dcache_area==NULL) {
@@ -173,7 +189,7 @@ static void unused() {
     memset(&fd_ctx, 0, sizeof(struct faultdata_driver_struct));
     size_t len = (1 << FAULTDATA_PAGE_ORDER) * PAGE_SIZE;
     fd_ctx.page_order = FAULTDATA_PAGE_ORDER;
-        #if USE_PAGES
+#if USE_PAGES
 //    fd_ctx.page = __get_free_pages(GFP_KERNEL, FAULTDATA_PAGE_ORDER);
 //
 //    if (!fd_ctx.page) {
@@ -187,7 +203,7 @@ static void unused() {
         return -ENOMEM;
     }
 
-            #else
+#else
         // kmalloc(len, GFP_KERNEL );
         volatile char *ptr = (char *) kmalloc(4096 * 15, GFP_KERNEL);
         if (ptr==NULL) {
@@ -195,7 +211,7 @@ static void unused() {
             return -ENOMEM;
         }
         len = 4096 * 16;
-            #endif
+#endif
 
     pr_info("allocating %lx bytes with alloc_pages: %d\n", len, USE_PAGES);
 
@@ -203,7 +219,7 @@ static void unused() {
     HERE;
     faultdata_flush(ptr);
 
-    #if 1
+#if 1
     {
         size_t i;
         int j;
@@ -224,7 +240,7 @@ static void unused() {
     do__flush_dcache_area((void*) ptr, len);
 
 
-    #endif
+#endif
 
 
 }
@@ -236,46 +252,42 @@ extern unsigned long fvp_escape_size;
 
 static int faulthook_init(void)
 {
-    pr_info("size: %lx\n", fvp_escape_size);
-    memset(fvp_escape_page, 'A', fvp_escape_size);
+    pr_info("faulthook page: %lx+%lx\n", (unsigned long) fvp_escape_page, fvp_escape_size);
+    memset(&fd_ctx, 0, sizeof(struct faultdata_driver_struct));
+    memset(fvp_escape_page, 0, fvp_escape_size);
     fd_data = (struct faultdata_struct *) fvp_escape_page;
-    fd_data->magic = FAULTDATA_MAGIC;
-    fd_data->length = PAGE_SIZE;
 
+    fh_do_faulthook(FH_ACTION_SETUP);
     return 0;
 }
 
 
-void fh_do_faulthook()
+int fh_do_faulthook(int action)
 {
-    // faultdata_flush(fd_data);
-    unsigned long nonce = fd_ctx.fh_nonce++;
-    // pr_info("flush with nonce: %ld\n", nonce);
+    unsigned long nonce = ++ fd_ctx.fh_nonce;
     fd_data->turn = FH_TURN_HOST;
-    fd_data->nonce = nonce; /* faulthook */
-//    /*
-//     * TODO: Is flush needed? or do we cause several faults?
-//     */
-//    faultdata_flush(fd_data);
-    if (fd_data->turn!=FH_TURN_GUEST) {
+    fd_data->action = action;
+
+    #if defined(__x86_64__) || defined(_M_X64)
+    // flush_cache_all();
+    #else
+    asm volatile("dmb sy");
+    // flush_cache_all();
+    #endif
+
+    fd_data->nonce = nonce; /* escape to other world */
+    if (fd_data->turn != FH_TURN_GUEST)
+    {
         pr_err("Host did not reply to request. Nonce: 0x%lx. Is host listening?", nonce);
+        return -ENXIO;
     }
+    return 0;
 }
 
 static int faulthook_cleanup(void)
 {
-    if (fd_data) {
-        /*
-         * We clear magic such that upon reload we dont get several hits with the same magic
-         */
-        fd_data->magic = 0;
-//        #if USE_PAGES
-//        if (fd_ctx.page)
-//        __free_pages(fd_ctx.page, FAULTDATA_PAGE_ORDER);
-//        #else
-//        kfree(fd_data);
-//        #endif
-    }
+    fh_do_faulthook(FH_ACTION_TEARDOWN);
+    memset(fvp_escape_page, 0, fvp_escape_size);
     return 0;
 }
 
@@ -285,36 +297,19 @@ static int xdma_mod_init(void)
     int rv;
     rv = xdma_cdev_init();
 
-    if (rv < 0) {
+    if (rv < 0)
+    {
         return rv;
     }
     rv = enable_stub_devices();
-    if (rv!=0) {
+    if (rv != 0)
+    {
         pr_err("enable_stub_devices failed\n");
         return rv;
     }
-
-    #if 0
-    rawdataStart = (char*) ioremap(RAW_DATA_OFFSET, RAW_DATA_SIZE);
-    if (rawdataStart!=NULL){
-        printk("rawdataStart at:%p  \n", rawdataStart);
-        memset(rawdataStart, 'c', RAW_DATA_SIZE);
-        size_t i =0;
-        for(i = 0; i < RAW_DATA_SIZE; i ++) {
-            if (i % 4096 == 0) {
-                pr_info("%ld\n", i);
-                *((unsigned long*)  rawdataStart + i) = 0x00112233112233;
-            }
-        }
-
-    }else{
-        printk("rawdataStart is NULL \n");
-        return -1;
-    }
-    #endif
-
     rv = faulthook_init();
-    if (rv!=0) {
+    if (rv != 0)
+    {
         pr_err("faulthook_init failed\n");
     }
     return 0;

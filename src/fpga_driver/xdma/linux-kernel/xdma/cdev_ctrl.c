@@ -76,16 +76,16 @@ static ssize_t char_ctrl_read(struct file *fp, char __user
 
 /* only 32-bit aligned and 32-bit multiples */
     if (*pos & 3)
-        return -EPROTO;
+        return - EPROTO;
 /* first address is BAR base plus file position offset */
     reg = xdev->bar[xcdev->bar] + *pos;
 //w = read_register(reg);
     w = ioread32(reg);
-    dbg_sg("%s(@%p, count=%ld, pos=%d) value = 0x%08x\n",
-           __func__, reg, (long) count, (int) *pos, w);
+            dbg_sg("%s(@%p, count=%ld, pos=%d) value = 0x%08x\n",
+                   __func__, reg, (long) count, (int) *pos, w);
     rv = copy_to_user(buf, &w, 4);
     if (rv)
-            dbg_sg("Copy to userspace failed but continuing\n");
+                dbg_sg ("Copy to userspace failed but continuing\n");
 
     *pos += 4;
     return 4;
@@ -114,7 +114,7 @@ static ssize_t char_ctrl_write(struct file *file, const char __user
 
 /* only 32-bit aligned and 32-bit multiples */
     if (*pos & 3)
-        return -EPROTO;
+        return - EPROTO;
 
 /* first address is BAR base plus file position offset */
     reg = xdev->bar[xcdev->bar] + *pos;
@@ -122,8 +122,8 @@ static ssize_t char_ctrl_write(struct file *file, const char __user
     if (rv)
         pr_info("copy from user failed %d/4, but continuing.\n", rv);
 
-    dbg_sg("%s(0x%08x @%p, count=%ld, pos=%d)\n",
-           __func__, w, reg, (long) count, (int) *pos);
+            dbg_sg("%s(0x%08x @%p, count=%ld, pos=%d)\n",
+                   __func__, w, reg, (long) count, (int) *pos);
 //write_register(w, reg);
     iowrite32(w, reg
     );
@@ -141,10 +141,11 @@ static long version_ioctl(struct xdma_cdev *xcdev, void __user
     int rv;
 
     rv = copy_from_user((void *) &obj, arg, sizeof(struct xdma_ioc_info));
-    if (rv) {
+    if (rv)
+    {
         pr_info("copy from user failed %d/%ld.\n",
                 rv, sizeof(struct xdma_ioc_info));
-        return -EFAULT;
+        return - EFAULT;
     }
     memset(&obj, 0, sizeof(obj));
     obj.
@@ -170,7 +171,7 @@ static long version_ioctl(struct xdma_cdev *xcdev, void __user
     if (
             copy_to_user(arg,
                          &obj, sizeof(struct xdma_ioc_info)))
-        return -EFAULT;
+        return - EFAULT;
     return 0;
 }
 
@@ -198,7 +199,8 @@ void (*orig_unmap_mapping_page)(struct page *page);
 
 static int kprobe_init = 0;
 
-typedef struct {
+typedef struct
+{
     size_t pid;
     pgd_t *pgd;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0)
@@ -216,7 +218,7 @@ typedef struct {
 static int resolve_vm(struct mm_struct *mm, size_t addr, vm_t *entry, int lock)
 {
 
-    if (!entry) return 1;
+    if (! entry) return 1;
     entry->pud = NULL;
     entry->pmd = NULL;
     entry->pgd = NULL;
@@ -233,7 +235,8 @@ static int resolve_vm(struct mm_struct *mm, size_t addr, vm_t *entry, int lock)
 
     /* Return PGD (page global directory) entry */
     entry->pgd = pgd_offset(mm, addr);
-    if (pgd_none(*(entry->pgd)) || pgd_bad(*(entry->pgd))) {
+    if (pgd_none(*(entry->pgd)) || pgd_bad(*(entry->pgd)))
+    {
         entry->pgd = NULL;
         goto error_out;
     }
@@ -242,14 +245,16 @@ static int resolve_vm(struct mm_struct *mm, size_t addr, vm_t *entry, int lock)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0)
     /* Return p4d offset */
     entry->p4d = p4d_offset(entry->pgd, addr);
-    if (p4d_none(*(entry->p4d)) || p4d_bad(*(entry->p4d))) {
+    if (p4d_none(*(entry->p4d)) || p4d_bad(*(entry->p4d)))
+    {
         entry->p4d = NULL;
         goto error_out;
     }
 
     /* Get offset of PUD (page upper directory) */
     entry->pud = pud_offset(entry->p4d, addr);
-    if (pud_none(*(entry->pud))) {
+    if (pud_none(*(entry->pud)))
+    {
         entry->pud = NULL;
         goto error_out;
     }
@@ -266,14 +271,16 @@ static int resolve_vm(struct mm_struct *mm, size_t addr, vm_t *entry, int lock)
 
     /* Get offset of PMD (page middle directory) */
     entry->pmd = pmd_offset(entry->pud, addr);
-    if (pmd_none(*(entry->pmd)) || pud_large(*(entry->pud))) {
+    if (pmd_none(*(entry->pmd)) || pud_large(*(entry->pud)))
+    {
         entry->pmd = NULL;
         goto error_out;
     }
 
     /* Map PTE (page table entry) */
     entry->pte = pte_offset_map(entry->pmd, addr);
-    if (entry->pte==NULL || pmd_large(*(entry->pmd))) {
+    if (entry->pte == NULL || pmd_large(*(entry->pmd)))
+    {
         entry->pte = NULL;
         goto error_out;
     }
@@ -337,7 +344,7 @@ static void dump_pagetable(unsigned long address)
      * And let's rather not kmap-atomic the pte, just in case
      * it's allocated already:
      */
-    if (!low_pfn(pmd_pfn(*pmd)) || !pmd_present(*pmd) || pmd_large(*pmd))
+    if (! low_pfn(pmd_pfn(*pmd)) || ! pmd_present(*pmd) || pmd_large(*pmd))
         goto out;
 
     pte = pte_offset_kernel(pmd, address);
@@ -355,17 +362,20 @@ static inline struct mm_struct *get_mm(size_t pid)
 
     /* Find mm */
     task = current;
-    if (pid!=0) {
+    if (pid != 0)
+    {
         vpid = find_vpid(pid);
-        if (!vpid)
+        if (! vpid)
             return NULL;
         task = pid_task(vpid, PIDTYPE_PID);
-        if (!task)
+        if (! task)
             return NULL;
     }
-    if (task->mm) {
+    if (task->mm)
+    {
         return task->mm;
-    } else {
+    } else
+    {
         return task->active_mm;
     }
     return NULL;
@@ -379,7 +389,8 @@ void (*_flush_tlb_mm_range)(struct mm_struct *mm, unsigned long start,
 #define _flush_tlb_mm(mm)                        \
         _flush_tlb_mm_range(mm, 0UL, TLB_FLUSH_ALL, 0UL, true)
 
-struct protect_pid_struct {
+struct protect_pid_struct
+{
     struct work_struct work;
     struct mm_struct *mm;
     unsigned long addr;
@@ -399,29 +410,33 @@ static bool ensure_lookup_init = 0;
 
 static int ensure_lookup(void)
 {
-    if (!ensure_lookup_init) {
+    if (! ensure_lookup_init)
+    {
         #ifdef KPROBE_KALLSYMS_LOOKUP
         ensure_lookup_init = 1;
         register_kprobe(&kp);
         kallsyms_lookup_name = (kallsyms_lookup_name_t) kp.addr;
         unregister_kprobe(&kp);
 
-        if (!unlikely(kallsyms_lookup_name)) {
+        if (! unlikely(kallsyms_lookup_name))
+        {
             pr_alert("Could not retrieve kallsyms_lookup_name address\n");
-            return -ENXIO;
+            return - ENXIO;
         }
         #endif
 
         _flush_tlb_mm_range = (void *) kallsyms_lookup_name("flush_tlb_mm_range");
-        if (_flush_tlb_mm_range==NULL) {
+        if (_flush_tlb_mm_range == NULL)
+        {
             pr_info("lookup failed flush_tlb_mm_range\n");
-            return -ENXIO;
+            return - ENXIO;
         }
 
         orig_mprotect_pkey = (void *) kallsyms_lookup_name("do_mprotect_pkey");
-        if (orig_mprotect_pkey==NULL) {
+        if (orig_mprotect_pkey == NULL)
+        {
             pr_info("lookup failed orig_mprotect_pkey\n");
-            return -ENXIO;
+            return - ENXIO;
         }
     }
 
@@ -444,7 +459,7 @@ static void protect_pid_worker(struct work_struct *work)
     ensure_lookup();
     data->ret_value = orig_mprotect_pkey(data->addr,
                                          data->len,
-                                         data->prot, -1);
+                                         data->prot, - 1);
     HERE;
     kthread_unuse_mm(data->mm);
 }
@@ -466,13 +481,16 @@ static long protect_pid(
     struct mm_struct *mm = NULL;
     ensure_lookup();
 
-    if (pid==current->pid) {
-        return orig_mprotect_pkey(addr, len, prot, -1);
-    } else {
+    if (pid == current->pid)
+    {
+        return orig_mprotect_pkey(addr, len, prot, - 1);
+    } else
+    {
         mm = get_mm(pid);
-        if (mm==NULL) {
+        if (mm == NULL)
+        {
             pr_info("invalid pid\n");
-            ret = -EFAULT;
+            ret = - EFAULT;
             goto clean_up;
         }
 
@@ -504,8 +522,6 @@ static long protect_pid(
 static long char_unmap_ioctl(struct file *filp, struct xdma_ioc_faulthook_mmap *io)
 {
     int ret = 0;
-    unsigned long addr = io->addr;
-    unsigned long size = io->size;
 
     #if 0
     /*
@@ -559,39 +575,61 @@ static long char_unmap_ioctl(struct file *filp, struct xdma_ioc_faulthook_mmap *
 static long char_mmap_ioctl(struct file *filp, struct xdma_ioc_faulthook_mmap *io)
 {
     int ret = 0;
-    unsigned long addr = io->addr;
-    unsigned long size = io->size;
+    unsigned long addrs[64];
+    if (io->addr_size > 64)
+    {
+        return - EINVAL;
+
+    }
+
+    ret = copy_from_user((void *) &addrs, (void __user *) io->addr,
+                         io->addr_size * sizeof(unsigned long));
+    if (ret != 0) {
+        pr_info("copy failed\n");
+        return ret;
+    }
+
+    unsigned long addr = addrs[0];
+    unsigned long size = PAGE_SIZE;
+
+    pr_info("addr: %lx, size: %lx\n",  addr, size);
 
     ret = ensure_lookup();
-    if (ret!=0) {
+    if (ret != 0)
+    {
         pr_info("lookup failed\n");
         return ret;
     }
 
     struct mm_struct *mm = current->mm;
-    if (io->pid!=0) {
+    if (io->pid != 0)
+    {
         pr_info("using other process pid\n");
         mm = get_mm(io->pid);
-        if (mm==NULL) {
+        if (mm == NULL)
+        {
             pr_info("invalid pid\n");
-            return -EFAULT;
+            return - EFAULT;
         }
     }
     struct vm_area_struct *vma = find_vma(mm, addr);
-    if (vma==NULL) {
+    if (vma == NULL)
+    {
         pr_info("addr not found in vma\n");
-        return -EFAULT;
+        return - EFAULT;
     }
-    if (addr >= vma->vm_end) {
+    if (addr >= vma->vm_end)
+    {
         pr_info("addr not found in vma\n");
-        return -EFAULT;
+        return - EFAULT;
     }
 
     vm_t vm;
     ret = resolve_vm(mm, addr, &vm, 1);
-    if (ret!=0) {
+    if (ret != 0)
+    {
         pr_info("pte lookup failed\n");
-        return -ENXIO;
+        return - ENXIO;
     }
 
     ret = protect_pid(
@@ -600,9 +638,10 @@ static long char_mmap_ioctl(struct file *filp, struct xdma_ioc_faulthook_mmap *i
             size,
             (PROT_EXEC | PROT_READ | PROT_WRITE)
     );
-    if (ret!=0) {
+    if (ret != 0)
+    {
         pr_info("protect failed for addr %ld\n", addr);
-        return -EFAULT;
+        return - EFAULT;
     }
 
     // TODO: is cache flush needed? Test it
@@ -610,7 +649,9 @@ static long char_mmap_ioctl(struct file *filp, struct xdma_ioc_faulthook_mmap *i
 
     pr_info("page table before mapping\n");
     dump_pagetable(addr);
+
     /* clear mapping, we dont care about restoring for now */
+
     vm.pte->pte = 0;
     vma->vm_pgoff = io->vm_pgoff;
 
@@ -765,42 +806,48 @@ long char_ctrl_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
         return rv;
 
     xdev = xcdev->xdev;
-    if (!xdev) {
+    if (! xdev)
+    {
         pr_info("cmd %u, xdev NULL.\n", cmd);
-        return -EINVAL;
+        return - EINVAL;
     }
     pr_info("cmd 0x%x, xdev 0x%p, pdev 0x%p.\n", cmd, xdev, xdev->pdev);
 
-    if (_IOC_TYPE(cmd)!=XDMA_IOC_MAGIC) {
+    if (_IOC_TYPE(cmd) != XDMA_IOC_MAGIC)
+    {
         pr_err("cmd %u, bad magic 0x%x/0x%x.\n",
                cmd, _IOC_TYPE(cmd), XDMA_IOC_MAGIC);
-        return -ENOTTY;
+        return - ENOTTY;
     }
 
     if (_IOC_DIR(cmd) & _IOC_READ)
-        result = !xlx_access_ok(VERIFY_WRITE, (void __user *)arg,
-                                _IOC_SIZE(cmd));
+        result = ! xlx_access_ok(VERIFY_WRITE, (void __user *)arg,
+                                 _IOC_SIZE(cmd));
     else if (_IOC_DIR(cmd) & _IOC_WRITE)
-        result = !xlx_access_ok(VERIFY_READ, (void __user *)arg,
-                                _IOC_SIZE(cmd));
+        result = ! xlx_access_ok(VERIFY_READ, (void __user *)arg,
+                                 _IOC_SIZE(cmd));
 
-    if (result) {
+    if (result)
+    {
         pr_err("bad access %ld.\n", result);
-        return -EFAULT;
+        return - EFAULT;
     }
 
-    switch (cmd) {
+    switch (cmd)
+    {
         case XDMA_IOCINFO:
             if (copy_from_user((void *) &ioctl_obj, (void __user *) arg,
-                               sizeof(struct xdma_ioc_base))) {
+                               sizeof(struct xdma_ioc_base)))
+            {
                 pr_err("copy_from_user failed.\n");
-                return -EFAULT;
+                return - EFAULT;
             }
 
-            if (ioctl_obj.magic!=XDMA_XCL_MAGIC) {
+            if (ioctl_obj.magic != XDMA_XCL_MAGIC)
+            {
                 pr_err("magic 0x%x !=  XDMA_XCL_MAGIC (0x%x).\n",
                        ioctl_obj.magic, XDMA_XCL_MAGIC);
-                return -ENOTTY;
+                return - ENOTTY;
             }
             return version_ioctl(xcdev, (
                     void __user
@@ -809,31 +856,34 @@ long char_ctrl_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
             break;
         case XDMA_IOCONLINE: xdma_device_online(xdev->pdev, xdev);
             break;
-        case XDMA_IOCMMAP: {
+        case XDMA_IOCMMAP:
+        {
             struct xdma_ioc_faulthook_mmap obj;
             rv = copy_from_user((void *) &obj,
-                                (
-                                        void __user
-                                        *) arg,
+                                (void __user *) arg,
                                 sizeof(struct xdma_ioc_faulthook_mmap));
-            if (rv) {
+            if (rv)
+            {
                 pr_info("copy from user failed %d/%ld.\n",
                         rv, sizeof(struct xdma_ioc_faulthook_mmap));
-                return -EFAULT;
+                return - EFAULT;
             }
             pr_info("FAULTHOOK_IOMMAP");
-            if (obj.map_type==0) {
+            if (obj.map_type == 0)
+            {
                 rv = char_mmap_ioctl(filp, &obj);
-            } else {
+            } else
+            {
                 rv = char_unmap_ioctl(filp, &obj);
             }
-            if (rv) {
+            if (rv)
+            {
                 return rv;
             }
             break;
         }
         default: pr_err("UNKNOWN ioctl cmd 0x%x.\n", cmd);
-            return -ENOTTY;
+            return - ENOTTY;
     }
     return 0;
 }
@@ -874,9 +924,10 @@ int bridge_mmap(struct file *file, struct vm_area_struct *vma)
                                                            xcdev->bar));
             dbg_sg("phys = 0x%lx\n", phys);
 
-    if (vsize > psize) {
+    if (vsize > psize)
+    {
         HERE;
-        return -EINVAL;
+        return - EINVAL;
     }
 
 
@@ -906,7 +957,7 @@ int bridge_mmap(struct file *file, struct vm_area_struct *vma)
                    vma, vma->vm_start, phys >> PAGE_SHIFT, vsize, rv);
 
     if (rv)
-        return -EAGAIN;
+        return - EAGAIN;
     return 0;
 }
 

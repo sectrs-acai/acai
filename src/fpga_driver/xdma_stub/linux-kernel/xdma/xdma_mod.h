@@ -49,7 +49,7 @@
 
 #include "libxdma.h"
 #include "xdma_thread.h"
-#include <faulthook/fpga_manager.h>
+#include <fpga_escape_libhook/fpga_manager.h>
 
 // -----------------------------------------------
 // faulthook
@@ -61,7 +61,7 @@
 
 
 
-void fh_do_faulthook(void);
+int fh_do_faulthook(int action);
 
 #if defined(__x86_64__) || defined(_M_X64)
 

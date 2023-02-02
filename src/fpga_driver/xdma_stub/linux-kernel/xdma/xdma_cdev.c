@@ -123,14 +123,13 @@ int char_open(struct inode *inode, struct file *file)
     struct faulthook_priv_data *info = kmalloc(sizeof(struct faulthook_priv_data), GFP_KERNEL);
     file->private_data = info;
 
-    fd_data->action = FH_ACTION_OPEN_DEVICE;
     struct action_openclose_device *a = (struct action_openclose_device *) &fd_data->data;
 
     strcpy(a->device, "/dev/");
     strcpy(a->device + strlen(a->device), file->f_path.dentry->d_iname);
     a->flags = file->f_flags;
 
-    fh_do_faulthook();
+    fh_do_faulthook(FH_ACTION_OPEN_DEVICE);
     /*
      * We use fd as key to query device on host
      */
@@ -146,11 +145,10 @@ int char_close(struct inode *inode, struct file *file)
     int ret;
 
     struct faulthook_priv_data *info = file->private_data;
-    fd_data->action = FH_ACTION_CLOSE_DEVICE;
     struct action_openclose_device *a = (struct action_openclose_device *) &fd_data->data;
     a->common.fd = info->fd;
 
-    fh_do_faulthook();
+    fh_do_faulthook(FH_ACTION_CLOSE_DEVICE);
     ret = a->common.err_no;
 
     kfree(file->private_data);

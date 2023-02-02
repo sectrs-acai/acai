@@ -3,7 +3,6 @@
 #include <linux/ioctl.h>
 #include "xdma_cdev.h"
 
-
 /*
  * character device file operations for control bus (through control bridge)
  */
@@ -13,23 +12,23 @@ static ssize_t char_ctrl_read(struct file *fp, char __user *buf, size_t count,
     NOT_SUPPORTED;
     long ret = 0;
     struct faulthook_priv_data *info = fp->private_data;
-
-    fd_data->action = FH_ACTION_READ;
     struct action_read *a = (struct action_read *) &fd_data->data;
     a->common.fd = info->fd;
     a->offset = *pos;
     a->count = count;
 
-    fh_do_faulthook();
+    fh_do_faulthook(FH_ACTION_READ);
     ret = a->common.ret;
-    if (ret < 0) {
+    if (ret < 0)
+    {
         pr_info("faulthook failed\n");
         return ret;
     }
     pr_info("Got %lx bytes from host read\n", a->buffer_size);
 
     ret = copy_to_user(buf, a->buffer, a->buffer_size);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         pr_info("copy_to_user failed\n");
         return ret;
     }
@@ -45,21 +44,22 @@ static ssize_t char_ctrl_write(struct file *file, const char __user *buf,
     struct faulthook_priv_data *info = file->private_data;
     long ret = 0;
 
-    fd_data->action = FH_ACTION_WRITE;
     struct action_write *a = (struct action_write *) &fd_data->data;
     a->common.fd = info->fd;
     a->offset = *pos;
     a->count = 4; /*=count;*/ // XXX: driver only writes 4 bytes
 
     ret = copy_to_user(a->buffer, buf, a->count);
-    if (ret) {
+    if (ret)
+    {
         pr_info("copy to user failed\n");
         return ret;
     }
-    fh_do_faulthook();
+    fh_do_faulthook(FH_ACTION_WRITE);
 
     ret = a->common.ret;
-    if (ret < 0) {
+    if (ret < 0)
+    {
         pr_info("faulthook failed\n");
         return ret;
     }
@@ -79,55 +79,44 @@ long char_ctrl_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 int bridge_mmap(struct file *file, struct vm_area_struct *vma)
 {
     int ret;
-    unsigned long size;
-    unsigned long pfn_start;
+    ssize_t size;
+    unsigned long pfn_start, order;
     void *virt_start;
-
-    #if 0
-    if (fd_ctx.mmap_busy) {
-        pr_err("another mmap currently mapped\n");
-        return -EBUSY;
-    }
-    #endif
-
     struct faulthook_priv_data *info = file->private_data;
-    size = vma->vm_end - vma->vm_start;
 
-    if (size > 4096) {
-        pr_err("We dont support larger mappings but 1 page. Got: 0x%lx\n", size);
-        return -EINVAL;
-    }
-    if (vma->vm_pgoff > 0) {
-        pr_err("We dont support vm_pgoff larger than 0\n");
-        return -EINVAL;
+    size = vma->vm_end - vma->vm_start - (vma->vm_pgoff << PAGE_SHIFT);
+    pr_info("requesting size: %ld\n", size);
+    if (size < 0)
+    {
+        return - EINVAL;
     }
 
-    const unsigned long mmap_offset_page = 1;
-    const unsigned long mmap_offset_size = mmap_offset_page << PAGE_SHIFT;
+    // TODO tear down logic
 
-    pfn_start = page_to_pfn(fd_ctx.page) + mmap_offset_page;
-    virt_start = page_address(fd_ctx.page) + mmap_offset_size;
+    order = __roundup_pow_of_two(size >> PAGE_SHIFT);
+    pr_info("allocating order: %ld\n", order);
+    if (order != 1)
+    {
+        // XXX: For now we just support 1 page
+        return - EINVAL;
+    }
 
-    #if 0
-    unsigned long page_start = /* start at page boundary on host */ (PAGE_SIZE - fd_ctx.host_pg_offset)
-            /* we have a page as buffer inbetween */ + PAGE_SIZE;
+    vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+    vma->vm_flags |= (VM_IO | VM_DONTEXPAND | VM_DONTDUMP);
 
-    pfn_start = page_to_pfn(fd_ctx.page) + page_start + (vma->vm_pgoff << PAGE_SHIFT);
-    virt_start = page_address(fd_ctx.page) + page_start + (vma->vm_pgoff << PAGE_SHIFT);
-    size = min(((1 << PAGE_ORDER) - vma->vm_pgoff) << PAGE_SHIFT,
-               vma->vm_end - vma->vm_start);
+    void *data = (void *) __get_free_pages(GFP_KERNEL, order);
+    if (data == NULL)
+    {
+        pr_info("__get_free_pages failed\n");
+        return - EINVAL;
+    }
+    memset(data, 0, size);
 
-    printk("phys_start: 0x%lx, offset: 0x%lx, vma_size: 0x%lx, map size:0x%lx\n",
-           pfn_start << PAGE_SHIFT, vma->vm_pgoff << PAGE_SHIFT,
-           vma->vm_end - vma->vm_start, size);
-//    if (size <= 0) {
-//        printk("%s: offset 0x%lx too large, max size is 0x%lx\n", __func__,
-//               vma->vm_pgoff << PAGE_SHIFT, MAX_SIZE);
-//        return -EINVAL;
-//    }
-    #endif
+    *(((int *) data)) = 2;
 
-    fd_data->action = FH_ACTION_MMAP;
+    pfn_start = page_to_pfn(virt_to_page(data));
+    pr_info("pfn: %lx\n", pfn_start);
+
     struct action_mmap_device *a = (struct action_mmap_device *) &fd_data->data;
     a->common.fd = info->fd;
     a->vm_start = vma->vm_start;
@@ -135,35 +124,33 @@ int bridge_mmap(struct file *file, struct vm_area_struct *vma)
     a->vm_pgoff = vma->vm_pgoff;
     a->vm_flags = vma->vm_flags;
     a->vm_page_prot = (unsigned long) vma->vm_page_prot.pgprot;
-    a->mmap_guest_kernel_offset = mmap_offset_size;
+    a->pfn_size = 1;
+    a->pfn[0] = pfn_start;
 
-    fh_do_faulthook();
-    if (a->common.ret < 0) {
+    ret = fh_do_faulthook(FH_ACTION_MMAP);
+    if (ret < 0) {
+        goto clean_up_and_return;
+    }
+    if (a->common.ret < 0)
+    {
         ret = a->common.err_no;
         goto clean_up_and_return;
     }
-
-    pr_info("action_mmap device succeeded\n");
-
-    vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
-    vma->vm_flags |= (VM_IO | VM_DONTEXPAND | VM_DONTDUMP);
-
     ret = remap_pfn_range(vma, vma->vm_start, pfn_start, size, vma->vm_page_prot);
-
-    if (ret) {
+    if (ret)
+    {
         printk("remap_pfn_range failed, vm_start: 0x%lx\n", vma->vm_start);
         goto clean_up_and_return;
     }
     printk("map kernel 0x%px to user 0x%lx, size: 0x%lx\n",
            virt_start, vma->vm_start, size);
 
-    fd_ctx.mmap_page_len = mmap_offset_size;
-    fd_ctx.mmap_page = (unsigned long) virt_start;
-
-    fd_ctx.mmap_busy = 1;
-
     ret = 0;
     clean_up_and_return:
+    if (data != NULL)
+    {
+        free_pages((unsigned long) data, order);
+    }
     return ret;
 }
 
