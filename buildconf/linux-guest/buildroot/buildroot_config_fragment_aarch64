@@ -175,6 +175,7 @@ BR2_TARGET_ROOTFS_EXT2_SIZE="70M"
 # user packages
 # BR2_PACKAGE_TMUX=y
 BR2_PACKAGE_SCREEN=y
+BR2_PACKAGE_BASH=y
 
 
 # for now we dont need openssh!
