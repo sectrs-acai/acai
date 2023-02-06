@@ -3,7 +3,6 @@
 
 #define FAULTDATA_MAGIC 0xAABBCCDDEEFF9984
 
-
 struct __attribute__((__packed__))  faultdata_struct
 {
     volatile unsigned long nonce; // fault
@@ -165,5 +164,12 @@ struct ACTION_MODIFIER action_init_guest
     unsigned long host_offset;
 };
 
+struct ACTION_MODIFIER action_ioctl
+{
+    struct action_common common;
+    unsigned int cmd;
+    unsigned long arg;
+
+};
 
 #endif
