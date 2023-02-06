@@ -224,7 +224,6 @@ static int create_xcdev(struct xdma_pci_dev *xpdev, struct xdma_cdev *xcdev,
     int minor;
     struct xdma_dev *xdev = xpdev->xdev;
     dev_t dev;
-    HERE;
 
     spin_lock_init(&xcdev->lock);
     /* new instance? */
@@ -239,7 +238,6 @@ static int create_xcdev(struct xdma_pci_dev *xpdev, struct xdma_cdev *xcdev,
         }
         xpdev->major = MAJOR(dev);
     }
-    HERE;
 
     /*
      * do not register yet, create kobjects and name them,
@@ -251,15 +249,11 @@ static int create_xcdev(struct xdma_pci_dev *xpdev, struct xdma_cdev *xcdev,
     xcdev->engine = engine;
     xcdev->bar = bar;
 
-    // TODO: do we need to config kobjects?
-    #if 1
     rv = config_kobject(xcdev, type);
     if (rv < 0) {
         return rv;
     }
-    #endif
 
-    HERE;
     switch (type) {
         case CHAR_USER:
         case CHAR_CTRL:
@@ -295,26 +289,23 @@ static int create_xcdev(struct xdma_pci_dev *xpdev, struct xdma_cdev *xcdev,
     }
     xcdev->cdevno = MKDEV(xpdev->major, minor);
 
-    HERE;
-
     /* bring character device live */
     rv = cdev_add(&xcdev->cdev, xcdev->cdevno, 1);
     if (rv < 0) {
         pr_err("cdev_add failed %d, type 0x%x.\n", rv, type);
         goto unregister_region;
     }
-    HERE;
+
     pr_info("xcdev 0x%p, %u:%u, %s, type 0x%x.\n",
             xcdev, xpdev->major, minor, xcdev->cdev.kobj.name, type);
     /* create device on our class */
-    HERE;
+
     if (g_xdma_class) {
         rv = create_sys_device(xcdev, type);
         if (rv < 0) {
             goto del_cdev;
         }
     }
-    HERE;
     return 0;
 
     del_cdev:
@@ -424,7 +415,6 @@ int xpdev_create_interfaces(struct xdma_pci_dev *xpdev)
     int i;
     int rv = 0;
 
-    HERE;
     /* initialize control character device */
     rv = create_xcdev(xpdev, &xpdev->ctrl_cdev, xdev->config_bar_idx,
                       NULL, CHAR_CTRL);
@@ -432,11 +422,10 @@ int xpdev_create_interfaces(struct xdma_pci_dev *xpdev)
         pr_err("create_char(ctrl_cdev) failed\n");
         goto fail;
     }
-    HERE;
+
     xpdev_flag_set(xpdev, XDF_CDEV_CTRL);
 
     pr_info("xpdev->user_max: %d\n", xpdev->user_max);
-    HERE;
     /* initialize events character device */
     for (i = 0; i < xpdev->user_max; i++) {
         rv = create_xcdev(xpdev, &xpdev->events_cdev[i], i, NULL,
@@ -455,7 +444,6 @@ int xpdev_create_interfaces(struct xdma_pci_dev *xpdev)
 
         if (engine->magic!=MAGIC_ENGINE) {
             pr_info("engine mismatch\n");
-            HERE;
             continue;
         }
 

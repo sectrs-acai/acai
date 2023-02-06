@@ -43,7 +43,6 @@ static int enable_stub_devices(void)
     }
     memset(xpdev, 0, sizeof(struct xdma_pci_dev));
 
-
     xdev = kmalloc(sizeof(struct xdma_dev), GFP_KERNEL);
     if (! xdev)
     {
@@ -60,10 +59,11 @@ static int enable_stub_devices(void)
     memset(pci_dev, 0, sizeof(struct pci_dev));
     xpdev->pdev = pci_dev;
 
+    /*
+     * We fake 4 c2h and h2c devices
+     */
     xpdev->c2h_channel_max = 4;
     xpdev->h2c_channel_max = 4;
-
-    HERE;
 
     for (i = 0; i < xpdev->c2h_channel_max; i ++)
     {
@@ -85,7 +85,6 @@ static int enable_stub_devices(void)
     {
         xpdev->sgdma_h2c_cdev[i].engine = &xpdev->xdev->engine_h2c[i];
     }
-
     rv = xpdev_create_interfaces(xpdev);
     if (rv)
     {
@@ -174,5 +173,6 @@ static void xdma_mod_exit(void)
 }
 
 module_init(xdma_mod_init);
+
 module_exit(xdma_mod_exit);
 MODULE_LICENSE("GPL");
