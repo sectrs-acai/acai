@@ -48,6 +48,7 @@
 
 #include "libxdma.h"
 #include "xdma_thread.h"
+#include "fvp_escape.h"
 
 #define PTR_FMT "0x%llx"
 #define HERE pr_info("%s/%s: %d\n", __FILE__, __FUNCTION__, __LINE__)

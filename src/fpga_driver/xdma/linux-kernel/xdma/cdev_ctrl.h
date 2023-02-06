@@ -53,7 +53,9 @@ enum XDMA_IOC_TYPES {
     XDMA_IOC_ONLINE,
     XDMA_IOC_MAX,
 
+    // faulthook
     XDMA_IOC_MMAP,
+    XDMA_IOC_UNMMAP,
 };
 
 struct xdma_ioc_base {
@@ -76,14 +78,20 @@ struct xdma_ioc_info {
     unsigned char func;
 };
 
-// for unmap only addr and map_type must be present
+
 struct xdma_ioc_faulthook_mmap {
     struct xdma_ioc_base base;
-    int map_type; /*0 is map, 1 is unmap */
     pid_t pid;
     unsigned long vm_pgoff;
     unsigned long vm_flags;
     unsigned long vm_page_prot;
+    unsigned long addr_size;
+    unsigned long *addr;
+
+};
+
+struct xdma_ioc_faulthook_unmmap {
+    pid_t pid;
     unsigned long addr_size;
     unsigned long *addr;
 
@@ -95,6 +103,9 @@ struct xdma_ioc_faulthook_mmap {
 
 #define XDMA_IOCMMAP        _IOWR(XDMA_IOC_MAGIC, XDMA_IOC_MMAP, \
                     struct xdma_ioc_faulthook_mmap)
+
+#define XDMA_IOCUNMMAP        _IOWR(XDMA_IOC_MAGIC, XDMA_IOC_UNMMAP, \
+                    struct xdma_ioc_faulthook_unmmap)
 
 #define XDMA_IOCOFFLINE        _IO(XDMA_IOC_MAGIC, XDMA_IOC_OFFLINE)
 #define XDMA_IOCONLINE        _IO(XDMA_IOC_MAGIC, XDMA_IOC_ONLINE)

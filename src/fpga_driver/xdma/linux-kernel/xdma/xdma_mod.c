@@ -358,6 +358,12 @@ static int xdma_mod_init(void)
 
 	pr_info("%s", version);
 
+    rv = fvp_escape_init();
+    if (rv != 0)
+    {
+        pr_info("fvp lookup failed\n");
+        return rv;
+    }
 	if (desc_blen_max > XDMA_DESC_BLEN_MAX)
 		desc_blen_max = XDMA_DESC_BLEN_MAX;
 	pr_info("desc_blen_max: 0x%x/%u, timeout: h2c %u c2h %u sec.\n",
