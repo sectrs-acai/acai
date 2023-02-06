@@ -32,7 +32,7 @@ endif
 #EXTRA_CFLAGS += -DINTERNAL_TESTING
 
 ifneq ($(KERNELRELEASE),)
-	$(TARGET_MODULE)-objs :=  xdma_cdev.o cdev_ctrl.o cdev_events.o cdev_sgdma.o cdev_xvc.o cdev_bypass.o xdma_mod.o
+	$(TARGET_MODULE)-objs :=  xdma_cdev.o cdev_ctrl.o cdev_events.o cdev_sgdma.o cdev_xvc.o cdev_bypass.o xdma_mod.o fvp_escape.o
 	obj-m := $(TARGET_MODULE).o
 	EXTRA_CFLAGS+=-I$(PWD)/../../..
 else

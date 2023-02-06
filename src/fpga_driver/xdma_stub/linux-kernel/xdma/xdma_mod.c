@@ -18,9 +18,6 @@ struct xdma_pci_dev *xpdev = NULL;
 
 #define  VM_RESERVED   (VM_DONTEXPAND | VM_DONTDUMP)
 
-struct faultdata_driver_struct fd_ctx;
-extern unsigned long *fvp_escape_page;
-extern unsigned long fvp_escape_size;
 
 static int enable_stub_devices(void)
 {
@@ -95,7 +92,7 @@ static int enable_stub_devices(void)
 
 static void xpdev_free(void)
 {
-    struct xdma_dev *xdev = xpdev->xdev;
+    // struct xdma_dev *xdev = xpdev->xdev;
     xpdev_destroy_interfaces(xpdev);
     xdma_cdev_cleanup();
     xpdev->xdev = NULL;
@@ -104,50 +101,10 @@ static void xpdev_free(void)
 }
 
 
-static int faulthook_init(void)
-{
-    pr_info("faulthook page: %lx+%lx\n", (unsigned long) fvp_escape_page, fvp_escape_size);
-    memset(&fd_ctx, 0, sizeof(struct faultdata_driver_struct));
-    memset(fvp_escape_page, 0, fvp_escape_size);
-    fd_data = (struct faultdata_struct *) fvp_escape_page;
-
-    fh_do_faulthook(FH_ACTION_SETUP);
-    return 0;
-}
-
-
-int fh_do_faulthook(int action)
-{
-    unsigned long nonce = ++ fd_ctx.fh_nonce;
-    fd_data->turn = FH_TURN_HOST;
-    fd_data->action = action;
-
-    #if defined(__x86_64__) || defined(_M_X64)
-    #else
-    asm volatile("dmb sy");
-    #endif
-    fd_data->nonce = nonce; /* escape to other world */
-    if (fd_data->turn != FH_TURN_GUEST)
-    {
-        pr_err("Host did not reply to request. Nonce: 0x%lx. Is host listening?", nonce);
-        return - ENXIO;
-    }
-    return 0;
-}
-
-static int faulthook_cleanup(void)
-{
-    fh_do_faulthook(FH_ACTION_TEARDOWN);
-    memset(fvp_escape_page, 0, fvp_escape_size);
-    return 0;
-}
-
-
 static int xdma_mod_init(void)
 {
     int rv;
     rv = xdma_cdev_init();
-
     if (rv < 0)
     {
         return rv;
@@ -173,6 +130,5 @@ static void xdma_mod_exit(void)
 }
 
 module_init(xdma_mod_init);
-
 module_exit(xdma_mod_exit);
 MODULE_LICENSE("GPL");

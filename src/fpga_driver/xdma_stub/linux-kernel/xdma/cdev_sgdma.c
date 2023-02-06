@@ -37,14 +37,14 @@ static ssize_t char_sgdma_write(struct file *file, const char __user *buf,
                                 size_t count, loff_t *pos)
 {
     NOT_SUPPORTED;
-    return 0;
+    return -EINVAL;
 }
 
 static ssize_t char_sgdma_read(struct file *file, char __user *buf,
                                size_t count, loff_t *pos)
 {
     NOT_SUPPORTED;
-    return 0;
+    return -EINVAL;
 }
 
 static ssize_t cdev_aio_write(struct kiocb *iocb, const struct iovec *io,
@@ -66,13 +66,13 @@ static ssize_t cdev_aio_read(struct kiocb *iocb, const struct iovec *io,
 static ssize_t cdev_write_iter(struct kiocb *iocb, struct iov_iter *io)
 {
     NOT_SUPPORTED;
-    return 0;
+    return -EINVAL;
 }
 
 static ssize_t cdev_read_iter(struct kiocb *iocb, struct iov_iter *io)
 {
     NOT_SUPPORTED;
-    return 0;
+    return -EINVAL;
 }
 
 #endif
@@ -133,7 +133,7 @@ static int ioctl_do_aperture_dma(struct file *file, struct xdma_engine *engine, 
 
     return io.error;
     #endif
-    return 0;
+    return -EINVAL;
 }
 
 
@@ -157,19 +157,19 @@ static long char_sgdma_ioctl(struct file *file, unsigned int cmd,
 static int char_sgdma_open(struct inode *inode, struct file *file)
 {
     NOT_SUPPORTED;
-    return 0;
+    return -EINVAL;
 }
 
 static int char_sgdma_close(struct inode *inode, struct file *file)
 {
     NOT_SUPPORTED;
-    return 0;
+    return -EINVAL;
 }
 
 static const struct file_operations sgdma_fops = {
         .owner = THIS_MODULE,
-        .open = char_open,
-        .release = char_close,
+        .open = fh_char_open,
+        .release = fh_char_close,
         .write = char_sgdma_write,
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 16, 0)
         .write_iter = cdev_write_iter,

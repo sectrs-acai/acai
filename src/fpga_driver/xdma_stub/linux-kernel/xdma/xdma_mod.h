@@ -49,53 +49,7 @@
 
 #include "libxdma.h"
 #include "xdma_thread.h"
-#include <fpga_escape_libhook/fpga_manager.h>
-
-// -----------------------------------------------
-// faulthook
-#include <asm/cacheflush.h>
-
-#define HERE pr_info("%s/%s: %d\n", __FILE__, __FUNCTION__, __LINE__)
-#define NOT_SUPPORTED pr_alert("Operation not supported: %s/%s: %d\n", __FILE__, __FUNCTION__, __LINE__)
-#define PTR_FMT "0x%llx"
-
-
-
-int fh_do_faulthook(int action);
-
-#if defined(__x86_64__) || defined(_M_X64)
-
-#define faultdata_flush(faultdata) \
-flush_cache_all()
-
-#else
-#define faultdata_flush(faultdata) \
-asm volatile("dmb sy"); flush_cache_all()
-#endif
-
-#define USE_PAGES 0
-#define FAULTDATA_PAGE_ORDER 4
-
-struct faultdata_driver_struct {
-    struct faultdata_struct *fd_data;
-    struct page *page;
-    unsigned long page_order;
-    unsigned long fh_nonce;
-    unsigned long host_pg_offset;
-    unsigned long mmap_page; /* address to mapped page of mmap operation  (this->page with some offset) */
-    unsigned long mmap_page_len;
-    bool mmap_busy;
-};
-#define fd_data (fd_ctx.fd_data)
-
-extern struct faultdata_driver_struct fd_ctx;
-
-struct faulthook_priv_data {
-    int fd;
-};
-
-// -----------------------------------------------
-
+#include "fvp_escape.h"
 
 #define MAGIC_ENGINE    0xEEEEEEEEUL
 #define MAGIC_DEVICE    0xDDDDDDDDUL
