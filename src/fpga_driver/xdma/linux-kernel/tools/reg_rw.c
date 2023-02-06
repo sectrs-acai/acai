@@ -66,8 +66,8 @@ int main(int argc, char **argv)
 	offset = target & (pgsz - 1);
 	target_aligned = target & (~(pgsz - 1));
 
-    printf("device: %s, target: 0x%lx, pgsz: 0x%lx, offset: 0x%lx, target_aligned: 0x%lx\n",
-           device, target, pgsz, offset, target_aligned);
+    // printf("device: %s, target: 0x%lx, pgsz: 0x%lx, offset: 0x%lx, target_aligned: 0x%lx\n",
+    //            device, target, pgsz, offset, target_aligned);
 
 	printf("device: %s, address: 0x%lx (0x%lx+0x%lx), access %s.\n",
 		device, target, target_aligned, offset,
@@ -96,12 +96,12 @@ int main(int argc, char **argv)
 			argv[1], strerror(errno));
 		return -errno;
 	}
-	printf("character device %s opened.\n", argv[1]);
+	// printf("character device %s opened.\n", argv[1]);
 
 	map = mmap(NULL, offset + 4, PROT_READ | PROT_WRITE, MAP_SHARED, fd,
 		       	target_aligned);
 
-    printf("mmap: NULL, len: %ld, offset: %ld\n", offset + 4, target_aligned);
+    // printf("mmap: NULL, len: %ld, offset: %ld\n", offset + 4, target_aligned);
 
 	if (map == (void *)-1) {
 		printf("Memory 0x%lx mapped failed: %s.\n",
@@ -109,7 +109,7 @@ int main(int argc, char **argv)
 		err = 1;
 		goto close;
 	}
-	printf("Memory 0x%lx mapped at address %p.\n", target_aligned, map);
+	// printf("Memory 0x%lx mapped at address %p.\n", target_aligned, map);
 
 	map += offset;
 	/* read only */
