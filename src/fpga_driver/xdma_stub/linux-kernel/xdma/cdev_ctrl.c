@@ -6,10 +6,11 @@
 /*
  * character device file operations for control bus (through control bridge)
  */
-static ssize_t char_ctrl_read(struct file *fp, char __user *buf, size_t count,
+static ssize_t char_ctrl_read(struct file *fp,
+                              char __user *buf,
+                              size_t count,
                               loff_t *pos)
 {
-    NOT_SUPPORTED;
     long ret = 0;
     struct faulthook_priv_data *info = fp->private_data;
     struct action_read *a = (struct action_read *) &fd_data->data;
@@ -75,81 +76,181 @@ long char_ctrl_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
     return 0;
 }
 
+struct mmap_info
+{
+    void *data;
+    unsigned long data_size;
+    unsigned long order;
+};
+
+static void vm_close(struct vm_area_struct *vma)
+{
+    /*
+     * Issue:
+     * We cannot unfree kmalloc region because refcount may still be >0
+     * What other ways are there to hook into release of mmap when last
+     * handle to memory is closed?
+     * For now we dont inform host about unmaps and leave mappings alive
+     */
+    struct faulthook_priv_data *fh_info = vma->vm_file->private_data;
+    struct mmap_info *mmap_info = (struct mmap_info *) vma->vm_private_data;
+    struct action_unmap *escape = (struct action_unmap *) &fd_data->data;
+    unsigned long i;
+    unsigned long pfn_start;
+    int ret;
+    pr_info("vm_close\n");
+
+    memset(escape, 0, sizeof(struct action_unmap));
+    escape->common.fd = fh_info->fd;
+    escape->vm_start = vma->vm_start;
+    escape->vm_end = vma->vm_end;
+    escape->pfn_size = mmap_info->data_size >> PAGE_SHIFT;
+    pfn_start = page_to_pfn(virt_to_page((char *) mmap_info->data));
+    for (i = 0; i < escape->pfn_size; i ++)
+    {
+        escape->pfn[i] = pfn_start + i * PAGE_SIZE;
+    }
+    ret = fh_do_faulthook(FH_ACTION_UNMAP);
+    if (ret < 0)
+    {
+        pr_info("host not online");
+        goto clean_up;
+    }
+    if (escape->common.ret < 0)
+    {
+        pr_info("escape failed: %ld\n", escape->common.ret);
+        goto clean_up;
+    }
+    pr_info("fh_do_faulthook(FH_ACTION_UNMAP); is ok\n");
+
+    clean_up:
+    if (mmap_info->data != NULL)
+    {
+        free_pages((unsigned long) mmap_info->data, mmap_info->order);
+        mmap_info->data = NULL;
+    }
+    if (mmap_info != NULL)
+    {
+        kfree(mmap_info);
+        mmap_info = NULL;
+    }
+}
+
+static vm_fault_t vm_fault(struct vm_fault *vmf)
+{
+    pr_info("vm_fault\n");
+    return 0;
+}
+
+static void vm_open(struct vm_area_struct *vma)
+{
+    pr_info("vm_open\n");
+}
+
+static struct vm_operations_struct mmap_ops = {
+        .close = vm_close,
+        .fault = vm_fault,
+        .open = vm_open,
+};
 
 int bridge_mmap(struct file *file, struct vm_area_struct *vma)
 {
-    int ret;
-    ssize_t size;
-    unsigned long pfn_start, order;
-    void *virt_start;
-    struct faulthook_priv_data *info = file->private_data;
+    int ret = 0;
+    unsigned long pfn, pfn_start, i;
+    ssize_t size, order = 0;
+    struct faulthook_priv_data *fh_info = file->private_data;
+    struct mmap_info *mmap_info = NULL;
+    struct action_mmap_device *escape = (struct action_mmap_device *) &fd_data->data;
+
+    mmap_info = kmalloc(GFP_KERNEL, sizeof(struct mmap_info));
+    if (mmap_info == NULL)
+    {
+        return - ENOMEM;
+    }
+    memset(mmap_info, 0, sizeof(struct mmap_info));
 
     size = vma->vm_end - vma->vm_start - (vma->vm_pgoff << PAGE_SHIFT);
-    pr_info("requesting size: %ld\n", size);
     if (size < 0)
     {
-        return - EINVAL;
+        ret = - EINVAL;
+        goto err_cleanup;
     }
+    mmap_info->order = __roundup_pow_of_two(size >> PAGE_SHIFT);
+    mmap_info->data = (void *) __get_free_pages(GFP_KERNEL, order);
+    mmap_info->data_size = size;
+    pr_info("Allocating %lx (order %ld)\n", mmap_info->data_size, mmap_info->order);
 
-    // TODO tear down logic
-
-    order = __roundup_pow_of_two(size >> PAGE_SHIFT);
-    pr_info("allocating order: %ld\n", order);
-    if (order != 1)
+    if (mmap_info->data == NULL)
     {
-        // XXX: For now we just support 1 page
-        return - EINVAL;
+        ret = - ENOMEM;
+        goto err_cleanup;
     }
-
     vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
     vma->vm_flags |= (VM_IO | VM_DONTEXPAND | VM_DONTDUMP);
 
-    void *data = (void *) __get_free_pages(GFP_KERNEL, order);
-    if (data == NULL)
+    /* escape */
+    memset(escape, 0, sizeof(struct action_mmap_device));
+    escape->common.fd = fh_info->fd;
+    escape->vm_start = vma->vm_start;
+    escape->vm_end = vma->vm_end;
+    escape->vm_pgoff = vma->vm_pgoff;
+    escape->vm_flags = vma->vm_flags;
+    escape->vm_page_prot = (unsigned long) vma->vm_page_prot.pgprot;
+    escape->pfn_size = size >> PAGE_SHIFT;
+
+    pr_info("number of entries (escape->pfn_size): %ld\n", escape->pfn_size);
+
+    pfn_start = page_to_pfn(virt_to_page((char *) mmap_info->data));
+    for (i = 0; i < escape->pfn_size; i ++)
     {
-        pr_info("__get_free_pages failed\n");
-        return - EINVAL;
+        pfn = pfn_start + i * PAGE_SIZE;
+        pr_info("pfn: %lx\n", pfn);
+        escape->pfn[i] = pfn;
     }
-    memset(data, 0, size);
-
-    *(((int *) data)) = 2;
-
-    pfn_start = page_to_pfn(virt_to_page(data));
-    pr_info("pfn: %lx\n", pfn_start);
-
-    struct action_mmap_device *a = (struct action_mmap_device *) &fd_data->data;
-    a->common.fd = info->fd;
-    a->vm_start = vma->vm_start;
-    a->vm_end = vma->vm_end;
-    a->vm_pgoff = vma->vm_pgoff;
-    a->vm_flags = vma->vm_flags;
-    a->vm_page_prot = (unsigned long) vma->vm_page_prot.pgprot;
-    a->pfn_size = 1;
-    a->pfn[0] = pfn_start;
-
     ret = fh_do_faulthook(FH_ACTION_MMAP);
-    if (ret < 0) {
-        goto clean_up_and_return;
-    }
-    if (a->common.ret < 0)
+    if (ret < 0)
     {
-        ret = a->common.err_no;
-        goto clean_up_and_return;
+        pr_info("host not online");
+        goto err_cleanup;
     }
+    if (escape->common.ret < 0)
+    {
+        pr_info("escape failed");
+        ret = escape->common.err_no;
+        goto err_cleanup;
+    }
+    pr_info("fh_do_faulthook(FH_ACTION_MMAP) is ok\n");
+
     ret = remap_pfn_range(vma, vma->vm_start, pfn_start, size, vma->vm_page_prot);
     if (ret)
     {
-        printk("remap_pfn_range failed, vm_start: 0x%lx\n", vma->vm_start);
-        goto clean_up_and_return;
+        pr_info("remap_pfn_range failed");
+        goto err_cleanup;
     }
-    printk("map kernel 0x%px to user 0x%lx, size: 0x%lx\n",
-           virt_start, vma->vm_start, size);
+    pr_info("map kernel 0x%px to user 0x%lx, size: 0x%lx\n",
+            mmap_info->data, vma->vm_start, size);
+
+    vma->vm_private_data = mmap_info;
+
+    /*
+     * We dont unmap for now
+     */
+    // vma->vm_ops = &mmap_ops;
+    // vm_open(vma);
 
     ret = 0;
-    clean_up_and_return:
-    if (data != NULL)
+    return ret;
+
+    err_cleanup:
+    if (mmap_info->data != NULL)
     {
-        free_pages((unsigned long) data, order);
+        free_pages((unsigned long) mmap_info->data, mmap_info->order);
+        mmap_info->data = NULL;
+    }
+    if (mmap_info != NULL)
+    {
+        kfree(mmap_info);
+        mmap_info = NULL;
     }
     return ret;
 }

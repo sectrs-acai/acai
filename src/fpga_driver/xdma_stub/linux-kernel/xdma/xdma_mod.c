@@ -16,6 +16,12 @@ static char version[] =
 
 struct xdma_pci_dev *xpdev = NULL;
 
+#define  VM_RESERVED   (VM_DONTEXPAND | VM_DONTDUMP)
+
+struct faultdata_driver_struct fd_ctx;
+extern unsigned long *fvp_escape_page;
+extern unsigned long fvp_escape_size;
+
 static int enable_stub_devices(void)
 {
     int rv = 0;
@@ -26,7 +32,9 @@ static int enable_stub_devices(void)
     int i;
 
     /*
-     * XXX We have to fake these devices because they dont exist
+     * XXX We have to fake these devices because they dont exist.
+     * The code below creates empty devices. More functionality
+     * may need better initialization.
      */
     xpdev = kmalloc(sizeof(struct xdma_pci_dev), GFP_KERNEL);
     if (! xpdev)
@@ -52,18 +60,22 @@ static int enable_stub_devices(void)
     memset(pci_dev, 0, sizeof(struct pci_dev));
     xpdev->pdev = pci_dev;
 
-    xpdev->c2h_channel_max = 1;
-    xpdev->h2c_channel_max = 1;
+    xpdev->c2h_channel_max = 4;
+    xpdev->h2c_channel_max = 4;
 
     HERE;
 
     for (i = 0; i < xpdev->c2h_channel_max; i ++)
     {
-        xpdev->xdev->engine_c2h[i].magic = MAGIC_ENGINE;
+        engine = &xpdev->xdev->engine_c2h[i];
+        engine->magic = MAGIC_ENGINE;
+        engine->channel = i;
     }
     for (i = 0; i < xpdev->h2c_channel_max; i ++)
     {
-        xpdev->xdev->engine_h2c[i].magic = MAGIC_ENGINE;
+        engine = &xpdev->xdev->engine_h2c[i];
+        engine->magic = MAGIC_ENGINE;
+        engine->channel = i;
     }
     for (i = 0; i < xpdev->c2h_channel_max; i ++)
     {
@@ -93,163 +105,6 @@ static void xpdev_free(void)
 }
 
 
-// struct faultdata_struct *fd_data = NULL;
-// static unsigned long fh_nonce = 0;
-// static struct page *page;
-
-struct faultdata_driver_struct fd_ctx;
-
-// 2^3 = 8
-// #define PAGE_ORDER 3
-static inline void hex_dump(
-        const void *data,
-        size_t size
-)
-{
-    char ascii[17];
-    size_t i, j;
-    ascii[16] = '\0';
-    for (i = 0; i < size; ++ i)
-    {
-        printk("%02X ", ((unsigned char *) data)[i]);
-        if (((unsigned char *) data)[i] >= ' ' && ((unsigned char *) data)[i] <= '~')
-        {
-            ascii[i % 16] = ((unsigned char *) data)[i];
-        } else
-        {
-            ascii[i % 16] = '.';
-        }
-        if ((i + 1) % 8 == 0 || i + 1 == size)
-        {
-            printk(" ");
-            if ((i + 1) % 16 == 0)
-            {
-                printk("|  %s \n", ascii);
-            } else if (i + 1 == size)
-            {
-                ascii[(i + 1) % 16] = '\0';
-                if ((i + 1) % 16 <= 8)
-                {
-                    printk(" ");
-                }
-                for (j = (i + 1) % 16; j < 16; ++ j)
-                {
-                    printk("   ");
-                }
-                printk("|  %s \n", ascii);
-            }
-        }
-    }
-}
-// (0x0F000000 / 8)
-#define  VM_RESERVED   (VM_DONTEXPAND | VM_DONTDUMP)
-#define RAW_DATA_SIZE (256* 4096)
-#define RAW_DATA_OFFSET 0x980000000UL
-char *rawdataStart = NULL;
-
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 7, 0)
-#define KPROBE_KALLSYMS_LOOKUP 1
-
-#include <linux/kprobes.h>
-
-typedef unsigned long (*kallsyms_lookup_name_t)(const char *name);
-
-kallsyms_lookup_name_t kallsyms_lookup_name_func;
-#define kallsyms_lookup_name kallsyms_lookup_name_func
-
-static struct kprobe kp = {
-        .symbol_name = "kallsyms_lookup_name"
-};
-#endif
-
-void (*do__flush_dcache_area)(void *addr, size_t len);
-
-#if 0
-static void unused() {
-#ifdef KPROBE_KALLSYMS_LOOKUP
-        register_kprobe(&kp);
-        kallsyms_lookup_name = (kallsyms_lookup_name_t) kp.addr;
-        unregister_kprobe(&kp);
-
-        if (!unlikely(kallsyms_lookup_name)) {
-            pr_alert("Could not retrieve kallsyms_lookup_name address\n");
-            return -ENXIO;
-        }
-#endif
-
-    do__flush_dcache_area = (void *) kallsyms_lookup_name("__flush_dcache_area");
-    if (do__flush_dcache_area==NULL) {
-        pr_info("lookup failed do__flush_dcache_area\n");
-        return -ENXIO;
-    }
-    HERE;
-
-
-    memset(&fd_ctx, 0, sizeof(struct faultdata_driver_struct));
-    size_t len = (1 << FAULTDATA_PAGE_ORDER) * PAGE_SIZE;
-    fd_ctx.page_order = FAULTDATA_PAGE_ORDER;
-#if USE_PAGES
-//    fd_ctx.page = __get_free_pages(GFP_KERNEL, FAULTDATA_PAGE_ORDER);
-//
-//    if (!fd_ctx.page) {
-//        printk("alloc_page failed\n");
-//        return -ENOMEM;
-//    }
-//    volatile char *ptr = (volatile char *) page_address(fd_ctx.page);
-    volatile char *ptr = (char*) __get_free_pages(GFP_KERNEL, FAULTDATA_PAGE_ORDER);
-    if (!ptr) {
-        printk("alloc_page failed\n");
-        return -ENOMEM;
-    }
-
-#else
-        // kmalloc(len, GFP_KERNEL );
-        volatile char *ptr = (char *) kmalloc(4096 * 15, GFP_KERNEL);
-        if (ptr==NULL) {
-            printk("kmalloc failed\n");
-            return -ENOMEM;
-        }
-        len = 4096 * 16;
-#endif
-
-    pr_info("allocating %lx bytes with alloc_pages: %d\n", len, USE_PAGES);
-
-    memset((char *) ptr, 0, len);
-    HERE;
-    faultdata_flush(ptr);
-
-#if 1
-    {
-        size_t i;
-        int j;
-        pr_info("i = %d\n", len / PAGE_SIZE);
-        for(i = 0; i < (len / PAGE_SIZE); i ++) {
-            for(j = 0; j < PAGE_SIZE; j ++) {
-                *((char* )(ptr + (i * PAGE_SIZE) + j)) = (char) i + 1;
-            }
-            pr_info("initing row: %d\n", i);
-        }
-        for(i = 0; i < ((1 << FAULTDATA_PAGE_ORDER)); i ++) {
-            pr_info("i: %d,magic: %xld,  margin: %xld\n", i, ptr + i * PAGE_SIZE, ptr + (i * PAGE_SIZE) + 8);
-             *((unsigned long*) (ptr + i * PAGE_SIZE)) = FAULTDATA_MAGIC;
-            *((unsigned long*) (ptr + (i * PAGE_SIZE) + 8)) = i;
-        }
-    }
-    HERE;
-    do__flush_dcache_area((void*) ptr, len);
-
-
-#endif
-
-
-}
-#endif
-
-extern unsigned long *fvp_escape_page;
-extern unsigned long fvp_escape_size;
-
-
 static int faulthook_init(void)
 {
     pr_info("faulthook page: %lx+%lx\n", (unsigned long) fvp_escape_page, fvp_escape_size);
@@ -269,17 +124,14 @@ int fh_do_faulthook(int action)
     fd_data->action = action;
 
     #if defined(__x86_64__) || defined(_M_X64)
-    // flush_cache_all();
     #else
     asm volatile("dmb sy");
-    // flush_cache_all();
     #endif
-
     fd_data->nonce = nonce; /* escape to other world */
     if (fd_data->turn != FH_TURN_GUEST)
     {
         pr_err("Host did not reply to request. Nonce: 0x%lx. Is host listening?", nonce);
-        return -ENXIO;
+        return - ENXIO;
     }
     return 0;
 }
@@ -319,17 +171,8 @@ static void xdma_mod_exit(void)
 {
     xpdev_free();
     faulthook_cleanup();
-    #if 0
-    if (rawdataStart != NULL) {
-        printk(KERN_INFO "Unmapping memory at %p\n", rawdataStart);
-        iounmap(rawdataStart);
-    } else {
-        printk(KERN_WARNING "No memory to unmap!\n");
-    }
-    #endif
 }
 
 module_init(xdma_mod_init);
-
 module_exit(xdma_mod_exit);
 MODULE_LICENSE("GPL");

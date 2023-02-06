@@ -76,7 +76,8 @@ static int config_kobject(struct xdma_cdev *xcdev, enum cdev_type type)
     int rv = -EINVAL;
     struct xdma_dev *xdev = xcdev->xdev;
     struct xdma_engine *engine = xcdev->engine;
-    return 0;
+
+    pr_info("%s, idx: %d, bar: %d\n", devnode_names[type], xdev->idx, xcdev->bar);
 
     switch (type) {
         case CHAR_XDMA_H2C:
@@ -166,6 +167,13 @@ static int create_sys_device(struct xdma_cdev *xcdev, enum cdev_type type)
         last_param = engine ? engine->channel:0;
     }
 
+//    xcdev->sys_device = device_create(g_xdma_class, &xdev->pdev->dev,
+//                                      xcdev->cdevno, NULL, devnode_names[type], xdev->idx,
+//                                      last_param);
+
+    pr_info("devnode_names[type]=%s, idx=%d, last_param=%d\n",
+            devnode_names[type], xdev->idx, last_param
+            );
     xcdev->sys_device = device_create(g_xdma_class, NULL,
                                       xcdev->cdevno, NULL, devnode_names[type], xdev->idx,
                                       last_param);
@@ -244,7 +252,7 @@ static int create_xcdev(struct xdma_pci_dev *xpdev, struct xdma_cdev *xcdev,
     xcdev->bar = bar;
 
     // TODO: do we need to config kobjects?
-    #if 0
+    #if 1
     rv = config_kobject(xcdev, type);
     if (rv < 0) {
         return rv;
@@ -295,10 +303,11 @@ static int create_xcdev(struct xdma_pci_dev *xpdev, struct xdma_cdev *xcdev,
         pr_err("cdev_add failed %d, type 0x%x.\n", rv, type);
         goto unregister_region;
     }
-
+    HERE;
     pr_info("xcdev 0x%p, %u:%u, %s, type 0x%x.\n",
             xcdev, xpdev->major, minor, xcdev->cdev.kobj.name, type);
     /* create device on our class */
+    HERE;
     if (g_xdma_class) {
         rv = create_sys_device(xcdev, type);
         if (rv < 0) {
@@ -415,6 +424,7 @@ int xpdev_create_interfaces(struct xdma_pci_dev *xpdev)
     int i;
     int rv = 0;
 
+    HERE;
     /* initialize control character device */
     rv = create_xcdev(xpdev, &xpdev->ctrl_cdev, xdev->config_bar_idx,
                       NULL, CHAR_CTRL);
@@ -422,9 +432,11 @@ int xpdev_create_interfaces(struct xdma_pci_dev *xpdev)
         pr_err("create_char(ctrl_cdev) failed\n");
         goto fail;
     }
+    HERE;
     xpdev_flag_set(xpdev, XDF_CDEV_CTRL);
 
     pr_info("xpdev->user_max: %d\n", xpdev->user_max);
+    HERE;
     /* initialize events character device */
     for (i = 0; i < xpdev->user_max; i++) {
         rv = create_xcdev(xpdev, &xpdev->events_cdev[i], i, NULL,
@@ -538,6 +550,16 @@ int xpdev_create_interfaces(struct xdma_pci_dev *xpdev)
         }
         xpdev_flag_set(xpdev, XDF_CDEV_XVC);
     }
+
+    #ifdef __XDMA_SYSFS__
+    /* sys file */
+    rv = device_create_file(&xpdev->pdev->dev,
+                            &dev_attr_xdma_dev_instance);
+    if (rv) {
+        pr_err("Failed to create device file\n");
+        goto fail;
+    }
+    #endif
 
     return 0;
 
