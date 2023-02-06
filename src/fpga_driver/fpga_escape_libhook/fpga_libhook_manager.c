@@ -169,7 +169,7 @@ unsigned long get_addr_map_vaddr(
     } else
     {
         printf("BUG: get_addr_map_vaddr out of range,"
-               " pfn: %ld, max: %ld, min: %ld\n",
+               " pfn: %lx, max: %lx, min: %lx\n",
                pfn, ctx->addr_map_pfn_max, ctx->addr_map_pfn_min);
     }
     return 0;
@@ -187,7 +187,7 @@ inline static unsigned long set_addr_map_vaddr(
     } else
     {
         printf("BUG: set_addr_map_vaddr out of range,"
-               " pfn: %ld, max: %ld, min: %ld, vaddr: %ld\n",
+               " pfn: %lx, max: %lx, min: %lx, vaddr: %lx\n",
                pfn,
                ctx->addr_map_pfn_max,
                ctx->addr_map_pfn_min,

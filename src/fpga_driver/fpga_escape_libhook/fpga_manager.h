@@ -96,8 +96,13 @@ struct ACTION_MODIFIER action_ping
     int ping;
 };
 
+enum action_verify_mappping_status {
+    action_verify_mappping_success = 1,
+    action_verify_mappping_fail = 2
+};
 struct ACTION_MODIFIER action_verify_mappping
 {
+    unsigned int status;
     size_t pfn;
 };
 
@@ -139,8 +144,10 @@ struct ACTION_MODIFIER action_mmap_device
 struct ACTION_MODIFIER action_unmap
 {
     struct action_common common;
-    /* the offset starting from the base page in the fvp shared buffer */
-    unsigned long mmap_guest_kernel_offset;
+    unsigned long vm_start;
+    unsigned long vm_end;
+    unsigned long pfn_size;
+    unsigned long pfn[0];
 };
 
 struct ACTION_MODIFIER action_dma

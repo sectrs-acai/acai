@@ -45,8 +45,7 @@
 
 inline static void print_status(int action, struct action_common *c)
 {
-    print_progress("action: %s, ret: %ld, err_no: %d, fd: %d \n",
-                   fh_action_to_str(action),
+    print_progress("ret: %ld, err_no: %d, fd: %d \n",
                    c->ret, c->err_no, c->fd);
 }
 
@@ -105,9 +104,8 @@ int on_fault(unsigned long addr,
         /* fault was caused unintentionally */
         return 0;
     }
-    print_progress("page dump before: \n");
-    hex_dump((void *) addr, 64);
-
+    // print_progress("page dump before: \n");
+    // hex_dump((void *) addr, 64);
 
     print_progress("action: %s \n", fh_action_to_str(fault->action));
     switch (fault->action)
@@ -118,6 +116,26 @@ int on_fault(unsigned long addr,
         }
         case FH_ACTION_TEARDOWN:
         {
+            break;
+        }
+        case FH_ACTION_PING:
+        {
+            struct action_ping *a = (struct action_ping *) fault->data;
+            a->ping ++;
+            break;
+        }
+        case FH_ACTION_VERIFY_MAPPING:
+        {
+            struct action_verify_mappping *a = (struct action_verify_mappping *) fault->data;
+            unsigned long vaddr = get_addr_map_vaddr(ctx, a->pfn);
+            if (vaddr != 0)
+            {
+                a->status = action_verify_mappping_success;
+            } else
+            {
+                print_err("no mapping found for pfn: %lx\n", a->pfn);
+                a->status = action_verify_mappping_fail;
+            }
             break;
         }
         case FH_ACTION_OPEN_DEVICE:
@@ -149,33 +167,66 @@ int on_fault(unsigned long addr,
              * XXX: Unlike other calls we have to forward this
              * to a custom ioctl as we dont mmap into the calling process
              */
-            print_progress("xdma_ioc_faulthook_mmap with pid: %d", pid);
-
-            for(int i = 0; i< a->pfn_size;  i++) {
-                a->pfn[i] = get_addr_map_vaddr(ctx, a->pfn[i]);
+            print_progress("xdma_ioc_faulthook_mmap with pid: %d \n", pid);
+            unsigned long *addrs = malloc(a->pfn_size * sizeof(unsigned long));
+            if (addrs == NULL)
+            {
+                print_err("addrs is null\n");
+                return - 1;
             }
-
+            for (int i = 0; i < a->pfn_size; i ++)
+            {
+                addrs[i] = get_addr_map_vaddr(ctx, a->pfn[i]);
+            }
             struct xdma_ioc_faulthook_mmap ioc = {
-                    .map_type = 0 /*map */,
                     .pid = pid,
                     .vm_pgoff = a->vm_pgoff,
                     .vm_page_prot = a->vm_page_prot,
                     .vm_flags = a->vm_flags,
-                    .addr = a->pfn,
+                    .addr = addrs,
                     .addr_size = a->pfn_size
             };
             ret = ioctl(a->common.fd, XDMA_IOCMMAP, &ioc);
             if (ret < 0)
             {
-                perror("error ioctl fd\n");
-                goto clean_up;
+                perror("XDMA_IOCMMAP failed\n");
+                goto map_clean;
             }
-
-            clean_up:
-            a->common.fd = ret;
-            set_ret_and_err_no(a, ret);
+            map_clean:
+            free(addrs);
+        set_ret_and_err_no(a, ret);
             print_status(fault->action, &a->common);
             break;
+        }
+        case FH_ACTION_UNMAP:
+        {
+            int ret = 0;
+            struct action_unmap *a = (struct action_unmap *) fault->data;
+            unsigned long *addrs = malloc(a->pfn_size * sizeof(unsigned long));
+            if (addrs == NULL)
+            {
+                print_err("addrs is null\n");
+                return - 1;
+            }
+            for (int i = 0; i < a->pfn_size; i ++)
+            {
+                addrs[i] = get_addr_map_vaddr(ctx, a->pfn[i]);
+            }
+            struct xdma_ioc_faulthook_unmmap ioc = {
+                    .pid = pid,
+                    .addr = addrs,
+                    .addr_size = a->pfn_size
+            };
+            ret = ioctl(a->common.fd, XDMA_IOCUNMMAP, &ioc);
+            if (ret < 0)
+            {
+                perror("XDMA_IOCUNMMAP failed\n");
+                goto unmap_clean;
+            }
+            unmap_clean:
+            free(addrs);
+            set_ret_and_err_no(a, ret);
+            print_status(fault->action, &a->common);
         }
         default:
         {
@@ -183,8 +234,8 @@ int on_fault(unsigned long addr,
         }
     }
     fault->turn = FH_TURN_GUEST;
-    print_progress("page dump after: \n");
-    hex_dump((void *) addr, 64);
+    // press("page dump after: \n");
+    // hex_dump((void *) addr, 64);
 
     return 0;
 }
