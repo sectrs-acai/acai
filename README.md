@@ -23,3 +23,12 @@
 ./buildconf/linux-guest/setup.sh run_fvp
 ./buildconf/linux-host/setup.sh run
 ```
+
+## repositories and branches
+```
+# x86 host with faulthook escape
+branch: trusted-peripherals-kernel/trusted-periph/linux-host
+
+# aarch64 ns linux
+branch: trusted-peripherals-kernel/trusted-periph/linux-guest
+```
