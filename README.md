@@ -19,11 +19,12 @@
 
 ## run
 ```sh
-./buildconf/linux-guest/setup.sh run
-./buildconf/linux-guest/setup.sh run_fvp
-./buildconf/linux-host/setup.sh run
+./buildconf/linux-guest/setup.sh run         # run on qemu (no tfa stack)
+./buildconf/linux-guest/setup.sh run_fvp     # run on fvp (full stack)
+./buildconf/linux-host/setup.sh run          # run on qemu
 ```
-`/mnt/host/` mounts to source root of this directory.
+- `/mnt/host/` mounts to source root of this directory.
+- qemu runs require qemu-system-aarch64 or qemu-system-x86_64 installed.
 
 ## toolchains
 
