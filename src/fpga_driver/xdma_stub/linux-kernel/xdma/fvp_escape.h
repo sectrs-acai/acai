@@ -1,7 +1,3 @@
-//
-// Created by b on 2/6/23.
-//
-
 #ifndef XDMA__FVP_ESCAPE_H_
 #define XDMA__FVP_ESCAPE_H_
 
@@ -27,6 +23,14 @@ flush_cache_all()
 asm volatile("dmb sy"); flush_cache_all()
 #endif
 
+struct __attribute__((__packed__)) pin_pages_struct
+{
+    char *user_buf;
+    unsigned long len;
+    struct page **pages;
+    unsigned long pages_nr;
+    struct page_chunk page_chunks[0];
+};
 
 struct faultdata_driver_struct
 {
@@ -79,5 +83,11 @@ ssize_t fh_char_ctrl_write(struct file *file, const char __user *buf,
 long fh_char_ctrl_ioctl(struct file *filp, unsigned int cmd, unsigned long arg);
 
 int fh_bridge_mmap(struct file *file, struct vm_area_struct *vma);
+
+int fh_unpin_pages(struct pin_pages_struct *pinned, int do_free, bool do_write);
+
+inline unsigned long fh_get_page_count(const char __user *buf, size_t len);
+int fh_pin_pages(const char __user *buf, size_t count,
+                     struct pin_pages_struct **ret_pages);
 
 #endif //XDMA__FVP_ESCAPE_H_

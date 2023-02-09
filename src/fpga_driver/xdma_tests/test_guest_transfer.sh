@@ -27,8 +27,8 @@ transferCount=1
 # Determine if the core is Memory Mapped or Streaming
 
 isStreaming=0
-h2cChannels=4
-c2hChannels=4
+h2cChannels=1
+c2hChannels=1
 
 
 # Perform testing on the PCIe DMA core.
@@ -37,6 +37,7 @@ if [[ $isStreaming -eq 0 ]]; then
 
 	# Run the PCIe DMA memory mapped write read test
 	#set -x
+	echo "$test_path/dma_memory_mapped_test.sh xdma0 $transferSize $transferCount $h2cChannels $c2hChannels"
 	$test_path/dma_memory_mapped_test.sh xdma0 $transferSize $transferCount $h2cChannels $c2hChannels
 	returnVal=$?
 	#set +x

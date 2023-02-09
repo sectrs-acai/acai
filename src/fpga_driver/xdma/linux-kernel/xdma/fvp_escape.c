@@ -16,8 +16,10 @@
 #include <linux/kprobes.h>
 #include <linux/kthread.h>
 #include <linux/version.h>
-
+#include <linux/mm.h>
+#include <linux/slab.h>
 #include "fvp_escape.h"
+#include "cdev_sgdma.h"
 
 #define HERE pr_info("%s/%s: %d\n", __FILE__, __FUNCTION__, __LINE__)
 
@@ -398,5 +400,78 @@ int prepare_mmap_remote(pid_t target_pid,
     flush_tlb_mm(mm);
     *ret_vma = vma;
 
+    return ret;
+}
+
+int fh_handle_dma(struct file *file, unsigned int cmd, unsigned long arg)
+{
+    HERE;
+    int ret = 0, i;
+    struct page_chunk *page_chunks;
+    struct fh_host_ioctl_dma usr;
+    unsigned long page_chunks_size = 0;
+
+    ret = copy_from_user(&usr,
+                         (__user char *) arg,
+                         sizeof(struct fh_host_ioctl_dma));
+    if (ret < 0)
+    {
+        pr_info("copy_from_user failed\n");
+        return ret;
+    }
+    page_chunks_size = usr.chunks_nr * sizeof(struct page_chunk);
+    page_chunks = kmalloc(GFP_KERNEL, page_chunks_size);
+    if (page_chunks == NULL)
+    {
+        ret = - ENOMEM;
+        return ret;
+    }
+    ret = copy_from_user((void *) page_chunks,
+                         (void __user *) usr.chunks,
+                         page_chunks_size);
+    if (ret < 0)
+    {
+        pr_info("copy_from_user page_chunks failed\n");
+        return ret;
+    }
+    pr_info("FH_HOST_IOCTL_DMA\n");
+    for (i = 0; i < usr.chunks_nr; i ++)
+    {
+        struct page_chunk *p = page_chunks + i;
+        pr_info("%lx, %ld, %ld\n", p->addr, p->offset, p->nbytes);
+    }
+    usr.chunks = page_chunks;
+
+    ret = char_sgdma_read_write_remote(
+            file,
+            &usr,
+            usr.len,
+            usr.phy_addr,
+            usr.do_write);
+
+
+    clean_up:
+    kfree(page_chunks);
+    return ret;
+}
+
+long fh_handle_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+{
+    HERE;
+    int ret = 0;
+    switch (cmd)
+    {
+        case FH_HOST_IOCTL_DMA:
+        {
+            ret = fh_handle_dma(file, cmd, arg);
+            break;
+        }
+        default:
+        {
+            pr_info("Unsupported operation\n");
+            ret = - EINVAL;
+            break;
+        }
+    }
     return ret;
 }

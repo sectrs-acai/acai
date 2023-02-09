@@ -6,13 +6,14 @@
 struct __attribute__((__packed__))  faultdata_struct
 {
     volatile unsigned long nonce; // fault
-    volatile unsigned long turn;
-    volatile unsigned long action;
-    volatile unsigned long data_size;
-    volatile char data[0];
+    unsigned long turn;
+    unsigned long action;
+    unsigned long data_size;
+    char data[0];
 };
 
 typedef struct ctx_struct *ctx_struct;
+
 unsigned long get_addr_map_vaddr(
         ctx_struct ctx, unsigned long pfn);
 
@@ -46,6 +47,8 @@ enum fh_action
     FH_ACTION_VERIFY_MAPPING = 20,
     FH_ACTION_SETUP = 21,
     FH_ACTION_TEARDOWN = 22,
+    FH_ACTION_DMA = 23,
+    FH_ACTION_SEEK = 24,
 };
 
 #define PING_LEN 512
@@ -67,6 +70,8 @@ static inline const char *fh_action_to_str(int action)
         case FH_ACTION_SETUP: return "FH_ACTION_SETUP";
         case FH_ACTION_TEARDOWN: return "FH_ACTION_TEARDOWN";
         case FH_ACTION_VERIFY_MAPPING: return "FH_ACTION_VERIFY_MAPPING";
+        case FH_ACTION_DMA: return "FH_ACTION_DMA";
+        case FH_ACTION_SEEK: return "FH_ACTION_SEEK";
         default:
         {
             return "unknown action";
@@ -95,7 +100,8 @@ struct ACTION_MODIFIER action_ping
     int ping;
 };
 
-enum action_verify_mappping_status {
+enum action_verify_mappping_status
+{
     action_verify_mappping_success = 1,
     action_verify_mappping_fail = 2
 };
@@ -149,15 +155,6 @@ struct ACTION_MODIFIER action_unmap
     unsigned long pfn[0];
 };
 
-struct ACTION_MODIFIER action_dma
-{
-    struct action_common common;
-    // struct xdma_aperture_ioctl io;
-    int write_read; // 1 is write
-    char *buffer;
-};
-
-
 struct ACTION_MODIFIER action_init_guest
 {
     struct action_common common;
@@ -170,6 +167,57 @@ struct ACTION_MODIFIER action_ioctl
     unsigned int cmd;
     unsigned long arg;
 
+};
+
+struct ACTION_MODIFIER action_seek
+{
+    struct action_common common;
+    loff_t off;
+    int whence;
+};
+
+struct __attribute__((__packed__)) page_chunk
+{
+    unsigned long addr; // this is either pfn or addr
+    unsigned long offset;
+    unsigned long nbytes;
+};
+
+#define action_dma_size(dma) sizeof(struct action_dma) + dma->pages_nr * sizeof(struct page_chunk)
+
+struct ACTION_MODIFIER action_dma
+{
+    struct action_common common;
+    unsigned long phy_addr;
+    int do_write; /* 1 is write, 0 is read */
+    char *user_buf;
+    unsigned long len;
+    unsigned long pages_nr;
+    struct page_chunk page_chunks[0];
+};
+
+#ifndef XDMA_IOC_MAGIC
+#define XDMA_IOC_MAGIC    'x'
+#endif
+
+#define FH_HOST_IOCTL_MAGIC XDMA_IOC_MAGIC
+
+enum FH_HOST_IOC_TYPES
+{
+    FH_HOST_DMA = 1000
+};
+
+#define FH_HOST_IOCTL_DMA _IOWR(FH_HOST_IOCTL_MAGIC, FH_HOST_DMA, size_t)
+
+struct fh_host_ioctl_dma
+{
+    pid_t pid;
+    unsigned long phy_addr;
+    int do_write; /* 1 is write, 0 is read */
+    char *user_buf;
+    unsigned long len;
+    unsigned long chunks_nr;
+    struct page_chunk *chunks;
 };
 
 #endif

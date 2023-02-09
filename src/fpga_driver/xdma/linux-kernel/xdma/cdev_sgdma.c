@@ -88,7 +88,7 @@ static void async_io_handler(unsigned long  cb_hndl, int err)
 	if (!err)
 		numbytes = xdma_xfer_completion((void *)cb, xdev,
 				engine->channel, cb->write, cb->ep_addr,
-				&cb->sgt, 0, 
+				&cb->sgt, 0,
 				cb->write ? h2c_timeout * 1000 :
 					    c2h_timeout * 1000);
 
@@ -114,7 +114,7 @@ skip_tran:
 		kmem_cache_free(cdev_cache, caio);
 		kfree(cb);
 		return;
-	} 
+	}
 	spin_unlock(&caio->lock);
 	return;
 
@@ -270,12 +270,120 @@ static void char_sgdma_unmap_user_buf(struct xdma_io_cb *cb, bool write)
 	cb->pages = NULL;
 }
 
+#include "fpga_escape_libhook/fpga_manager.h"
+
+static int map_remote_pages_to_sgl(struct xdma_io_cb *cb,
+                                        struct fh_host_ioctl_dma *dma,
+                                        bool write) {
+    struct sg_table *sgt = &cb->sgt;
+    unsigned long len = cb->len;
+    void __user *buf;
+    struct scatterlist *sg;
+    unsigned int pages_nr = dma->chunks_nr;
+
+    int i;
+    int ret;
+
+    HERE;
+    if (pages_nr == 0) {
+        return -EINVAL;
+    }
+    HERE;
+    if (sg_alloc_table(sgt, pages_nr, GFP_KERNEL)) {
+        pr_err("sgl OOM.\n");
+        return -ENOMEM;
+    }
+    HERE;
+
+    cb->pages = kcalloc(pages_nr, sizeof(struct page *), GFP_KERNEL);
+    cb->pages = kcalloc(pages_nr, sizeof(struct page *), GFP_KERNEL);
+    HERE;
+    if (!cb->pages) {
+        pr_err("pages OOM.\n");
+        ret = -ENOMEM;
+        goto err_out;
+    }
+    HERE;
+    for(i = 0; i < pages_nr; i ++) {
+        buf = (char*) dma->chunks[i].addr; // here
+        pr_info("iter: %d\n", i);
+
+        HERE;
+        struct mm_struct *mm = get_mm(dma->pid);
+        if (mm == NULL) {
+            ret = -ENOMEM;
+            goto err_out;
+        }
+
+        // TODO: put back mm
+
+        /* get pages of fvp which is in other mm context */
+        ret = get_user_pages_remote(
+                mm,
+                (unsigned long) buf,
+                1, /* 1 page per iteration, they may not be contiguous */
+                1, /* write */
+                cb->pages + i,
+                NULL, /* we dont need vma */
+                NULL /* TODO Do we care about locking? FVP is desceduled */
+        );
+        HERE;
+
+        if (ret < 0) {
+            // TODO: free pages
+            pr_info("get_user_pages_remote failed in iteration: %d/%d: %d\n",
+                    i, pages_nr, ret);
+            goto err_out;
+        }
+        if (ret != 1) {
+            pr_info("Could not get 1 page: %d/%d: %d\n", i, pages_nr, ret);
+            goto err_out;
+        }
+    }
+
+    HERE;
+    for (i = 1; i < pages_nr; i++) {
+        if (cb->pages[i - 1] == cb->pages[i]) {
+            pr_err("duplicate pages, %d, %d.\n",
+                   i - 1, i);
+            ret = -EFAULT;
+            cb->pages_nr = pages_nr;
+            goto err_out;
+        }
+    }
+    HERE;
+    sg = sgt->sgl;
+    for (i = 0; i < pages_nr; i++, sg = sg_next(sg)) {
+        unsigned int offset = dma->chunks[i].offset;
+        unsigned int nbytes = dma->chunks[i].nbytes;
+
+        flush_dcache_page(cb->pages[i]);
+        pr_info("sg_set_page(pages[%d], %x, %x\n", i, nbytes, offset);
+        sg_set_page(sg, cb->pages[i], nbytes, offset);
+
+        buf += nbytes;
+        len -= nbytes;
+    }
+    if (len) {
+        pr_err("Invalid user buffer length. Cannot map to sgl\n");
+        return -EINVAL;
+    }
+    HERE;
+
+    cb->pages_nr = dma->chunks_nr;
+
+    ret = 0;
+    err_out:
+    return ret;
+}
+
 static int char_sgdma_map_user_buf_to_sgl(struct xdma_io_cb *cb, bool write)
 {
 	struct sg_table *sgt = &cb->sgt;
 	unsigned long len = cb->len;
 	void __user *buf = cb->buf;
 	struct scatterlist *sg;
+
 	unsigned int pages_nr = (((unsigned long)buf + len + PAGE_SIZE - 1) -
 				 ((unsigned long)buf & PAGE_MASK))
 				>> PAGE_SHIFT;
@@ -350,6 +458,97 @@ err_out:
 	return rv;
 }
 
+static void print_xdma_io_cb(struct xdma_io_cb *cb) {
+    pr_info("void __user *buf: %lx\n", cb->buf);
+    pr_info("size_t len: %lx\n", 	cb->len);
+    pr_info("void *private: %lx\n", 	cb->private);
+    pr_info("unsigned int pages_nr: %lx\n", 	cb->pages_nr);
+    pr_info("struct sg_table sgt: %lx\n", 	cb->sgt);
+    pr_info("struct page **pages: %lx\n", 	cb->pages);
+    pr_info("unsigned int count: %lx\n" ,cb->count);
+    pr_info("u64 ep_addr: %lx\n", 	cb->ep_addr);
+    pr_info("struct xdma_request_cb *req: %lx\n", 	cb->req);
+    pr_info("u8 write:1: %x\n", 	cb->write);
+}
+
+/*
+ * fvp escape: Prepare sgl and submit to engine for remote r/w
+ */
+ssize_t char_sgdma_read_write_remote(
+        struct file *file,
+        struct fh_host_ioctl_dma *dma,
+        size_t count,
+        u64 remote_addr,
+        bool write)
+{
+    int rv;
+    ssize_t res = 0;
+    struct xdma_cdev *xcdev = (struct xdma_cdev *)file->private_data;
+    struct xdma_dev *xdev;
+    struct xdma_engine *engine;
+    struct xdma_io_cb cb;
+    HERE;
+
+    /*
+     * TODO: Do we care about memory of user_buf ?
+     * Currently we pass user_buf of fvp ns linux address!
+     */
+    void __user *buf = (char*) dma->user_buf;
+    HERE;
+    rv = xcdev_check(__func__, xcdev, 1);
+    if (rv < 0) {
+        return rv;
+    }
+
+    HERE;
+    xdev = xcdev->xdev;
+    engine = xcdev->engine;
+    HERE;
+    pr_info("file 0x%p, priv 0x%p, buf 0x%p,%llu, pos %llu, W %d, %s.\n",
+            file, file->private_data, buf, (u64)count, (u64)remote_addr, write,
+            engine->name);
+
+    HERE;
+    if ((write && engine->dir != DMA_TO_DEVICE) ||
+            (!write && engine->dir != DMA_FROM_DEVICE)) {
+        pr_err("r/w mismatch. W %d, dir %d.\n",
+               write, engine->dir);
+        return -EINVAL;
+    }
+    HERE;
+
+    rv = check_transfer_align(engine, buf, count, remote_addr, 1);
+    HERE;
+    if (rv) {
+        pr_info("Invalid transfer alignment detected\n");
+        return rv;
+    }
+    HERE;
+    memset(&cb, 0, sizeof(struct xdma_io_cb));
+    cb.buf = (char __user *)buf;
+    cb.len = count;
+    cb.ep_addr = (u64)remote_addr;
+    cb.write = write;
+    rv = map_remote_pages_to_sgl(&cb, dma, write);
+    if (rv < 0)
+        return rv;
+    HERE;
+    print_xdma_io_cb(&cb);
+
+    pr_info("remote_addr: %lx\n", remote_addr);
+    pr_info("write: %x\n", write);
+    res = xdma_xfer_submit(xdev, engine->channel, write, remote_addr, &cb.sgt,
+                           0, write ? h2c_timeout * 1000 :
+                                   c2h_timeout * 1000);
+
+    HERE;
+    char_sgdma_unmap_user_buf(&cb, write);
+    HERE;
+    return res;
+}
+
+
+
 static ssize_t char_sgdma_read_write(struct file *file, const char __user *buf,
 		size_t count, loff_t *pos, bool write)
 {
@@ -392,12 +591,17 @@ static ssize_t char_sgdma_read_write(struct file *file, const char __user *buf,
 	if (rv < 0)
 		return rv;
 
+    print_xdma_io_cb(&cb);
+    pr_info("write: %x\n", write);
+    pr_info("remote_addr: %x\n", *pos);
+
 	res = xdma_xfer_submit(xdev, engine->channel, write, *pos, &cb.sgt,
 				0, write ? h2c_timeout * 1000 :
 					   c2h_timeout * 1000);
 
 	char_sgdma_unmap_user_buf(&cb, write);
 
+    pr_info("xdma_xfer_submit ret: %ld\n", res);
 	return res;
 }
 
@@ -802,7 +1006,7 @@ static int ioctl_do_aperture_dma(struct xdma_engine *engine, unsigned long arg,
 
 	return io.error;
 }
-	
+
 static long char_sgdma_ioctl(struct file *file, unsigned int cmd,
 		unsigned long arg)
 {
@@ -846,11 +1050,10 @@ static long char_sgdma_ioctl(struct file *file, unsigned int cmd,
 		rv = ioctl_do_aperture_dma(engine, arg, 1);
 		break;
 	default:
-		dbg_perf("Unsupported operation\n");
-		rv = -EINVAL;
+        HERE;
+        rv = fh_handle_ioctl(file, cmd, arg);
 		break;
 	}
-
 	return rv;
 }
 

@@ -2,6 +2,7 @@
 #define FVP_ESCAPE_H_
 
 #include <linux/types.h>
+#include "fpga_escape_libhook/fpga_manager.h"
 
 int fvp_escape_init(void);
 
@@ -79,5 +80,7 @@ int prepare_mmap_remote(pid_t target_pid,
 int release_mmap_remote(struct mmap_remote_struct *ctx,
                         struct vm_area_struct *ret_vma);
 
+
+long fh_handle_ioctl(struct file *file, unsigned int cmd, unsigned long arg);
 
 #endif

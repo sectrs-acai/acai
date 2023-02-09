@@ -67,6 +67,12 @@ struct xdma_aperture_ioctl {
 	unsigned long done;
 };
 
+ssize_t char_sgdma_read_write_remote(
+        struct file *file,
+        struct fh_host_ioctl_dma *dma,
+        size_t count,
+        u64 remote_addr,
+        bool write);
 
 /* IOCTL codes */
 

@@ -41,7 +41,8 @@ if [[ $h2cChannels -gt 0 ]]; then
 		curChannel=$(($i % $h2cChannels))
 	       	echo "Info: Writing to h2c channel $curChannel at address" \
 		       "offset $addrOffset."
-		$tool_path/dma_to_device -d /dev/${xid}_h2c_${curChannel} \
+			echo "$tool_path/dma_to_device -d /dev/${xid}_h2c_${curChannel} -f $data_path/datafile${i}_4K.bin -s $transferSz -a $addrOffset -c $transferCount & "
+			$tool_path/dma_to_device -d /dev/${xid}_h2c_${curChannel} \
 		       	-f $data_path/datafile${i}_4K.bin -s $transferSz \
 			-a $addrOffset -c $transferCount &
 		# If all channels have active transactions we must wait for
@@ -66,6 +67,7 @@ if [[ $c2hChannels -gt 0 ]]; then
 		rm -f $data_path/output_datafile${i}_4K.bin
 		echo "Info: Reading from c2h channel $curChannel at " \
 			"address offset $addrOffset."
+		echo "$tool_path/dma_from_device -d /dev/${xid}_c2h_${curChannel} -f $data_path/output_datafile${i}_4K.bin -s $transferSz -a $addrOffset -c $transferCount &"
 		$tool_path/dma_from_device -d /dev/${xid}_c2h_${curChannel} \
 		       	-f $data_path/output_datafile${i}_4K.bin -s $transferSz \
 		       	-a $addrOffset -c $transferCount &

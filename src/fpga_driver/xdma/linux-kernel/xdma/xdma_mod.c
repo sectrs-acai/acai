@@ -364,14 +364,18 @@ static int xdma_mod_init(void)
         pr_info("fvp lookup failed\n");
         return rv;
     }
-	if (desc_blen_max > XDMA_DESC_BLEN_MAX)
-		desc_blen_max = XDMA_DESC_BLEN_MAX;
+	if (desc_blen_max > XDMA_DESC_BLEN_MAX) {
+        desc_blen_max = XDMA_DESC_BLEN_MAX;
+    }
+
 	pr_info("desc_blen_max: 0x%x/%u, timeout: h2c %u c2h %u sec.\n",
 		desc_blen_max, desc_blen_max, h2c_timeout, c2h_timeout);
 
 	rv = xdma_cdev_init();
-	if (rv < 0)
-		return rv;
+	if (rv < 0) {
+        pr_info("xdma_cdev_init=%d\n", rv);
+        return rv;
+    }
 
 	return pci_register_driver(&pci_driver);
 }

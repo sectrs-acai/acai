@@ -1,5 +1,5 @@
 #!/bin/zsh
-set -euo pipefail
+# set -euo pipefail
 
 script_dir=$(cd -P -- "$(dirname -- "$0")" && printf '%s\n' "$(pwd -P)")
 
@@ -82,3 +82,6 @@ if [[ $h2cChannels -eq 0 &&  $c2hChannels -eq 0 ]]; then
 	echo "Error: No PCIe DMA channels were identified."
 	exit 1
 fi
+
+echo "Info: Number of enabled c2h channels = $c2hChannels"
+echo "Info: Number of enabled h2c channels = $h2cChannels"

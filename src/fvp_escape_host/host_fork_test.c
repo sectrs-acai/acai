@@ -165,11 +165,11 @@ static void child(size_t magic)
         int cpu;
         int node;
         // print_affinity();
-         printf("before write\n");
-        *((volatile char *) _ptr) = 0xFF;
-         printf("after write\n");
-         printf("some other random access\n");
-        *((volatile char *) _ptr + 10) = 0xFF;
+        printf("before write\n");
+        printf("%c\n", *((volatile char *) _ptr));
+        printf("after write\n");
+        printf("some other random access\n");
+        *((volatile char *) _ptr + 10);
         printf("some other random access done\n");
          sleep(1);
     }

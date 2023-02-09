@@ -90,6 +90,55 @@ static inline void hex_dump(
     }
 }
 
+static int do_dma(struct faultdata_struct *fault,
+           pid_t pid,
+           ctx_struct ctx)
+{
+    int ret = 0;
+    struct action_dma *a = (struct action_dma *) fault->data;
+    struct page_chunk *chunks = NULL;
+    struct page_chunk *chunk = NULL;
+    unsigned long chunk_size;
+
+
+    chunk_size = a->pages_nr * sizeof(struct page_chunk);
+    chunks = malloc(chunk_size);
+    if (chunks == NULL)
+    {
+        print_err("addrs is null\n");
+        return - 1;
+    }
+    memcpy(chunks, a->page_chunks, chunk_size);
+    for (int i = 0; i < a->pages_nr; i ++)
+    {
+        chunk = chunks + i;
+        print_progress("%d %d %d\n", chunk->addr, chunk->nbytes, chunk->offset);
+        chunk->addr = get_addr_map_vaddr(ctx, chunk->addr);
+    }
+    struct fh_host_ioctl_dma dma = {
+            .pid = pid,
+            .phy_addr = a->phy_addr,
+            .do_write = a->do_write,
+            .user_buf = a->user_buf,
+            .chunks_nr = a->pages_nr,
+            .len = a->len,
+            .chunks = chunks
+    };
+    ret = ioctl(a->common.fd, FH_HOST_IOCTL_DMA, &dma);
+    if (ret < 0)
+    {
+        perror("FH_ACTION_DMA failed\n");
+        print_progress("FH_HOST_IOCTL_DMA res: %d\n", ret);
+        goto dma_clean;
+    }
+
+    dma_clean:
+set_ret_and_err_no(a, ret);
+    free(chunks);
+
+    return ret;
+}
+
 
 int on_fault(unsigned long addr,
              unsigned long len,
@@ -100,12 +149,10 @@ int on_fault(unsigned long addr,
     struct faultdata_struct *fault = (struct faultdata_struct *) addr;
     if (fault->turn != FH_TURN_HOST)
     {
-        // print_err("turn is not FH_TURN_HOST\n");
+        print_err("turn is not FH_TURN_HOST\n");
         /* fault was caused unintentionally */
         return 0;
     }
-    // print_progress("page dump before: \n");
-    // hex_dump((void *) addr, 64);
 
     print_progress("action: %s \n", fh_action_to_str(fault->action));
     switch (fault->action)
@@ -194,7 +241,7 @@ int on_fault(unsigned long addr,
             }
             map_clean:
             free(addrs);
-        set_ret_and_err_no(a, ret);
+            set_ret_and_err_no(a, ret);
             print_status(fault->action, &a->common);
             break;
         }
@@ -228,15 +275,17 @@ int on_fault(unsigned long addr,
             set_ret_and_err_no(a, ret);
             print_status(fault->action, &a->common);
         }
+        case FH_ACTION_DMA:
+        {
+            do_dma(fault, pid, ctx);
+            break;
+        }
         default:
         {
             print_err("unknown action code: %ld\n", fault->action);
         }
     }
     fault->turn = FH_TURN_GUEST;
-    // press("page dump after: \n");
-    // hex_dump((void *) addr, 64);
-
     return 0;
 }
 

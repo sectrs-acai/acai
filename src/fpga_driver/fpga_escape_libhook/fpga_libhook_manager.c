@@ -1,5 +1,9 @@
 #define _GNU_SOURCE
-
+/*
+ * libc allocator hook based fpga user space manager
+ * the fvp needs libhook preloaded
+ *
+ */
 #include <stddef.h>
 #include <errno.h>
 #include <pthread.h>
@@ -55,7 +59,6 @@ struct ctx_struct
     unsigned long addr_map_pfn_min;
     unsigned long addr_map_pfn_max;
     unsigned long addr_map_size;
-
     unsigned long checksum_vaddrs; /*checksum of vaddr mapping for marshalling */
 };
 
@@ -74,21 +77,21 @@ static int read_stat_file(
     unsigned long size = 0;
 
     sprintf(buffer, "%s_%d", STATS_FILE, pid);
-    printf("opening file %s\n", buffer);
+    print_ok("opening file %s\n", buffer);
     f = fopen(buffer, "r");
 
     if (f == NULL)
     {
-        printf("open stat file failed: %s. "
-               "Is FVP running with libc hook?\n",
-               buffer);
+        print_err("open stat file failed: %s. "
+                  "Is FVP running with libc hook?\n",
+                  buffer);
         exit(1);
     }
     fscanf(f, "0x%lx", &from);
     fscanf(f, "-0x%lx", &to);
 
-    printf("from: %lx, to %lx\n", from, to);
-    printf("pid: %d\n", pid);
+    print_ok("from: %lx, to %lx\n", from, to);
+    print_ok("pid: %d\n", pid);
     fclose(f);
 
     if (from != 0 && to != 0 && to > from)
@@ -96,7 +99,7 @@ static int read_stat_file(
         size = to - from;
     } else
     {
-        printf("invalid data in %s\n", buffer);
+        print_err("invalid data in %s\n", buffer);
         exit(1);
     }
 
@@ -113,7 +116,7 @@ static int open_mem_fd(pid_t pid)
     int fd = open(buffer, O_RDWR);
     if (fd < 0)
     {
-        printf("cannot open %s. Do you have root access?\n", buffer);
+        print_err("cannot open %s. Do you have root access?\n", buffer);
         return - 1;
     }
     return fd;
@@ -168,9 +171,9 @@ unsigned long get_addr_map_vaddr(
         return *(ctx->addr_map + (pfn - ctx->addr_map_pfn_min));
     } else
     {
-        printf("BUG: get_addr_map_vaddr out of range,"
-               " pfn: %lx, max: %lx, min: %lx\n",
-               pfn, ctx->addr_map_pfn_max, ctx->addr_map_pfn_min);
+        print_err("BUG: get_addr_map_vaddr out of range,"
+                  " pfn: %lx, max: %lx, min: %lx\n",
+                  pfn, ctx->addr_map_pfn_max, ctx->addr_map_pfn_min);
     }
     return 0;
 }
@@ -186,19 +189,19 @@ inline static unsigned long set_addr_map_vaddr(
         *(ctx->addr_map + (pfn - ctx->addr_map_pfn_min)) = vaddr;
     } else
     {
-        printf("BUG: set_addr_map_vaddr out of range,"
-               " pfn: %lx, max: %lx, min: %lx, vaddr: %lx\n",
-               pfn,
-               ctx->addr_map_pfn_max,
-               ctx->addr_map_pfn_min,
-               vaddr);
+        print_err("BUG: set_addr_map_vaddr out of range,"
+                  " pfn: %lx, max: %lx, min: %lx, vaddr: %lx\n",
+                  pfn,
+                  ctx->addr_map_pfn_max,
+                  ctx->addr_map_pfn_min,
+                  vaddr);
     }
     return 0;
 }
 
 static unsigned long checksum_settings(struct ctx_struct *ctx)
 {
-    unsigned long checksum;
+    unsigned long checksum = 0;
     checksum += ctx->target_pid;
     checksum += ctx->target_from;
     checksum += ctx->target_to;
@@ -230,7 +233,7 @@ static int save_settings(struct ctx_struct *ctx)
 
     if ((f = fopen(SETTING_FILE, "w")) == NULL)
     {
-        printf("Error! opening file: %s\n", SETTING_FILE);
+        print_err("Error! opening file: %s\n", SETTING_FILE);
         return - 1;
     }
     WRITE_CTX(f, target_pid);
@@ -246,11 +249,11 @@ static int save_settings(struct ctx_struct *ctx)
     WRITE_VAR(f, checksum_vaddrs, checksum_vaddrs(ctx));
 
     fclose(f);
-    printf("Writing settings to %s\n", SETTING_FILE);
+    print_progress("Writing settings to %s\n", SETTING_FILE);
 
     if ((f = fopen(MAPPING_FILE, "w")) == NULL)
     {
-        printf("Error! opening file: %s\n", MAPPING_FILE);
+        print_err("Error! opening file: %s\n", MAPPING_FILE);
         return - 1;
     }
     for (unsigned long i = ctx->addr_map_pfn_min;
@@ -260,7 +263,7 @@ static int save_settings(struct ctx_struct *ctx)
         fprintf(f, "0x%lx=0x%lx\n", i, get_addr_map_vaddr(ctx, i));
     }
     fclose(f);
-    printf("Writing mappings to %s\n", MAPPING_FILE);
+    print_progress("Writing mappings to %s\n", MAPPING_FILE);
     return 0;
 }
 
@@ -270,10 +273,10 @@ static int read_mappings(struct ctx_struct *ctx)
     char line[256];
     unsigned long count = 0, total;
 
-    printf("Reading mappings from %s\n", MAPPING_FILE);
+    print_progress("Reading mappings from %s\n", MAPPING_FILE);
     if ((f = fopen(MAPPING_FILE, "r")) == NULL)
     {
-        printf("Error! opening file: %s\n", MAPPING_FILE);
+        print_err("Error! opening file: %s\n", MAPPING_FILE);
         return - 1;
     }
     total = ctx->addr_map_pfn_max - ctx->addr_map_pfn_min;
@@ -287,15 +290,15 @@ static int read_mappings(struct ctx_struct *ctx)
 
     if (count != total)
     {
-        printf("Something went wrong: count != total, count=%ld, total: %ld\n",
-               count,
-               total);
+        print_err("Something went wrong: count != total, count=%ld, total: %ld\n",
+                  count,
+                  total);
         return - 1;
     }
 
     if (ctx->checksum_vaddrs != checksum_vaddrs(ctx))
     {
-        printf("checksum vaddrs failed\n");
+        print_err("checksum vaddrs failed\n");
         return - 1;
     }
     return 0;
@@ -308,10 +311,10 @@ static int read_settings(struct ctx_struct *ctx)
     unsigned long check_settings = 0;
     unsigned long check_settings_ctrl = 0;
 
-    printf("Reading settings file from %s\n", SETTING_FILE);
+    print_progress("Reading settings file from %s\n", SETTING_FILE);
     if ((f = fopen(SETTING_FILE, "r")) == NULL)
     {
-        printf("Error opening file: %s\n", SETTING_FILE);
+        print_err("Error opening file: %s\n", SETTING_FILE);
         return - 1;
     }
 
@@ -327,6 +330,7 @@ static int read_settings(struct ctx_struct *ctx)
     READ_VAR(checksum, check_settings);
     READ_VAR(checksum_vaddrs, ctx->checksum_vaddrs);
 
+    print_progress("printing context: \n");
     WRITE_CTX(stdout, target_pid);
     WRITE_CTX(stdout, target_from);
     WRITE_CTX(stdout, target_to);
@@ -343,12 +347,12 @@ static int read_settings(struct ctx_struct *ctx)
 
     if (check_settings_ctrl != check_settings)
     {
-        printf("checksum verify failed\n");
-        printf("checksum: %lx, verify: %lx\n", check_settings, check_settings_ctrl);
+        print_err("checksum verify failed\n");
+        print_err("checksum: %lx, verify: %lx\n", check_settings, check_settings_ctrl);
         return - 1;
     } else
     {
-        printf("checksum is ok\n");
+        print_ok("checksum is ok\n");
     }
     return 0;
 }
@@ -367,10 +371,10 @@ static long fvpmem_find_escape_page(struct ctx_struct *ctx,
     escape_page_vaddr = 0;
     while (escape_page_vaddr == 0)
     {
-        printf("Searching addresses 0x%lx-0x%lx in pid %d...\n",
-               from,
-               to,
-               ctx->target_pid);
+        print_progress("Searching addresses 0x%lx-0x%lx in pid %d...\n",
+                       from,
+                       to,
+                       ctx->target_pid);
         for (unsigned long addr = from; addr < to; addr += 4096)
         {
             lseek(mem_fd, addr, SEEK_SET);
@@ -379,16 +383,16 @@ static long fvpmem_find_escape_page(struct ctx_struct *ctx,
                        sizeof(struct fvp_escape_scan_struct));
             if (ret < 0)
             {
-                printf("Error while reading escape memory: %ld, addr: %ld\n",
-                       ret,
-                       addr);
+                print_err("Error while reading escape memory: %lx, addr: %lx\n",
+                          ret,
+                          addr);
                 continue;
             }
 
             if (escape.ctrl_magic == FVP_CONTROL_MAGIC
                     && escape.escape_magic == FVP_ESCAPE_MAGIC)
             {
-                printf("found escape page: %p=%ld\n", addr, escape.addr_tag);
+                print_err("found escape page: %p=%ld\n", addr, escape.addr_tag);
 
                 escape_page_vaddr = addr;
                 *ret_escape_pfn = escape.addr_tag;
@@ -418,7 +422,7 @@ static long fvpmem_find_dimensions(struct ctx_struct *ctx)
         ret = read(mem_fd, &escape, sizeof(struct fvp_escape_scan_struct));
         if (ret < 0)
         {
-            printf("Error while reading escape memory: %ld, addr: %ld\n", ret, addr);
+            print_err("Error while reading escape memory: %ld, addr: %ld\n", ret, addr);
             continue;
         }
         if (escape.ctrl_magic == FVP_CONTROL_MAGIC)
@@ -446,7 +450,7 @@ static long fvpmem_scan_addresses(struct ctx_struct *ctx)
         ret = read(mem_fd, &escape, sizeof(struct fvp_escape_scan_struct));
         if (ret < 0)
         {
-            printf("Error while reading escape memory: %ld, addr: %ld\n", ret, addr);
+            print_err("Error while reading escape memory: %ld, addr: %ld\n", ret, addr);
             continue;
         }
         if (escape.ctrl_magic == FVP_CONTROL_MAGIC)
@@ -473,13 +477,13 @@ static long map_memory_from_file(struct ctx_struct *ctx, int pid)
     ret = read_settings(ctx);
     if (ret != 0)
     {
-        printf("restoring context from file failed: %ld\n", ret);
+        print_err("restoring context from file failed: %ld\n", ret);
         return ret;
     }
     if (ctx->target_pid != pid)
     {
-        printf("Pid changed. Cant load from file. Old=%ld, new=%ld\n",
-               ctx->target_pid, pid);
+        print_err("Pid changed. Cant load from file. Old=%d, new=%d\n",
+                  ctx->target_pid, pid);
         return - 1;
     }
     ctx->escape_page = create_escape_page();
@@ -490,7 +494,7 @@ static long map_memory_from_file(struct ctx_struct *ctx, int pid)
     }
 
     // TODO: can we share more code with file appraoch?
-    printf("mapping vaddr 0x%lx into host\n", ctx->escape_vaddr);
+    print_progress("mapping vaddr 0x%lx into host\n", ctx->escape_vaddr);
     ret = fh_mmap_region(
             ctx->target_pid,
             ctx->escape_vaddr,
@@ -499,19 +503,19 @@ static long map_memory_from_file(struct ctx_struct *ctx, int pid)
             &ctx->escape_page_mmap_ctx);
     if (ret != 0)
     {
-        printf("fh_mmap_region failed: %ld\n", ret);
+        print_err("fh_mmap_region failed: %ld\n", ret);
         return ret;
     }
     ret = init_addr_map(ctx, ctx->addr_map_pfn_min, ctx->addr_map_pfn_max);
     if (ret != 0)
     {
-        printf("init_addr_map failed: %ld\n", ret);
+        print_err("init_addr_map failed: %ld\n", ret);
         return ret;
     }
     ret = read_mappings(ctx);
     if (ret != 0)
     {
-        printf("read_mappings failed: %d\n", ret);
+        print_err("read_mappings failed: %d\n", ret);
         return ret;
     }
     return 0;
@@ -543,7 +547,7 @@ static long map_fvp_memory(struct ctx_struct *ctx)
 
     escape = (struct fvp_escape_setup_struct *) ctx->escape_page;
 
-    printf("mapping vaddr 0x%lx into host\n", ctx->escape_vaddr);
+    print_progress("mapping vaddr 0x%lx into host\n", ctx->escape_vaddr);
     ret = fh_mmap_region(
             ctx->target_pid,
             ctx->escape_vaddr,
@@ -552,14 +556,14 @@ static long map_fvp_memory(struct ctx_struct *ctx)
             &ctx->escape_page_mmap_ctx);
     if (ret != 0)
     {
-        printf("fh_mmap_region failed: %ld\n", ret);
+        print_err("fh_mmap_region failed: %ld\n", ret);
         return ret;
     }
 
     ctx->escape_page_reserve_size = *((unsigned long *) escape->data);
 
-    printf("guest reserved 0x%lx bytes for escape\n",
-           ctx->escape_page_reserve_size);
+    print_ok("guest reserved 0x%lx bytes for escape\n",
+             ctx->escape_page_reserve_size);
 
     /* Make fvp wait until further notice */
     escape->action = fvp_escape_setup_action_wait_guest;
@@ -567,13 +571,13 @@ static long map_fvp_memory(struct ctx_struct *ctx)
     ret = fvpmem_find_dimensions(ctx);
     if (ret != 0)
     {
-        printf("fvpmem_find_dimensions failed: %ld\n", ret);
+        print_err("fvpmem_find_dimensions failed: %ld\n", ret);
         return ret;
     }
 
-    printf("init_addr_map with pfn: 0x%lx-0x%lx\n",
-           ctx->addr_map_pfn_min,
-           ctx->addr_map_pfn_max);
+    print_ok("init_addr_map with pfn: 0x%lx-0x%lx\n",
+             ctx->addr_map_pfn_min,
+             ctx->addr_map_pfn_max);
 
     ret = init_addr_map(
             ctx,
@@ -582,19 +586,19 @@ static long map_fvp_memory(struct ctx_struct *ctx)
             ctx->addr_map_pfn_max);
     if (ret != 0)
     {
-        printf("init_addr_map failed: %ld\n", ret);
+        print_err("init_addr_map failed: %ld\n", ret);
         return ret;
     }
 
-    printf("fvpmem_scan_addresses\n");
+    print_progress("fvpmem_scan_addresses\n");
     ret = fvpmem_scan_addresses(ctx);
     if (ret != 0)
     {
-        printf("fvpmem_scan_addresses failed: %ld\n", ret);
+        print_err("fvpmem_scan_addresses failed: %ld\n", ret);
         return ret;
     }
 
-    printf("escape_page: %ld\n", escape_page_vaddr);
+    print_ok("escape_page: %ld\n", escape_page_vaddr);
     hex_dump(ctx->escape_page, 64);
 
     return 0;
@@ -602,9 +606,9 @@ static long map_fvp_memory(struct ctx_struct *ctx)
 
 static void unmap_fvp_memory(struct ctx_struct *ctx)
 {
-    printf("unmap_fvp_memory\n");
+    print_progress("unmap_fvp_memory\n");
     fh_unmmap_region(&ctx->escape_page_mmap_ctx);
-    printf("fh_unmmap_region ok\n");
+    print_ok("fh_unmmap_region ok\n");
     free_addr_map(ctx);
     close(ctx->target_mem_fd);
 }
@@ -638,7 +642,6 @@ static int _on_fault(void *arg)
     struct ctx_struct *ctx = (struct ctx_struct *) arg;
 
 
-
     int ret = on_fault((unsigned long) ctx->escape_page,
                        MIN(ctx->escape_page_reserve_size, PAGE_SIZE),
                        ctx->target_pid,
@@ -659,10 +662,53 @@ static pid_t get_pid(int argc, char *argv[])
     pid = strtol(argv[1], NULL, 10);
     if (pid == 0)
     {
-        print_err("invalid pid");
+        print_err("invalid pid\n");
         exit(- 1);
     }
     return pid;
+}
+
+static int verify_mappings(struct ctx_struct *ctx)
+{
+    unsigned long vaddr, vaddr_prev;
+    int null = 0;
+    int not_contiguous = 0;
+    print_progress("verifying pfn-vaddr mappings\n");
+    for (unsigned long i = ctx->addr_map_pfn_min + 1; i < ctx->addr_map_pfn_max; i += 1)
+    {
+        vaddr_prev = get_addr_map_vaddr(ctx, i - 1);
+        vaddr = get_addr_map_vaddr(ctx, i);
+        if (vaddr_prev == 0 && vaddr == 0)
+        {
+            null ++;
+            continue;
+        }
+        if (vaddr_prev + 4096 != vaddr)
+        {
+            print_progress("non-contiguous addresses : 0x%lx, 0x%lx\n", vaddr_prev, vaddr);
+        }
+    }
+    print_ok("number of unmapped pfn: %d\n", null);
+    print_progress("verifying escape_page_pfn\n");
+
+    not_contiguous = 0;
+    for (unsigned long i = ctx->escape_page_pfn + 1; i < ctx->escape_page_pfn + (
+            ctx->escape_page_reserve_size >> 12); i += 1)
+    {
+        vaddr_prev = get_addr_map_vaddr(ctx, i - 1);
+        vaddr = get_addr_map_vaddr(ctx, i);
+        if (vaddr_prev + 4096 != vaddr)
+        {
+            print_err("vaddr : 0x%lx, 0x%lx\n", vaddr_prev, vaddr);
+            not_contiguous ++;
+
+        }
+    }
+    if (not_contiguous != 0)
+    {
+        print_err("escape_page_pfn is not contiguous on host\n");
+    }
+    return 0;
 }
 
 int main(int argc, char *argv[])
@@ -675,7 +721,7 @@ int main(int argc, char *argv[])
     struct ctx_struct ctx;
     memset(&ctx, 0, sizeof(struct ctx_struct));
     pid = get_pid(argc, argv);
-    print_progress("Using pid %d", pid);
+    print_ok("Using pid %d \n", pid);
 
     if ((ret = fh_init(NULL)) != 0)
     {
@@ -703,8 +749,8 @@ int main(int argc, char *argv[])
     ret = map_memory_from_file(&ctx, pid);
     if (ret != 0)
     {
-        printf("map memory from file failed. "
-               "Restarting without file: %ld\n", ret);
+        print_err("map memory from file failed. "
+                  "Restarting without file: %ld\n", ret);
         /*
          * Something went wrong. Either we running a new FVP instance or
          * there was an error while writing state to disk.
@@ -729,13 +775,15 @@ int main(int argc, char *argv[])
          */
         save_settings(&ctx);
 
-        printf("continuing guest\n");
+        print_ok("continuing guest\n");
         ((struct fvp_escape_setup_struct *) ctx.escape_page)
                 ->escape_turn = fvp_escape_setup_turn_guest;
 
         ((struct fvp_escape_setup_struct *) ctx.escape_page)
                 ->action = fvp_escape_setup_action_addr_mapping_success;
     }
+
+    verify_mappings(&ctx);
 
     if (has_faulthook)
     {
@@ -747,14 +795,14 @@ int main(int argc, char *argv[])
                 pid);
         if (ret != 0)
         {
-            printf("fh_enable_trace failed: %d\n", ret);
+            print_err("fh_enable_trace failed: %d\n", ret);
             goto clean_up;
         }
         pthread_join(*th, NULL);
 
     } else
     {
-        printf("no faulthook present on system\n");
+        print_err("no faulthook present on system\n");
         while (1)
         {
             hex_dump(ctx.escape_page, 64);

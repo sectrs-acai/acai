@@ -9,6 +9,8 @@ struct faultdata_driver_struct fd_ctx;
 
 int fh_char_open(struct inode *inode, struct file *file)
 {
+    HERE;
+    int ret;
     struct faulthook_priv_data *info = kmalloc(sizeof(struct faulthook_priv_data), GFP_KERNEL);
     file->private_data = info;
 
@@ -17,13 +19,21 @@ int fh_char_open(struct inode *inode, struct file *file)
     strcpy(a->device, "/dev/");
     strcpy(a->device + strlen(a->device), file->f_path.dentry->d_iname);
     a->flags = file->f_flags;
-
-    fh_do_faulthook(FH_ACTION_OPEN_DEVICE);
+    ret = fh_do_faulthook(FH_ACTION_OPEN_DEVICE);
+    if (ret < 0)
+    {
+        pr_info("fh_do_faulthook(FH_ACTION_OPEN_DEVICE) failed\n");
+        return ret;
+    }
+    if (a->common.ret < 0)
+    {
+        return a->common.err_no;
+    }
     /*
      * We use fd as key to query device on host
      */
     info->fd = a->common.fd;
-    return a->common.err_no;
+    return 0;
 }
 
 /*
@@ -31,15 +41,24 @@ int fh_char_open(struct inode *inode, struct file *file)
  */
 int fh_char_close(struct inode *inode, struct file *file)
 {
+    HERE;
     int ret;
-
     struct faulthook_priv_data *info = file->private_data;
     struct action_openclose_device *a = (struct action_openclose_device *) &fd_data->data;
     a->common.fd = info->fd;
 
-    fh_do_faulthook(FH_ACTION_CLOSE_DEVICE);
-    ret = a->common.err_no;
-
+    ret = fh_do_faulthook(FH_ACTION_CLOSE_DEVICE);
+    if (ret < 0)
+    {
+        goto clean_up;
+    }
+    if (a->common.ret < 0)
+    {
+        ret = a->common.err_no;
+        goto clean_up;
+    }
+    ret = 0;
+    clean_up:
     kfree(file->private_data);
     return ret;
 }
@@ -55,7 +74,6 @@ int faulthook_init(void)
     return 0;
 }
 
-
 int fh_do_faulthook(int action)
 {
     unsigned long nonce = ++ fd_ctx.fh_nonce;
@@ -66,11 +84,15 @@ int fh_do_faulthook(int action)
     #else
     asm volatile("dmb sy");
     #endif
+
+    /*
+     * TODO: Optimization: put data not on same page as faulthook
+     */
     fd_data->nonce = nonce; /* escape to other world */
     if (fd_data->turn != FH_TURN_GUEST)
     {
         pr_err("Host did not reply to request. Nonce: 0x%lx. Is host listening?", nonce);
-        return -ENXIO;
+        return - ENXIO;
     }
     return 0;
 }
@@ -216,13 +238,11 @@ static void vm_close(struct vm_area_struct *vma)
 
 static vm_fault_t vm_fault(struct vm_fault *vmf)
 {
-    pr_info("vm_fault\n");
     return 0;
 }
 
 static void vm_open(struct vm_area_struct *vma)
 {
-    pr_info("vm_open\n");
 }
 
 static struct vm_operations_struct mmap_ops = {
@@ -239,8 +259,6 @@ int fh_bridge_mmap(struct file *file, struct vm_area_struct *vma)
     struct faulthook_priv_data *fh_info = file->private_data;
     struct mmap_info *mmap_info = NULL;
     struct action_mmap_device *escape = (struct action_mmap_device *) &fd_data->data;
-
-    pr_info("end: %lx, start: %lx, pgoff: %lx\n", vma->vm_end, vma->vm_start, vma->vm_pgoff);
 
     mmap_info = kmalloc(GFP_KERNEL, sizeof(struct mmap_info));
     if (mmap_info == NULL)
@@ -260,7 +278,6 @@ int fh_bridge_mmap(struct file *file, struct vm_area_struct *vma)
     mmap_info->order = __roundup_pow_of_two(size >> PAGE_SHIFT);
     mmap_info->data = (void *) __get_free_pages(GFP_KERNEL, order);
     mmap_info->data_size = size;
-    pr_info("Allocating %lx (order %ld)\n", mmap_info->data_size, mmap_info->order);
 
     if (mmap_info->data == NULL)
     {
@@ -280,13 +297,13 @@ int fh_bridge_mmap(struct file *file, struct vm_area_struct *vma)
     escape->vm_page_prot = (unsigned long) vma->vm_page_prot.pgprot;
     escape->pfn_size = size >> PAGE_SHIFT;
 
-    pr_info("number of entries (escape->pfn_size): %ld\n", escape->pfn_size);
+    // pr_info("number of entries (escape->pfn_size): %ld\n", escape->pfn_size);
 
     pfn_start = page_to_pfn(virt_to_page((char *) mmap_info->data));
     for (i = 0; i < escape->pfn_size; i ++)
     {
         pfn = pfn_start + i * PAGE_SIZE;
-        pr_info("pfn: %lx\n", pfn);
+        // pr_info("pfn: %lx\n", pfn);
         escape->pfn[i] = pfn;
     }
     ret = fh_do_faulthook(FH_ACTION_MMAP);
@@ -301,7 +318,7 @@ int fh_bridge_mmap(struct file *file, struct vm_area_struct *vma)
         ret = escape->common.err_no;
         goto err_cleanup;
     }
-    pr_info("fh_do_faulthook(FH_ACTION_MMAP) is ok\n");
+    // pr_info("fh_do_faulthook(FH_ACTION_MMAP) is ok\n");
 
     ret = remap_pfn_range(vma, vma->vm_start, pfn_start, size, vma->vm_page_prot);
     if (ret)
@@ -309,8 +326,8 @@ int fh_bridge_mmap(struct file *file, struct vm_area_struct *vma)
         pr_info("remap_pfn_range failed");
         goto err_cleanup;
     }
-    pr_info("map kernel 0x%px to user 0x%lx, size: 0x%lx\n",
-            mmap_info->data, vma->vm_start, size);
+    //pr_info("map kernel 0x%px to user 0x%lx, size: 0x%lx\n",
+    //         mmap_info->data, vma->vm_start, size);
 
     vma->vm_private_data = mmap_info;
 
@@ -335,4 +352,134 @@ int fh_bridge_mmap(struct file *file, struct vm_area_struct *vma)
         mmap_info = NULL;
     }
     return ret;
+}
+
+inline unsigned long fh_get_page_count(const char __user *buf, size_t len)
+{
+    return (((unsigned long) buf + len + PAGE_SIZE - 1)
+            - ((unsigned long) buf & PAGE_MASK)) >> PAGE_SHIFT;
+}
+
+int fh_unpin_pages(struct pin_pages_struct *pinned, int do_free, bool do_write)
+{
+    int i;
+    if (pinned == NULL)
+    {
+        return 0;
+    }
+    if (pinned->pages != NULL)
+    {
+        for (i = 0; i < pinned->pages_nr; i ++)
+        {
+            if (pinned->pages[i])
+            {
+                // TODO: Only on write?
+                if (do_write) {
+                    set_page_dirty_lock(pinned->pages[i]);
+                }
+                put_page(pinned->pages[i]);
+            } else
+            {
+                break;
+            }
+        }
+        if (do_free)
+        {
+            kfree(pinned->pages);
+        }
+    }
+    if (do_free)
+    {
+        kfree(pinned);
+    }
+    return 0;
+}
+
+int fh_pin_pages(const char __user *buf, size_t count,
+                 struct pin_pages_struct **ret_pages)
+{
+    int i;
+    int rv;
+    unsigned long len = count;
+    struct pin_pages_struct *pin_pages = NULL;
+    struct page **pages = NULL;
+    unsigned long pages_nr = fh_get_page_count(buf, len);
+
+    if (pages_nr == 0)
+    {
+        pr_info("pages_nr invalid\n");
+        return - EINVAL;
+    }
+    pin_pages = kcalloc(pages_nr, sizeof(struct pin_pages_struct *)
+            + pages_nr * sizeof(struct page_chunk), GFP_KERNEL);
+    if (! pin_pages)
+    {
+        pr_err("pin_pages OOM.\n");
+        rv = - ENOMEM;
+        goto err_out;
+    }
+    pages = kcalloc(pages_nr, sizeof(struct page *), GFP_KERNEL);
+    if (! pages)
+    {
+        pr_err("pages OOM.\n");
+        rv = - ENOMEM;
+        goto err_out;
+    }
+    rv = get_user_pages_fast((unsigned long) buf,
+                             pages_nr,
+                             1/* write */,
+                             pages);
+    if (rv < 0)
+    {
+        pr_err("unable to pin down %u user pages, %d.\n", pages_nr, rv);
+        goto err_out;
+    }
+    if (rv != pages_nr)
+    {
+        pr_err("unable to pin down all %u user pages, %d.\n", pages_nr, rv);
+        rv = - EFAULT;
+        goto err_out;
+    }
+    for (i = 1; i < pages_nr; i ++)
+    {
+        if (pages[i - 1] == pages[i])
+        {
+            pr_err("duplicate pages, %d, %d.\n", i - 1, i);
+            rv = - EFAULT;
+            goto err_out;
+        }
+    }
+    for (i = 0; i < pages_nr; i ++)
+    {
+        unsigned long offset = offset_in_page(buf);
+        unsigned long nbytes = min_t(unsigned int, PAGE_SIZE - offset, len);
+        unsigned long pfn = page_to_pfn(pages[i]);
+        pr_info("pfn: %lx, %lx, %lx\n", pfn, nbytes, offset);
+
+        pin_pages->page_chunks[i] = (struct page_chunk) {
+                .addr = pfn,
+                .nbytes = nbytes,
+                .offset = offset
+        };
+        flush_dcache_page(pages[i]);
+        buf += nbytes;
+        len -= nbytes;
+    }
+    if (len)
+    {
+        pr_err("Invalid user buffer length. Cannot map to sgl\n");
+        rv = - EINVAL;
+        goto err_out;
+    }
+    pin_pages->pages_nr = pages_nr;
+    pin_pages->user_buf = (char *) buf;
+    pin_pages->len = count;
+    pin_pages->pages = pages;
+    *ret_pages = pin_pages;
+
+    return 0;
+
+    err_out:
+    fh_unpin_pages(pin_pages, 1, 1);
+    return rv;
 }

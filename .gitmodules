@@ -6,13 +6,13 @@
 	url = https://github.com/scanmem/scanmem.git
 [submodule "assets"]
 	path = assets
-	url = git@gitlab.inf.ethz.ch:PRV-SHINDE/theses/ma-theses/ma-2022/221114_andrin_bertschi/trusted-peripherals-assets.git
+	url = git@gitlab.inf.ethz.ch:PRV-SHINDE/projects/proj-2022/rmm/trusted-peripherals-assets.git
 [submodule "ext/pteditor"]
 	path = ext/pteditor
 	url = https://github.com/misc0110/PTEditor.git
 [submodule "src/linux-host"]
 	path = src/linux-host
-	url = git@gitlab.inf.ethz.ch:PRV-SHINDE/theses/ma-theses/ma-2022/221114_andrin_bertschi/trusted-peripherals-kernel.git
+	url = git@gitlab.inf.ethz.ch:PRV-SHINDE/projects/proj-2022/rmm/trusted-peripherals-kernel.git
 [submodule "src/linux-guest"]
 	path = src/linux-guest
-	url = git@gitlab.inf.ethz.ch:PRV-SHINDE/theses/ma-theses/ma-2022/221114_andrin_bertschi/trusted-peripherals-kernel.git
+	url = git@gitlab.inf.ethz.ch:PRV-SHINDE/projects/proj-2022/rmm/trusted-peripherals-kernel.git

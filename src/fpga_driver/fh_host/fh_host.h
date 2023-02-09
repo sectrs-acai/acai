@@ -27,7 +27,7 @@
 #define TAG_PROGRESS COLOR_YELLOW "[~]" COLOR_RESET " "
 
 
-#define log_helper(fmt, ...) printf(fmt "\n%s", __VA_ARGS__)
+#define log_helper(fmt, ...) printf(fmt "%s", __VA_ARGS__)
 #define print_progress(...) log_helper(TAG_PROGRESS " "__VA_ARGS__, "")
 #define print_ok(...) log_helper(TAG_OK " " __VA_ARGS__, "")
 #define print_err(...) log_helper(TAG_FAIL " " __VA_ARGS__, "")
