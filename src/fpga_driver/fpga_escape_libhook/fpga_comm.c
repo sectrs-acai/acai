@@ -99,6 +99,7 @@ static int do_dma(struct faultdata_struct *fault,
     struct page_chunk *chunks = NULL;
     struct page_chunk *chunk = NULL;
     unsigned long chunk_size;
+    unsigned long pfn;
 
 
     chunk_size = a->pages_nr * sizeof(struct page_chunk);
@@ -112,8 +113,13 @@ static int do_dma(struct faultdata_struct *fault,
     for (int i = 0; i < a->pages_nr; i ++)
     {
         chunk = chunks + i;
-        print_progress("%d %d %d\n", chunk->addr, chunk->nbytes, chunk->offset);
+        pfn = chunk->addr;
         chunk->addr = get_addr_map_vaddr(ctx, chunk->addr);
+        print_progress("%lx->%lx, %lx %lx\n",
+                       pfn,
+                       chunk->addr,
+                       chunk->nbytes,
+                       chunk->offset);
     }
     struct fh_host_ioctl_dma dma = {
             .pid = pid,

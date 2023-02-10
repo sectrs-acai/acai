@@ -4,6 +4,7 @@
 #include <linux/ioctl.h>
 #include <linux/mm.h>
 #include <linux/slab.h>
+#include <fpga_escape_libhook/fvp_escape_setup.h>
 
 struct faultdata_driver_struct fd_ctx;
 
@@ -101,6 +102,11 @@ int faulthook_cleanup(void)
 {
     fh_do_faulthook(FH_ACTION_TEARDOWN);
     memset(fvp_escape_page, 0, fvp_escape_size);
+    return 0;
+}
+
+static int fh_verify_mapping() {
+
     return 0;
 }
 

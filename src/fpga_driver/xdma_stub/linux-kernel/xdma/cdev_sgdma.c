@@ -163,7 +163,7 @@ static ssize_t char_sgdma_read_write(struct file *file,
                 escape->page_chunks[i].nbytes);
     }
 
-    ret = fh_do_faulthook(FH_ACTION_DMA);
+     ret = fh_do_faulthook(FH_ACTION_DMA);
     if (ret < 0)
     {
         pr_info("fh_do_faulthook(FH_ACTION_DMA) failed\n");

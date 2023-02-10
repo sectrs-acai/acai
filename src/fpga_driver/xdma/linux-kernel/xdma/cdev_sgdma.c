@@ -340,7 +340,6 @@ static int map_remote_pages_to_sgl(struct xdma_io_cb *cb,
             goto err_out;
         }
     }
-
     HERE;
     for (i = 1; i < pages_nr; i++) {
         if (cb->pages[i - 1] == cb->pages[i]) {

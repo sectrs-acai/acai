@@ -160,22 +160,35 @@ static int free_addr_map(struct ctx_struct *ctx)
         ctx->addr_map_pfn_max = 0;
         ctx->addr_map_size = 0;
     }
+    return 0;
 }
 
-
-unsigned long get_addr_map_vaddr(
-        ctx_struct ctx, unsigned long pfn)
+static unsigned long get_addr_map_vaddr_verify(
+        ctx_struct ctx,
+        unsigned long pfn,
+        bool complain)
 {
+    unsigned long ret = 0;
     if (pfn >= ctx->addr_map_pfn_min && pfn <= ctx->addr_map_pfn_max)
     {
-        return *(ctx->addr_map + (pfn - ctx->addr_map_pfn_min));
+        ret = *(ctx->addr_map + (pfn - ctx->addr_map_pfn_min));
+        if (ret == 0 && complain)
+        {
+            print_err("BUG: get_addr_map_vaddr no mapping for %lx\n", pfn);
+        }
     } else
     {
         print_err("BUG: get_addr_map_vaddr out of range,"
                   " pfn: %lx, max: %lx, min: %lx\n",
                   pfn, ctx->addr_map_pfn_max, ctx->addr_map_pfn_min);
     }
-    return 0;
+    return ret;
+}
+
+unsigned long get_addr_map_vaddr(
+        ctx_struct ctx, unsigned long pfn)
+{
+    return get_addr_map_vaddr_verify(ctx, pfn, 1);
 }
 
 
@@ -221,7 +234,7 @@ static unsigned long checksum_vaddrs(struct ctx_struct *ctx)
          i < ctx->addr_map_pfn_max;
          i ++)
     {
-        checksum += get_addr_map_vaddr(ctx, i);
+        checksum += get_addr_map_vaddr_verify(ctx, i, 0);
     }
     return checksum;
 }
@@ -260,7 +273,7 @@ static int save_settings(struct ctx_struct *ctx)
          i < ctx->addr_map_pfn_max;
          i ++)
     {
-        fprintf(f, "0x%lx=0x%lx\n", i, get_addr_map_vaddr(ctx, i));
+        fprintf(f, "0x%lx=0x%lx\n", i, get_addr_map_vaddr_verify(ctx, i, 0));
     }
     fclose(f);
     print_progress("Writing mappings to %s\n", MAPPING_FILE);
@@ -676,8 +689,8 @@ static int verify_mappings(struct ctx_struct *ctx)
     print_progress("verifying pfn-vaddr mappings\n");
     for (unsigned long i = ctx->addr_map_pfn_min + 1; i < ctx->addr_map_pfn_max; i += 1)
     {
-        vaddr_prev = get_addr_map_vaddr(ctx, i - 1);
-        vaddr = get_addr_map_vaddr(ctx, i);
+        vaddr_prev = get_addr_map_vaddr_verify(ctx, i - 1, 0);
+        vaddr = get_addr_map_vaddr_verify(ctx, i, 0);
         if (vaddr_prev == 0 && vaddr == 0)
         {
             null ++;
@@ -695,8 +708,8 @@ static int verify_mappings(struct ctx_struct *ctx)
     for (unsigned long i = ctx->escape_page_pfn + 1; i < ctx->escape_page_pfn + (
             ctx->escape_page_reserve_size >> 12); i += 1)
     {
-        vaddr_prev = get_addr_map_vaddr(ctx, i - 1);
-        vaddr = get_addr_map_vaddr(ctx, i);
+        vaddr_prev = get_addr_map_vaddr_verify(ctx, i - 1, 0);
+        vaddr = get_addr_map_vaddr_verify(ctx, i, 0);
         if (vaddr_prev + 4096 != vaddr)
         {
             print_err("vaddr : 0x%lx, 0x%lx\n", vaddr_prev, vaddr);

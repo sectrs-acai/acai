@@ -176,7 +176,7 @@ struct ACTION_MODIFIER action_seek
     int whence;
 };
 
-struct __attribute__((__packed__)) page_chunk
+struct ACTION_MODIFIER page_chunk
 {
     unsigned long addr; // this is either pfn or addr
     unsigned long offset;
