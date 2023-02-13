@@ -42,3 +42,4 @@ libhook_mapping.txt
 libhook_settings.txt
 /src/fpga_driver/xdma/linux-kernel/xdma/cdev_ctrl.c.txt
 /src/fpga_driver/xdma_tests/tmp.txt
+/src/fpga_driver/xdma_tests/test_guest_transfer_n.sh

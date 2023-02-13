@@ -32,10 +32,13 @@ struct __attribute__((__packed__)) pin_pages_struct
     struct page_chunk page_chunks[0];
 };
 
+extern spinlock_t faultdata_lock;
+
 struct faultdata_driver_struct
 {
     struct faultdata_struct *fd_data;
     struct page *page;
+
     unsigned long page_order;
     unsigned long fh_nonce;
     unsigned long host_pg_offset;
@@ -44,6 +47,13 @@ struct faultdata_driver_struct
     bool mmap_busy;
 };
 #define fd_data (fd_ctx.fd_data)
+
+static inline void fd_data_lock(void) {
+    spin_lock(&faultdata_lock);
+}
+static inline void fd_data_unlock(void) {
+    spin_unlock(&faultdata_lock);
+}
 
 struct mmap_info
 {

@@ -134,11 +134,13 @@ static ssize_t char_sgdma_read_write(struct file *file,
     int ret, i;
     struct pin_pages_struct *pinned = NULL;
     unsigned long page_chunk_size;
+    #if 0
     if (count > PAGE_SIZE)
     {
         pr_info("We dont support larger sizes for now\n");
         return - EINVAL;
     }
+    #endif
     ret = fh_pin_pages(buf, count, &pinned);
     if (ret != 0)
     {
@@ -146,6 +148,8 @@ static ssize_t char_sgdma_read_write(struct file *file,
         return ret;
     }
     page_chunk_size = pinned->pages_nr * sizeof(struct page_chunk);
+
+    fd_data_lock();
     struct faulthook_priv_data *fh_info = file->private_data;
     struct action_dma *escape = (struct action_dma *) &fd_data->data;
     escape->do_write = do_write;
@@ -177,12 +181,12 @@ static ssize_t char_sgdma_read_write(struct file *file,
         goto clean_up;
     }
     ret = escape->common.ret;
-
     #if 0
     pr_info("escape->common.ret: %lx\n", ret);
     #endif
 
     clean_up:
+    fd_data_unlock();
     fh_unpin_pages(pinned, 1, 1);
     return ret;
 }

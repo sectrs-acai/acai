@@ -16,6 +16,19 @@ static char version[] =
 
 struct xdma_pci_dev *xpdev = NULL;
 
+                #if 0
+                // TODO: atomic set_bit
+                 __SetPageReserved(page);
+                 // put_page(page);
+                #endif
+                // ret = _take_page_off_buddy(page);
+                // pr_info("_soft_offline_page: %lx\n", (unsigned long) _soft_offline_page);
+                // memory_failure(pfn, 0);
+                // ret = _soft_offline_page(pfn, 0);
+//                if (ret < 0) {
+//                    pr_info("soft_offline_page failed for %lx: %d\n", pfn, ret);
+//                }
+
 static int enable_stub_devices(void)
 {
     int rv = 0;

@@ -4,17 +4,75 @@
 #include <linux/ioctl.h>
 #include <linux/mm.h>
 #include <linux/slab.h>
+#include <linux/version.h>
+#include <linux/kprobes.h>
+#include <linux/kthread.h>
+#include <linux/kallsyms.h>
 #include <fpga_escape_libhook/fvp_escape_setup.h>
 
 struct faultdata_driver_struct fd_ctx;
+DEFINE_SPINLOCK(faultdata_lock);
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 7, 0)
+#define KPROBE_KALLSYMS_LOOKUP 1
+
+typedef unsigned long (*kallsyms_lookup_name_t)(const char *name);
+kallsyms_lookup_name_t kallsyms_lookup_name_func;
+#define kallsyms_lookup_name kallsyms_lookup_name_func
+
+static struct kprobe kp = {
+        .symbol_name = "kallsyms_lookup_name"
+};
+#endif
+
+static int (*_soft_offline_page)(unsigned long pfn, int flags);
+static  bool (* _take_page_off_buddy)(struct page *page) = NULL;
+
+static int setup_lookup(void) {
+    pr_info("setup_lookup\n");
+
+    #ifdef KPROBE_KALLSYMS_LOOKUP
+    register_kprobe(&kp);
+    kallsyms_lookup_name = (kallsyms_lookup_name_t) kp.addr;
+    unregister_kprobe(&kp);
+
+    if (! unlikely(kallsyms_lookup_name))
+    {
+        pr_alert("Could not retrieve kallsyms_lookup_name address\n");
+        return - ENXIO;
+    }
+    #endif
+
+    #if 0
+    _soft_offline_page = (void *) kallsyms_lookup_name("soft_offline_page");
+    if (_soft_offline_page == NULL)
+    {
+        pr_info("lookup failed soft_offline_page\n");
+        return - ENXIO;
+    }
+    _take_page_off_buddy = (void *) kallsyms_lookup_name("take_page_off_buddy");
+    if (_take_page_off_buddy == NULL)
+    {
+        pr_info("lookup failed _take_page_off_buddy\n");
+        return - ENXIO;
+    }
+    #endif
+    return 0;
+}
+
 
 int fh_char_open(struct inode *inode, struct file *file)
 {
     // HERE;
     int ret;
     struct faulthook_priv_data *info = kmalloc(sizeof(struct faulthook_priv_data), GFP_KERNEL);
-    file->private_data = info;
+    if (info == NULL)
+    {
+        return - ENOMEM;
+    }
 
+    fd_data_lock();
+    file->private_data = info;
     struct action_openclose_device *a = (struct action_openclose_device *) &fd_data->data;
 
     strcpy(a->device, "/dev/");
@@ -24,17 +82,21 @@ int fh_char_open(struct inode *inode, struct file *file)
     if (ret < 0)
     {
         pr_info("fh_do_faulthook(FH_ACTION_OPEN_DEVICE) failed\n");
-        return ret;
+        goto clean_up;
     }
     if (a->common.ret < 0)
     {
-        return a->common.err_no;
+        ret = a->common.err_no;
+        goto clean_up;
     }
     /*
      * We use fd as key to query device on host
      */
     info->fd = a->common.fd;
-    return 0;
+    ret = 0;
+    clean_up:
+    fd_data_unlock();
+    return ret;
 }
 
 /*
@@ -44,6 +106,7 @@ int fh_char_close(struct inode *inode, struct file *file)
 {
     // HERE;
     int ret;
+    fd_data_lock();
     struct faulthook_priv_data *info = file->private_data;
     struct action_openclose_device *a = (struct action_openclose_device *) &fd_data->data;
     a->common.fd = info->fd;
@@ -60,40 +123,50 @@ int fh_char_close(struct inode *inode, struct file *file)
     }
     ret = 0;
     clean_up:
+    fd_data_unlock();
     kfree(file->private_data);
     return ret;
 }
 
-static int fh_verify_mapping(void) {
+static int fh_verify_mapping(void)
+{
     int ret = 0;
     unsigned long i, pfn;
+
+    pr_info("fvp_escape mapping fixup FH_ACTION_GET_EMPTY_MAPPINGS\n");
+    fd_data_lock();
     struct action_empty_mappings *a = (struct action_empty_mappings *) &fd_data->data;
     a->last_pfn = 0;
     a->pfn_max_nr_guest = DIV_ROUND_DOWN_ULL((fvp_escape_size
             - sizeof(struct faultdata_struct) - sizeof(struct action_empty_mappings)), 8);
 
-    do {
-        pr_info("fvp_escape mapping fixup FH_ACTION_GET_EMPTY_MAPPINGS\n");
+    do
+    {
         ret = fh_do_faulthook(FH_ACTION_GET_EMPTY_MAPPINGS);
-        if (ret < 0) {
+        if (ret < 0)
+        {
             break;
         }
-        if (a->common.ret < 0) {
+        if (a->common.ret < 0)
+        {
             break;
         }
-        for(i = 0; i < a->pfn_nr; i ++)
+        for (i = 0; i < a->pfn_nr; i ++)
         {
             pfn = a->pfn[i];
             if (pfn_valid(pfn))
             {
                 struct page *page = pfn_to_page(pfn);
-                /* Avoid false-positive PageTail() */
-                // TODO: atomic set_bit
-                __SetPageReserved(page);
-                put_page(page);
+                if (!PagePoisoned(page)) {
+                    pr_info("mapping less page without poison: %lx. "
+                            "This will lead to bugs!\n", pfn);
+                }
             }
         }
-    } while(a->last_pfn != 0);
+    } while (a->last_pfn != 0);
+
+    clean_up:
+    fd_data_unlock();
     return 0;
 }
 
@@ -102,10 +175,15 @@ int faulthook_init(void)
     pr_info("faulthook page: %lx+%lx\n", (unsigned long) fvp_escape_page, fvp_escape_size);
     memset(&fd_ctx, 0, sizeof(struct faultdata_driver_struct));
     memset(fvp_escape_page, 0, fvp_escape_size);
+
+    fd_data_lock();
     fd_data = (struct faultdata_struct *) fvp_escape_page;
     fh_do_faulthook(FH_ACTION_SETUP);
+    fd_data_unlock();
 
+    setup_lookup();
     fh_verify_mapping();
+
     return 0;
 }
 
@@ -134,8 +212,10 @@ int fh_do_faulthook(int action)
 
 int faulthook_cleanup(void)
 {
+    fd_data_lock();
     fh_do_faulthook(FH_ACTION_TEARDOWN);
     memset(fvp_escape_page, 0, fvp_escape_size);
+    fd_data_unlock();
     return 0;
 }
 
@@ -149,6 +229,8 @@ ssize_t fh_char_ctrl_read(struct file *fp,
 {
     long ret = 0;
     struct faulthook_priv_data *info = fp->private_data;
+
+    fd_data_lock();
     struct action_read *a = (struct action_read *) &fd_data->data;
     a->common.fd = info->fd;
     a->offset = *pos;
@@ -159,7 +241,7 @@ ssize_t fh_char_ctrl_read(struct file *fp,
     if (ret < 0)
     {
         pr_info("faulthook failed\n");
-        return ret;
+        goto clean_up;
     }
     pr_info("Got %lx bytes from host read\n", a->buffer_size);
 
@@ -167,10 +249,14 @@ ssize_t fh_char_ctrl_read(struct file *fp,
     if (ret < 0)
     {
         pr_info("copy_to_user failed\n");
-        return ret;
+        goto clean_up;
     }
     *pos = a->count;
-    return a->buffer_size;
+    ret = a->buffer_size;
+
+    clean_up:
+    fd_data_unlock();
+    return ret;
 }
 
 ssize_t fh_char_ctrl_write(struct file *file, const char __user *buf,
@@ -181,6 +267,7 @@ ssize_t fh_char_ctrl_write(struct file *file, const char __user *buf,
     struct faulthook_priv_data *info = file->private_data;
     long ret = 0;
 
+    fd_data_lock();
     struct action_write *a = (struct action_write *) &fd_data->data;
     a->common.fd = info->fd;
     a->offset = *pos;
@@ -190,7 +277,7 @@ ssize_t fh_char_ctrl_write(struct file *file, const char __user *buf,
     if (ret)
     {
         pr_info("copy to user failed\n");
-        return ret;
+        goto clean_up;
     }
     fh_do_faulthook(FH_ACTION_WRITE);
 
@@ -198,12 +285,15 @@ ssize_t fh_char_ctrl_write(struct file *file, const char __user *buf,
     if (ret < 0)
     {
         pr_info("faulthook failed\n");
-        return ret;
+        goto clean_up;
     }
     pr_info("wrote %lx bytes from host write\n", a->buffer_size);
 
     *pos += a->count;
-    return a->buffer_size;
+    ret = a->buffer_size;
+    clean_up:
+    fd_data_lock();
+    return ret;
 }
 
 long fh_char_ctrl_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
@@ -353,16 +443,16 @@ int fh_bridge_mmap(struct file *file, struct vm_area_struct *vma)
         ret = escape->common.err_no;
         goto err_cleanup;
     }
-    // pr_info("fh_do_faulthook(FH_ACTION_MMAP) is ok\n");
-
     ret = remap_pfn_range(vma, vma->vm_start, pfn_start, size, vma->vm_page_prot);
     if (ret)
     {
         pr_info("remap_pfn_range failed");
         goto err_cleanup;
     }
-    //pr_info("map kernel 0x%px to user 0x%lx, size: 0x%lx\n",
-    //         mmap_info->data, vma->vm_start, size);
+    #if 0
+    pr_info("map kernel 0x%px to user 0x%lx, size: 0x%lx\n",
+             mmap_info->data, vma->vm_start, size);
+    #endif
 
     vma->vm_private_data = mmap_info;
 
@@ -409,7 +499,8 @@ int fh_unpin_pages(struct pin_pages_struct *pinned, int do_free, bool do_write)
             if (pinned->pages[i])
             {
                 // TODO: Only on write?
-                if (do_write) {
+                if (do_write)
+                {
                     set_page_dirty_lock(pinned->pages[i]);
                 }
                 put_page(pinned->pages[i]);
