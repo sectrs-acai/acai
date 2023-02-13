@@ -24,6 +24,9 @@ int on_fault(unsigned long addr,
              ctx_struct ctx);
 
 
+unsigned long get_addr_map_dims(
+        ctx_struct ctx, unsigned long *pfn_min, unsigned long *pfn_max);
+
 enum fh_turn
 {
     FH_TURN_HOST = 1,
@@ -49,6 +52,7 @@ enum fh_action
     FH_ACTION_TEARDOWN = 22,
     FH_ACTION_DMA = 23,
     FH_ACTION_SEEK = 24,
+    FH_ACTION_GET_EMPTY_MAPPINGS = 25,
 };
 
 #define PING_LEN 512
@@ -80,6 +84,7 @@ static inline const char *fh_action_to_str(int action)
 }
 
 #define ACTION_MODIFIER __attribute__((__packed__))
+
 
 struct ACTION_MODIFIER action_common
 {
@@ -220,4 +225,15 @@ struct fh_host_ioctl_dma
     struct page_chunk *chunks;
 };
 
+struct ACTION_MODIFIER action_empty_mappings
+{
+    struct action_common common;
+    unsigned int last_pfn;
+    unsigned long pfn_max_nr_guest;
+    unsigned long pfn_nr;
+    unsigned long pfn[0];
+};
+
+
 #endif
+

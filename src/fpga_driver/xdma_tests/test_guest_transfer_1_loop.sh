@@ -23,12 +23,14 @@ cp -rf $tool_path/dma_from_device $root/
 cp -rf $data_path/datafile0_4K.bin $root/
 
 for ((i=0; i<=$n; i++)); do
-	$root/dma_to_device -d /dev/xdma0_h2c_0 -f $root/datafile0_4K.bin -s $chunk -a 0 -c 1
+	echo $i
+
+	$root/dma_to_device -d /dev/xdma0_h2c_0 -f $root/datafile0_4K.bin -s $chunk -a 0 -c 1000
 	returnVal=$?
 	if [[ $returnVal -eq 1 ]]; then
 		testError=1
 	fi
-	$root/dma_from_device -d /dev/xdma0_c2h_0 -f $root/output_datafile0_4K.bin -s $chunk -a 0 -c 1
+	$root/dma_from_device -d /dev/xdma0_c2h_0 -f $root/output_datafile0_4K.bin -s $chunk -a 0 -c 1000
 	returnVal=$?
 	if [[ $returnVal -eq 1 ]]; then
 		testError=1

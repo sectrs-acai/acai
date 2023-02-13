@@ -249,7 +249,7 @@ static int test_dma(char *devname, uint64_t addr, uint64_t aperture,
 			io.ep_addr = addr;
 			io.aperture = aperture;
 			io.done = 0UL;
-			printf("IOCTL_XDMA_APERTURE_W\n");
+			// printf("IOCTL_XDMA_APERTURE_W\n");
 			rc = ioctl(fpga_fd, IOCTL_XDMA_APERTURE_W, &io);
 			if (rc < 0 || io.error) {
 				fprintf(stdout,
@@ -260,7 +260,7 @@ static int test_dma(char *devname, uint64_t addr, uint64_t aperture,
 
 			bytes_done = io.done;
 		} else {
-			printf("write_from_buffer\n");
+			// printf("write_from_buffer\n");
 			rc = write_from_buffer(devname, fpga_fd, buffer, size,
 				      	 	addr);
 			if (rc < 0)

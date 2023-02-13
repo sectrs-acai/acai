@@ -434,11 +434,9 @@ int fh_handle_dma(struct file *file, unsigned int cmd, unsigned long arg)
         pr_info("copy_from_user page_chunks failed\n");
         return ret;
     }
-    pr_info("FH_HOST_IOCTL_DMA\n");
     for (i = 0; i < usr.chunks_nr; i ++)
     {
         struct page_chunk *p = &page_chunks[i];
-        pr_info("%lx, %ld, %ld\n", p->addr, p->offset, p->nbytes);
     }
     usr.chunks = page_chunks;
 

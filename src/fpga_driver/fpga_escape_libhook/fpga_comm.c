@@ -42,6 +42,11 @@
     a->common.ret = _r; \
     a->common.err_no = _r < 0 ? errno:0;
 
+#define set_ret_and_err_no_direct(a, _r) \
+    a->common.fd = _r; \
+    a->common.ret = _r; \
+    a->common.err_no = _r
+
 
 inline static void print_status(int action, struct action_common *c)
 {
@@ -91,8 +96,8 @@ static inline void hex_dump(
 }
 
 static int do_dma(struct faultdata_struct *fault,
-           pid_t pid,
-           ctx_struct ctx)
+                  pid_t pid,
+                  ctx_struct ctx)
 {
     int ret = 0;
     struct action_dma *a = (struct action_dma *) fault->data;
@@ -115,11 +120,19 @@ static int do_dma(struct faultdata_struct *fault,
         chunk = chunks + i;
         pfn = chunk->addr;
         chunk->addr = get_addr_map_vaddr(ctx, chunk->addr);
+        if (chunk->addr == 0) {
+            print_err("no mapping for %lx\n", pfn);
+            ret = -1;
+            goto dma_clean;
+        }
+
+        #if 0
         print_progress("%lx->%lx, %lx %lx\n",
                        pfn,
                        chunk->addr,
                        chunk->nbytes,
                        chunk->offset);
+        #endif
     }
     struct fh_host_ioctl_dma dma = {
             .pid = pid,
@@ -144,6 +157,8 @@ set_ret_and_err_no(a, ret);
 
     return ret;
 }
+#define MIN(a,b) (((a)<(b))?(a):(b))
+#define MAX(a,b) (((a)>(b))?(a):(b))
 
 
 int on_fault(unsigned long addr,
@@ -155,12 +170,12 @@ int on_fault(unsigned long addr,
     struct faultdata_struct *fault = (struct faultdata_struct *) addr;
     if (fault->turn != FH_TURN_HOST)
     {
-        print_err("turn is not FH_TURN_HOST\n");
+        // print_err("turn is not FH_TURN_HOST\n");
         /* fault was caused unintentionally */
         return 0;
     }
 
-    print_progress("action: %s \n", fh_action_to_str(fault->action));
+    // print_progress("action: %s \n", fh_action_to_str(fault->action));
     switch (fault->action)
     {
         case FH_ACTION_SETUP:
@@ -175,6 +190,46 @@ int on_fault(unsigned long addr,
         {
             struct action_ping *a = (struct action_ping *) fault->data;
             a->ping ++;
+            break;
+        }
+        case FH_ACTION_GET_EMPTY_MAPPINGS:
+        {
+            unsigned long pfn_min, pfn_max, pfn, i;
+            struct action_empty_mappings *a = (struct action_empty_mappings *) fault->data;
+            unsigned long max_mappings = 4096 -
+                    sizeof(struct faultdata_struct) - sizeof(struct action_empty_mappings);
+            max_mappings /= 8;
+            max_mappings = MIN(max_mappings, a->pfn_max_nr_guest);
+
+            get_addr_map_dims(ctx, &pfn_min, &pfn_max);
+            if (a->last_pfn == 0)
+            {
+                pfn = pfn_min;
+            } else
+            {
+                pfn = a->last_pfn;
+            }
+            for (i = 0; pfn < pfn_max && i < max_mappings; pfn ++)
+            {
+                if (get_addr_map_vaddr(ctx, pfn) == 0)
+                {
+                    a->pfn[i ++] = pfn;
+                }
+            }
+            if (i == max_mappings && pfn < pfn_max)
+            {
+                a->last_pfn = pfn;
+            } else
+            {
+                a->last_pfn = 0;
+            }
+            a->pfn_nr = i;
+            print_progress("i = %ld, pfn=%lx, max_mappings=%ld, a->last_pf: %lx\n",
+                           i,
+                           pfn,
+                           max_mappings,
+                           a->last_pfn);
+            set_ret_and_err_no_direct(a, 0);
             break;
         }
         case FH_ACTION_VERIFY_MAPPING:
@@ -198,9 +253,12 @@ int on_fault(unsigned long addr,
             a->common.fd = fd;
             set_ret_and_err_no(a, fd);
 
+
+            #if 0
             print_status(fault->action, &a->common);
             print_progress("device: %s\n", a->device);
             print_progress("flags: %d\n", a->flags);
+            #endif
             break;
         }
         case FH_ACTION_CLOSE_DEVICE:
@@ -209,7 +267,9 @@ int on_fault(unsigned long addr,
             int ret = close(a->common.fd);
             set_ret_and_err_no(a, ret);
 
+            #if 0
             print_status(fault->action, &a->common);
+            #endif
             break;
         }
         case FH_ACTION_MMAP:

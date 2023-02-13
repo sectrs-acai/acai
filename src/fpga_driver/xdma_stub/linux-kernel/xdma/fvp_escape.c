@@ -10,7 +10,7 @@ struct faultdata_driver_struct fd_ctx;
 
 int fh_char_open(struct inode *inode, struct file *file)
 {
-    HERE;
+    // HERE;
     int ret;
     struct faulthook_priv_data *info = kmalloc(sizeof(struct faulthook_priv_data), GFP_KERNEL);
     file->private_data = info;
@@ -42,7 +42,7 @@ int fh_char_open(struct inode *inode, struct file *file)
  */
 int fh_char_close(struct inode *inode, struct file *file)
 {
-    HERE;
+    // HERE;
     int ret;
     struct faulthook_priv_data *info = file->private_data;
     struct action_openclose_device *a = (struct action_openclose_device *) &fd_data->data;
@@ -64,6 +64,38 @@ int fh_char_close(struct inode *inode, struct file *file)
     return ret;
 }
 
+static int fh_verify_mapping(void) {
+    int ret = 0;
+    unsigned long i, pfn;
+    struct action_empty_mappings *a = (struct action_empty_mappings *) &fd_data->data;
+    a->last_pfn = 0;
+    a->pfn_max_nr_guest = DIV_ROUND_DOWN_ULL((fvp_escape_size
+            - sizeof(struct faultdata_struct) - sizeof(struct action_empty_mappings)), 8);
+
+    do {
+        pr_info("fvp_escape mapping fixup FH_ACTION_GET_EMPTY_MAPPINGS\n");
+        ret = fh_do_faulthook(FH_ACTION_GET_EMPTY_MAPPINGS);
+        if (ret < 0) {
+            break;
+        }
+        if (a->common.ret < 0) {
+            break;
+        }
+        for(i = 0; i < a->pfn_nr; i ++)
+        {
+            pfn = a->pfn[i];
+            if (pfn_valid(pfn))
+            {
+                struct page *page = pfn_to_page(pfn);
+                /* Avoid false-positive PageTail() */
+                // TODO: atomic set_bit
+                __SetPageReserved(page);
+                put_page(page);
+            }
+        }
+    } while(a->last_pfn != 0);
+    return 0;
+}
 
 int faulthook_init(void)
 {
@@ -72,6 +104,8 @@ int faulthook_init(void)
     memset(fvp_escape_page, 0, fvp_escape_size);
     fd_data = (struct faultdata_struct *) fvp_escape_page;
     fh_do_faulthook(FH_ACTION_SETUP);
+
+    fh_verify_mapping();
     return 0;
 }
 
@@ -102,11 +136,6 @@ int faulthook_cleanup(void)
 {
     fh_do_faulthook(FH_ACTION_TEARDOWN);
     memset(fvp_escape_page, 0, fvp_escape_size);
-    return 0;
-}
-
-static int fh_verify_mapping() {
-
     return 0;
 }
 
@@ -460,7 +489,9 @@ int fh_pin_pages(const char __user *buf, size_t count,
         unsigned long offset = offset_in_page(buf);
         unsigned long nbytes = min_t(unsigned int, PAGE_SIZE - offset, len);
         unsigned long pfn = page_to_pfn(pages[i]);
+        #if 0
         pr_info("pfn: %lx, %lx, %lx\n", pfn, nbytes, offset);
+        #endif
 
         pin_pages->page_chunks[i] = (struct page_chunk) {
                 .addr = pfn,

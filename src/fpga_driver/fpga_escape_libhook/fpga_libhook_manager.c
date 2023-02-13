@@ -191,6 +191,18 @@ unsigned long get_addr_map_vaddr(
     return get_addr_map_vaddr_verify(ctx, pfn, 1);
 }
 
+unsigned long get_addr_map_dims(
+        ctx_struct ctx, unsigned long *pfn_min, unsigned long *pfn_max)
+{
+    if (pfn_min) {
+        *pfn_min = ctx->addr_map_pfn_min;
+    }
+    if (pfn_max) {
+        *pfn_max = ctx->addr_map_pfn_max;
+    }
+    return 0;
+}
+
 
 inline static unsigned long set_addr_map_vaddr(
         struct ctx_struct *ctx,

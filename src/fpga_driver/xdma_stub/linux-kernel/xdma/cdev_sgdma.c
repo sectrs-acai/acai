@@ -157,10 +157,12 @@ static ssize_t char_sgdma_read_write(struct file *file,
     memcpy(escape->page_chunks, pinned->page_chunks, page_chunk_size);
 
     for(i = 0; i < escape->pages_nr; i ++) {
+        #if 0
         pr_info("pinned page: %lx, %lx, %lx\n",
                 escape->page_chunks[i].addr,
                 escape->page_chunks[i].offset,
                 escape->page_chunks[i].nbytes);
+        #endif
     }
 
      ret = fh_do_faulthook(FH_ACTION_DMA);
@@ -175,7 +177,10 @@ static ssize_t char_sgdma_read_write(struct file *file,
         goto clean_up;
     }
     ret = escape->common.ret;
+
+    #if 0
     pr_info("escape->common.ret: %lx\n", ret);
+    #endif
 
     clean_up:
     fh_unpin_pages(pinned, 1, 1);
@@ -228,8 +233,8 @@ static loff_t char_sgdma_llseek(struct file *file, loff_t off, int whence)
         ret = escape->common.ret;
         return ret;
     }
-    #endif
     HERE;
+    #endif
     loff_t newpos = 0;
     switch (whence)
     {
