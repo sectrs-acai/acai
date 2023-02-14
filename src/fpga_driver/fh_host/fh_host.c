@@ -244,7 +244,7 @@ fh_host_fn int fh_unmmap_region(struct fh_mmap_region_ctx *ctx)
 {
     if (ctx->entries) {
         for (int i = 0; i < ctx->len; i++) {
-            print_progress("unmapping entry %d", i);
+            print_progress("unmapping entry %d \n", i);
             fh_memory_unmap(ctx->entries + i);
         }
         free(ctx->entries);
@@ -284,7 +284,7 @@ fh_host_fn int fh_mmap_region(pid_t pid,
         req->len = 4096;
         req->pid = pid;
         req->host_mem = (char *) host_mem + i * 4096;
-        // print_progress("mapping addr %d/%d %lx, host=%lx, pid=%d", i, count, req->addr, req->host_mem, pid);
+        print_progress("mapping addr %d/%d %lx, host=%lx, pid=%d \n", i, count, req->addr, req->host_mem, pid);
         ret = fh_memory_map(req);
         // print_progress("mapping addr ok %lx", req->addr);
         if (ret!=0) {

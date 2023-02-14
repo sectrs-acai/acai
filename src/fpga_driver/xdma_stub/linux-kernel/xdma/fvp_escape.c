@@ -9,6 +9,7 @@
 #include <linux/kthread.h>
 #include <linux/kallsyms.h>
 #include <fpga_escape_libhook/fvp_escape_setup.h>
+#include <linux/vmalloc.h>
 
 struct faultdata_driver_struct fd_ctx;
 DEFINE_SPINLOCK(faultdata_lock);
@@ -132,6 +133,7 @@ static int fh_verify_mapping(void)
 {
     int ret = 0;
     unsigned long i, pfn;
+    int notify = 0;
 
     pr_info("fvp_escape mapping fixup FH_ACTION_GET_EMPTY_MAPPINGS\n");
     fd_data_lock();
@@ -158,8 +160,11 @@ static int fh_verify_mapping(void)
             {
                 struct page *page = pfn_to_page(pfn);
                 if (!PagePoisoned(page)) {
-                    pr_info("mapping less page without poison: %lx. "
-                            "This will lead to bugs!\n", pfn);
+                    if (notify == 0) {
+                        pr_info("mapping less page without poison: %lx. "
+                                "This will lead to bugs!\n", pfn);
+                        notify ++;
+                    }
                 }
             }
         }
@@ -511,12 +516,12 @@ int fh_unpin_pages(struct pin_pages_struct *pinned, int do_free, bool do_write)
         }
         if (do_free)
         {
-            kfree(pinned->pages);
+            vfree(pinned->pages);
         }
     }
     if (do_free)
     {
-        kfree(pinned);
+        vfree(pinned);
     }
     return 0;
 }
@@ -530,27 +535,46 @@ int fh_pin_pages(const char __user *buf, size_t count,
     struct pin_pages_struct *pin_pages = NULL;
     struct page **pages = NULL;
     unsigned long pages_nr = fh_get_page_count(buf, len);
+    unsigned long pin_pages_alloc_size = 0;
+
+    #if 0
+    [  794.316529] xdma_stub:fh_pin_pages: pinning 8192 pages
+[  794.316610] xdma_stub:fh_pin_pages: alloc_size: 196616, total: 1610678272
+[  794.316768] xdma_stub:fh_pin_pages: pin_pages OOM:
+read_to_buffer: 33554432
+[  794.316901] xdma_stub:char_sgdma_read_write: pin_pages failed: -12
+/dev/xdma0_h2c_0, write 0x2000000 @ 0x0 failed -1.
+write file: Cannot allocate memory
+
+    #endif
 
     if (pages_nr == 0)
     {
         pr_info("pages_nr invalid\n");
         return - EINVAL;
     }
-    pin_pages = kcalloc(pages_nr, sizeof(struct pin_pages_struct *)
-            + pages_nr * sizeof(struct page_chunk), GFP_KERNEL);
+    pr_info("pinning %ld pages \n", pages_nr);
+    pin_pages_alloc_size = sizeof(struct pin_pages_struct *)
+            + pages_nr * sizeof(struct page_chunk);
+    pr_info("alloc_size: %ld, total: %ld", pin_pages_alloc_size, pin_pages_alloc_size);
+
+    // XXX: vmalloc is fine, we dont need contiguous memory for this
+    pin_pages = vmalloc(pin_pages_alloc_size);
     if (! pin_pages)
     {
-        pr_err("pin_pages OOM.\n");
+        pr_err("pin_pages OOM: \n");
         rv = - ENOMEM;
         goto err_out;
     }
-    pages = kcalloc(pages_nr, sizeof(struct page *), GFP_KERNEL);
+    memset(pin_pages, 0, pin_pages_alloc_size);
+    pages = vmalloc(pages_nr * sizeof(struct page *));
     if (! pages)
     {
         pr_err("pages OOM.\n");
         rv = - ENOMEM;
         goto err_out;
     }
+    HERE;
     rv = get_user_pages_fast((unsigned long) buf,
                              pages_nr,
                              1/* write */,
@@ -604,6 +628,7 @@ int fh_pin_pages(const char __user *buf, size_t count,
     pin_pages->len = count;
     pin_pages->pages = pages;
     *ret_pages = pin_pages;
+    HERE;
 
     return 0;
 

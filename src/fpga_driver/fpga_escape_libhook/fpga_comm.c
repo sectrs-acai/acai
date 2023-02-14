@@ -106,8 +106,11 @@ static int do_dma(struct faultdata_struct *fault,
     unsigned long chunk_size;
     unsigned long pfn;
 
+    HERE;
+
 
     chunk_size = a->pages_nr * sizeof(struct page_chunk);
+    printf("chunk_size=%ld\n", chunk_size);
     chunks = malloc(chunk_size);
     if (chunks == NULL)
     {
@@ -115,6 +118,7 @@ static int do_dma(struct faultdata_struct *fault,
         return - 1;
     }
     memcpy(chunks, a->page_chunks, chunk_size);
+    print_progress("transfering %d pages\n", a->pages_nr);
     for (int i = 0; i < a->pages_nr; i ++)
     {
         chunk = chunks + i;
@@ -127,13 +131,14 @@ static int do_dma(struct faultdata_struct *fault,
         }
 
         #if 0
-        print_progress("%lx->%lx, %lx %lx\n",
+        print_progress("dma %lx->%lx, %lx %lx\n",
                        pfn,
                        chunk->addr,
                        chunk->nbytes,
                        chunk->offset);
         #endif
     }
+
     struct fh_host_ioctl_dma dma = {
             .pid = pid,
             .phy_addr = a->phy_addr,
@@ -143,6 +148,7 @@ static int do_dma(struct faultdata_struct *fault,
             .len = a->len,
             .chunks = chunks
     };
+    HERE;
     ret = ioctl(a->common.fd, FH_HOST_IOCTL_DMA, &dma);
     if (ret < 0)
     {
@@ -150,6 +156,7 @@ static int do_dma(struct faultdata_struct *fault,
         print_progress("FH_HOST_IOCTL_DMA res: %d\n", ret);
         goto dma_clean;
     }
+    HERE;
 
     dma_clean:
 set_ret_and_err_no(a, ret);
@@ -175,7 +182,7 @@ int on_fault(unsigned long addr,
         return 0;
     }
 
-    // print_progress("action: %s \n", fh_action_to_str(fault->action));
+     print_progress("action: %s \n", fh_action_to_str(fault->action));
     switch (fault->action)
     {
         case FH_ACTION_SETUP:
@@ -280,7 +287,7 @@ int on_fault(unsigned long addr,
              * XXX: Unlike other calls we have to forward this
              * to a custom ioctl as we dont mmap into the calling process
              */
-            print_progress("xdma_ioc_faulthook_mmap with pid: %d \n", pid);
+            // print_progress("xdma_ioc_faulthook_mmap with pid: %d \n", pid);
             unsigned long *addrs = malloc(a->pfn_size * sizeof(unsigned long));
             if (addrs == NULL)
             {
@@ -308,7 +315,9 @@ int on_fault(unsigned long addr,
             map_clean:
             free(addrs);
             set_ret_and_err_no(a, ret);
+            #if 0
             print_status(fault->action, &a->common);
+            #endif
             break;
         }
         case FH_ACTION_UNMAP:

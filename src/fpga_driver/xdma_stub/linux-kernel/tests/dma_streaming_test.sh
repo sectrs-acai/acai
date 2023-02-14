@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/zsh
 
 transferSize=$1
 transferCount=$2

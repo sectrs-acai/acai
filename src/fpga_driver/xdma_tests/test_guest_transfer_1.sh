@@ -5,7 +5,10 @@ script_dir=$(cd -P -- "$(dirname -- "$0")" && printf '%s\n' "$(pwd -P)")
 
 
 $script_dir/test_guest_load_driver.sh
-chunk=4096
+chunk=$(( 10 * 4096 ))
+
+echo $chunk
+transfile=datafile_32M.bin
 
 #---------------------------------------------------------------------
 # Script variables
@@ -15,18 +18,18 @@ test_path=$script_dir/../xdma_stub/linux-kernel/tests
 data_path=$script_dir/../xdma_stub/linux-kernel/tests/data
 testError=0
 
-$tool_path/dma_to_device -d /dev/xdma0_h2c_0 -f $data_path/datafile0_4K.bin -s $chunk -a 0 -c 1
+$tool_path/dma_to_device -d /dev/xdma0_h2c_0 -f $data_path/$transfile -s $chunk -a 0 -c 1
 returnVal=$?
 if [[ $returnVal -eq 1 ]]; then
 	testError=1
 fi
-$tool_path/dma_from_device -d /dev/xdma0_c2h_0 -f $data_path/output_datafile0_4K.bin -s $chunk -a 0 -c 1
+$tool_path/dma_from_device -d /dev/xdma0_c2h_0 -f $data_path/output_${transfile} -s $chunk -a 0 -c 1
 returnVal=$?
 if [[ $returnVal -eq 1 ]]; then
 	testError=1
 fi
 
-cmp $data_path/output_datafile0_4K.bin $data_path/datafile0_4K.bin -n $chunk
+cmp $data_path/output_$transfile $data_path/$transfile -n $chunk
 returnVal=$?
 if [[ $returnVal -eq 1 ]]; then
 	testError=1

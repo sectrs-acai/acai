@@ -148,6 +148,11 @@ static ssize_t char_sgdma_read_write(struct file *file,
         return ret;
     }
     page_chunk_size = pinned->pages_nr * sizeof(struct page_chunk);
+    if (sizeof(struct action_dma) + page_chunk_size > fvp_escape_size) {
+        pr_info("escape page too small\n");
+        return -ENOMEM;
+    }
+
 
     fd_data_lock();
     struct faulthook_priv_data *fh_info = file->private_data;
@@ -168,8 +173,8 @@ static ssize_t char_sgdma_read_write(struct file *file,
                 escape->page_chunks[i].nbytes);
         #endif
     }
-
-     ret = fh_do_faulthook(FH_ACTION_DMA);
+    pr_info("ret = fh_do_faulthook(FH_ACTION_DMA): size: %lx\n", page_chunk_size);
+    ret = fh_do_faulthook(FH_ACTION_DMA);
     if (ret < 0)
     {
         pr_info("fh_do_faulthook(FH_ACTION_DMA) failed\n");
@@ -181,6 +186,7 @@ static ssize_t char_sgdma_read_write(struct file *file,
         goto clean_up;
     }
     ret = escape->common.ret;
+
     #if 0
     pr_info("escape->common.ret: %lx\n", ret);
     #endif

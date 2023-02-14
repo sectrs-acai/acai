@@ -40,6 +40,8 @@
   sscanf(line, STR(name) "=0x%lx", &ctx->name)
 
 
+#define ESCAPE_PAGE_SIZE (50 * PAGE_SIZE)
+
 #ifndef DOING_UNIT_TESTS
 
 struct ctx_struct
@@ -489,7 +491,7 @@ static long fvpmem_scan_addresses(struct ctx_struct *ctx)
 static void *create_escape_page(void)
 {
     return mmap(NULL,
-                2 * 4096,
+                ESCAPE_PAGE_SIZE,
                 PROT_READ | PROT_WRITE,
                 MAP_PRIVATE | MAP_ANONYMOUS | MAP_POPULATE,
                 - 1,
@@ -523,7 +525,7 @@ static long map_memory_from_file(struct ctx_struct *ctx, int pid)
     ret = fh_mmap_region(
             ctx->target_pid,
             ctx->escape_vaddr,
-            4096,
+            ESCAPE_PAGE_SIZE,
             (char *) ctx->escape_page,
             &ctx->escape_page_mmap_ctx);
     if (ret != 0)
@@ -576,7 +578,7 @@ static long map_fvp_memory(struct ctx_struct *ctx)
     ret = fh_mmap_region(
             ctx->target_pid,
             ctx->escape_vaddr,
-            4096,
+            ESCAPE_PAGE_SIZE,
             (char *) ctx->escape_page,
             &ctx->escape_page_mmap_ctx);
     if (ret != 0)

@@ -405,22 +405,25 @@ int prepare_mmap_remote(pid_t target_pid,
 
 int fh_handle_dma(struct file *file, unsigned int cmd, unsigned long arg)
 {
-    HERE;
+
     int ret = 0, i;
     struct page_chunk *page_chunks;
     struct fh_host_ioctl_dma usr;
     unsigned long page_chunks_size = 0;
 
+
     ret = copy_from_user(&usr,
                          (__user char *) arg,
                          sizeof(struct fh_host_ioctl_dma));
+
     if (ret < 0)
     {
         pr_info("copy_from_user failed\n");
         return ret;
     }
+
     page_chunks_size = usr.chunks_nr * sizeof(struct page_chunk);
-    page_chunks = kmalloc(GFP_KERNEL, page_chunks_size);
+    page_chunks = kmalloc(page_chunks_size, GFP_KERNEL);
     if (page_chunks == NULL)
     {
         ret = - ENOMEM;

@@ -222,7 +222,7 @@ struct fh_host_ioctl_dma
     char *user_buf;
     unsigned long len;
     unsigned long chunks_nr;
-    struct page_chunk *chunks;
+    struct page_chunk * chunks;
 };
 
 struct ACTION_MODIFIER action_empty_mappings

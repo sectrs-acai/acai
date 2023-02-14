@@ -25,7 +25,7 @@
 
 #define RW_MAX_SIZE	0x7ffff000
 
-int verbose = 0;
+int verbose = 1;
 
 uint64_t getopt_integer(char *optarg)
 {
