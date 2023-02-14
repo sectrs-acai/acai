@@ -14,7 +14,7 @@
 #include <time.h>
 #include <errno.h>
 #include <sys/types.h>
-
+#define HERE printf("%s/%s: %d\n", __FILE__, __FUNCTION__, __LINE__)
 /*
  * man 2 write:
  * On Linux, write() (and similar system calls) will transfer at most
@@ -68,6 +68,7 @@ ssize_t read_to_buffer(char *fname, int fd, char *buffer, uint64_t size,
 		/* read data from file into memory buffer */
 		rc = read(fd, buf, bytes);
 		if (rc < 0) {
+            HERE;
 			fprintf(stderr, "%s, read 0x%lx @ 0x%lx failed %ld.\n",
 				fname, bytes, offset, rc);
 			perror("read file");
@@ -76,6 +77,7 @@ ssize_t read_to_buffer(char *fname, int fd, char *buffer, uint64_t size,
 
 		count += rc;
 		if (rc != bytes) {
+            HERE;
 			fprintf(stderr, "%s, read underflow 0x%lx/0x%lx @ 0x%lx.\n",
 				fname, rc, bytes, offset);
 			break;
@@ -87,8 +89,11 @@ ssize_t read_to_buffer(char *fname, int fd, char *buffer, uint64_t size,
 	}
 
 	if (count != size && loop)
-		fprintf(stderr, "%s, read underflow 0x%lx/0x%lx.\n",
-			fname, count, size);
+    {
+        HERE;
+        fprintf(stderr, "%s, read underflow 0x%lx/0x%lx.\n",
+                fname, count, size);
+    }
 	return count;
 }
 
@@ -120,6 +125,7 @@ ssize_t write_from_buffer(char *fname, int fd, char *buffer, uint64_t size,
 		/* write data to file from memory buffer */
 		rc = write(fd, buf, bytes);
 		if (rc < 0) {
+            HERE;
 			fprintf(stderr, "%s, write 0x%lx @ 0x%lx failed %ld.\n",
 				fname, bytes, offset, rc);
 			perror("write file");
@@ -127,20 +133,26 @@ ssize_t write_from_buffer(char *fname, int fd, char *buffer, uint64_t size,
 		}
 
 		count += rc;
+        #if 0
 		if (rc != bytes) {
+            HERE;
 			fprintf(stderr, "%s, write underflow 0x%lx/0x%lx @ 0x%lx.\n",
 				fname, rc, bytes, offset);
 			break;
 		}
-		buf += bytes;
+        #endif
+        buf += bytes;
 		offset += bytes;
 
 		loop++;
 	}	
 
 	if (count != size && loop)
-		fprintf(stderr, "%s, write underflow 0x%lx/0x%lx.\n",
-			fname, count, size);
+    {
+        HERE;
+        fprintf(stderr, "%s, write underflow 0x%lx/0x%lx.\n",
+                fname, count, size);
+    }
 
 	return count;
 }

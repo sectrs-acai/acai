@@ -55,92 +55,17 @@ static ssize_t cdev_read_iter(struct kiocb *iocb, struct iov_iter *io)
 
 #endif
 
-#if 0
-static int ioctl_do_aperture_dma(struct file *file, struct xdma_engine *engine, unsigned long arg,
-                                 bool write)
-{
-    struct xdma_aperture_ioctl io;
-    struct xdma_io_cb cb;
-    ssize_t res;
-    int rv;
-#if 0
-
-    rv = copy_from_user(&io, (struct xdma_aperture_ioctl __user *) arg,
-                        sizeof(struct xdma_aperture_ioctl));
-    if (rv < 0) {
-                dbg_tfr("%s failed to copy from user space 0x%lx\n",
-                        "", arg);
-        return -EINVAL;
-    }
-
-            dbg_tfr("%s, W %d, buf 0x%lx,%lu, ep %llu, aperture %u.\n",
-                    "", write, io.buffer, io.len, io.ep_addr,
-                    io.aperture);
-
-    fd_data->action = FH_ACTION_IOCTL_DMA;
-    struct action_dma *a = (struct action_dma *) &fd_data->data;
-    struct faulthook_priv_data *info = file->private_data;
-    a->common.fd = info->fd;
-    a->io.ep_addr = io.ep_addr;
-    a->io.len = io.len;
-    a->io.aperture = io.aperture;
-    a->io.ep_addr = io.ep_addr;
-    a->write_read = write;
-
-    pr_info("copying bytes of len: %ld\n", io.len);
-    if (write) {
-        rv = copy_from_user(&a->io.buffer, (void __user *) io.buffer,
-                            io.len);
-
-        if (rv < 0) {
-                    dbg_tfr("%s failed to copy from user space 0x%lx\n",
-                            "", arg);
-            return -EINVAL;
-        }
-    }
-
-    fh_do_faulthook();
-
-
-    rv = copy_to_user((struct xdma_aperture_ioctl __user *) arg, &a->io,
-                      sizeof(struct xdma_aperture_ioctl));
-    if (rv < 0) {
-                dbg_tfr("%s failed to copy to user space 0x%lx, %ld\n",
-                        "", arg, res);
-        return -EINVAL;
-    }
-
-    return io.error;
-#endif
-    return - EINVAL;
-}
-#endif
-
-static long char_sgdma_ioctl(struct file *file, unsigned int cmd,
-                             unsigned long arg)
-{
-    int rv = 0;
-    NOT_SUPPORTED;
-    rv = - EINVAL;
-    return rv;
-}
-
 static ssize_t char_sgdma_read_write(struct file *file,
                                      const char __user *buf,
                                      size_t count,
-                                     loff_t *pos,
-                                     bool do_write)
+                                     loff_t *phy_addr,
+                                     bool do_write,
+                                     bool do_aperture)
 {
     int ret, i;
     struct pin_pages_struct *pinned = NULL;
     unsigned long page_chunk_size;
-    #if 0
-    if (count > PAGE_SIZE)
-    {
-        pr_info("We dont support larger sizes for now\n");
-        return - EINVAL;
-    }
-    #endif
+
     ret = fh_pin_pages(buf, count, &pinned);
     if (ret != 0)
     {
@@ -148,24 +73,25 @@ static ssize_t char_sgdma_read_write(struct file *file,
         return ret;
     }
     page_chunk_size = pinned->pages_nr * sizeof(struct page_chunk);
-    if (sizeof(struct action_dma) + page_chunk_size > fvp_escape_size) {
+    if (sizeof(struct action_dma) + page_chunk_size > fvp_escape_size)
+    {
         pr_info("escape page too small\n");
-        return -ENOMEM;
+        return - ENOMEM;
     }
-
-
     fd_data_lock();
     struct faulthook_priv_data *fh_info = file->private_data;
     struct action_dma *escape = (struct action_dma *) &fd_data->data;
     escape->do_write = do_write;
     escape->common.fd = fh_info->fd;
-    escape->phy_addr = *pos;
+    escape->phy_addr = *phy_addr;
     escape->len = pinned->len;
+    escape->do_aperture = do_aperture;
     escape->pages_nr = pinned->pages_nr;
     escape->user_buf = (char *) buf;
     memcpy(escape->page_chunks, pinned->page_chunks, page_chunk_size);
 
-    for(i = 0; i < escape->pages_nr; i ++) {
+    for (i = 0; i < escape->pages_nr; i ++)
+    {
         #if 0
         pr_info("pinned page: %lx, %lx, %lx\n",
                 escape->page_chunks[i].addr,
@@ -197,16 +123,64 @@ static ssize_t char_sgdma_read_write(struct file *file,
     return ret;
 }
 
+static int ioctl_do_aperture_dma(struct file *file, unsigned long arg,
+                                 bool write)
+{
+    struct xdma_aperture_ioctl io;
+    struct xdma_io_cb cb;
+    ssize_t rv;
+
+    rv = copy_from_user(&io,
+                        (struct xdma_aperture_ioctl __user *) arg,
+                        sizeof(struct xdma_aperture_ioctl));
+    if (rv < 0)
+    {
+        pr_info("failed to copy from userspace\n");
+        return - EINVAL;
+    }
+
+    memset(&cb, 0, sizeof(struct xdma_io_cb));
+    cb.buf = (char __user *) io.buffer;
+    cb.len = io.len;
+    cb.ep_addr = io.ep_addr;
+    cb.write = write;
+    rv = char_sgdma_read_write(file,
+                               cb.buf,
+                               cb.count,
+                               &cb.ep_addr,
+                               cb.write,
+                               1);
+    if (rv < 0)
+    {
+        pr_info("char_sgdma_read_write failed with error: %d\n", rv);
+    }
+    io.error = rv;
+    if (rv > 0)
+    {
+        io.done = rv;
+    }
+    rv = copy_to_user((struct xdma_aperture_ioctl __user *) arg,
+                      &io,
+                      sizeof(struct xdma_aperture_ioctl));
+    if (rv < 0)
+    {
+        pr_info("copy_to_user failed\n");
+        return - EINVAL;
+    }
+    return io.error;
+}
+
+
 static ssize_t char_sgdma_write(struct file *file, const char __user *buf,
                                 size_t count, loff_t *pos)
 {
-    return char_sgdma_read_write(file, buf, count, pos, 1);
+    return char_sgdma_read_write(file, buf, count, pos, 1, 0);
 }
 
 static ssize_t char_sgdma_read(struct file *file, char __user *buf,
                                size_t count, loff_t *pos)
 {
-    return char_sgdma_read_write(file, buf, count, pos, 0);
+    return char_sgdma_read_write(file, buf, count, pos, 0, 0);
 }
 
 static int char_sgdma_open(struct inode *inode, struct file *file)
@@ -219,32 +193,8 @@ static int char_sgdma_close(struct inode *inode, struct file *file)
     return fh_char_close(inode, file);
 }
 
-/*
- * character device file operations for SG DMA engine
- */
 static loff_t char_sgdma_llseek(struct file *file, loff_t off, int whence)
 {
-    /* TODO: Do we need to escape for seek? */
-    #if 0
-    int ret;
-    struct faulthook_priv_data *fh_info = file->private_data;
-    struct action_seek *escape = (struct action_seek *) &fd_data->data;
-    escape->common.fd = fh_info->fd;
-    escape->off = off;
-    escape->whence = whence;
-    ret = fh_do_faulthook(FH_ACTION_SEEK);
-    if (ret < 0)
-    {
-        pr_info("fh_do_faulthook(FH_ACTION_DMA) failed\n");
-        return ret;
-    }
-    if (escape->common.ret < 0)
-    {
-        ret = escape->common.ret;
-        return ret;
-    }
-    HERE;
-    #endif
     loff_t newpos = 0;
     switch (whence)
     {
@@ -261,12 +211,40 @@ static loff_t char_sgdma_llseek(struct file *file, loff_t off, int whence)
             return - EINVAL;
     }
     if (newpos < 0)
+    {
         return - EINVAL;
+    }
     file->f_pos = newpos;
             dbg_fops("%s: pos=%lld\n", __func__, (signed long long) newpos);
-
     return newpos;
 }
+
+static long char_sgdma_ioctl(struct file *file, unsigned int cmd,
+                             unsigned long arg)
+{
+    int rv = 0;
+    switch (cmd)
+    {
+        case IOCTL_XDMA_APERTURE_R:
+        {
+            rv = ioctl_do_aperture_dma(file, arg, 0);
+            break;
+        }
+        case IOCTL_XDMA_APERTURE_W:
+        {
+            rv = ioctl_do_aperture_dma(file, arg, 1);
+            break;
+        }
+        default:
+        {
+            pr_info("unknown ioctl: %d\n", cmd);
+            rv = - EINVAL;
+            break;
+        }
+    }
+    return rv;
+}
+
 
 static const struct file_operations sgdma_fops = {
         .owner = THIS_MODULE,

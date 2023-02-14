@@ -40,7 +40,8 @@
   sscanf(line, STR(name) "=0x%lx", &ctx->name)
 
 
-#define ESCAPE_PAGE_SIZE (50 * PAGE_SIZE)
+// XXX: Increase this if needed
+#define ESCAPE_PAGE_SIZE (300 * PAGE_SIZE)
 
 #ifndef DOING_UNIT_TESTS
 
@@ -196,10 +197,12 @@ unsigned long get_addr_map_vaddr(
 unsigned long get_addr_map_dims(
         ctx_struct ctx, unsigned long *pfn_min, unsigned long *pfn_max)
 {
-    if (pfn_min) {
+    if (pfn_min)
+    {
         *pfn_min = ctx->addr_map_pfn_min;
     }
-    if (pfn_max) {
+    if (pfn_max)
+    {
         *pfn_max = ctx->addr_map_pfn_max;
     }
     return 0;
@@ -687,6 +690,7 @@ static pid_t get_pid(int argc, char *argv[])
         exit(- 1);
     }
     pid = strtol(argv[1], NULL, 10);
+
     if (pid == 0)
     {
         print_err("invalid pid\n");
@@ -719,8 +723,8 @@ static int verify_mappings(struct ctx_struct *ctx)
     print_progress("verifying escape_page_pfn\n");
 
     not_contiguous = 0;
-    for (unsigned long i = ctx->escape_page_pfn + 1; i < ctx->escape_page_pfn + (
-            ctx->escape_page_reserve_size >> 12); i += 1)
+    for (unsigned long i = ctx->escape_page_pfn + 1;
+         i < ctx->escape_page_pfn + (ctx->escape_page_reserve_size >> 12); i += 1)
     {
         vaddr_prev = get_addr_map_vaddr_verify(ctx, i - 1, 0);
         vaddr = get_addr_map_vaddr_verify(ctx, i, 0);
@@ -808,6 +812,12 @@ int main(int argc, char *argv[])
 
         ((struct fvp_escape_setup_struct *) ctx.escape_page)
                 ->action = fvp_escape_setup_action_addr_mapping_success;
+    }
+
+    if (ctx.escape_page_reserve_size < ESCAPE_PAGE_SIZE) {
+        print_err("escape reserve size (%lx) < ESCAPE_PAGE_SIZE (%lx)\n",
+                  ctx.escape_page_reserve_size,
+                  ESCAPE_PAGE_SIZE);
     }
 
     verify_mappings(&ctx);

@@ -183,8 +183,7 @@ static long dma_to_device(char *devname,
                           int read_complete_file,
                           uint64_t offset,
                           uint64_t count,
-                          char *infname,
-                          char *ofname)
+                          char *infname)
 {
     uint64_t i;
     ssize_t rc;
@@ -230,6 +229,7 @@ static long dma_to_device(char *devname,
         }
     }
 
+    #if 0
     if (ofname)
     {
         outfile_fd =
@@ -244,6 +244,7 @@ static long dma_to_device(char *devname,
             goto out;
         }
     }
+    #endif
 
     posix_memalign((void **) &allocated, 4096 /*alignment */ , size + 4096);
     if (! allocated)
@@ -320,6 +321,7 @@ static long dma_to_device(char *devname,
                     "#%lu: CLOCK_MONOTONIC %ld.%09ld sec. write %ld bytes\n",
                     i, ts_end.tv_sec, ts_end.tv_nsec, size);
 
+        #if 0
         if (outfile_fd >= 0)
         {
             rc = write_from_buffer(ofname, outfile_fd, buffer,
@@ -328,6 +330,7 @@ static long dma_to_device(char *devname,
                 goto out;
             out_offset += bytes_done;
         }
+        #endif
     }
 
     if (! underflow)
@@ -344,8 +347,8 @@ static long dma_to_device(char *devname,
     close(fpga_fd);
     if (infile_fd >= 0)
         close(infile_fd);
-    if (outfile_fd >= 0)
-        close(outfile_fd);
+//    if (outfile_fd >= 0)
+//        close(outfile_fd);
     free(allocated);
 
     if (rc < 0)
@@ -355,42 +358,79 @@ static long dma_to_device(char *devname,
     return rc;
 }
 
+#include <sys/time.h>
+
+long long current_timestamp()
+{
+    struct timeval te;
+    gettimeofday(&te, NULL);
+    long long milliseconds = te.tv_sec * 1000LL + te.tv_usec / 1000;
+    return milliseconds;
+}
+
 
 int main(int argc, char *argv[])
 {
+    char filebuf[512];
+    char buf[512];
     long ret = 0;
-    char *device_h2c_0 = "/dev/xdma0_h2c_0";
-    char *device_c2h_0 = "/dev/xdma0_c2h_0";
+    char device_h2c[128];
+    char device_c2h[128];
+    int xdma_index = 0;
     uint64_t address = 0;
     uint64_t aperture = 0;
     uint64_t size = SIZE_DEFAULT;
     uint64_t offset = 0;
     uint64_t count = COUNT_DEFAULT;
-    char *out_file = "/tmp/outfile";
+    char *out_file;
     char *in_file = "/tmp/datafile_32M.bin";
-
 
     if (argc == 2)
     {
         in_file = argv[1];
+    } else if (argc == 3)
+    {
+        in_file = argv[1];
+        xdma_index = strtol(argv[2], NULL, 10);
+
     }
 
+    sprintf(device_h2c, "/dev/xdma0_h2c_%d", xdma_index);
+    sprintf(device_c2h, "/dev/xdma0_c2h_%d", xdma_index);
+
+    printf("using file: %s\n", in_file);
+    printf("using device h2c: %s\n", device_h2c);
+    printf("using device c2h: %s\n", device_c2h);
+
     if (verbose)
+    {
         fprintf(stdout,
                 "dev %s, addr 0x%lx, aperture 0x%lx, size 0x%lx, offset 0x%lx, "
                 "count %lu\n",
-                device_h2c_0, address, aperture, size, offset, count);
+                device_h2c, address, aperture, size, offset, count);
+    }
 
-    ret = dma_to_device(device_h2c_0, address, aperture, size, 1, offset, count, in_file, NULL);
-    if (ret < 0) {
+    sprintf(filebuf, "%s_output_%ld.bin", in_file, current_timestamp());
+    out_file = filebuf;
+
+    ret = dma_to_device(device_h2c, address, aperture, size, 1, offset, count, in_file);
+    if (ret < 0)
+    {
         printf("dma_to_device ret < 0: %ld\n", ret);
     }
     size = ret;
 
-    ret = dma_from_device(device_c2h_0, address, aperture, size, offset, count, out_file);
-    if (ret < 0) {
+    ret = dma_from_device(device_c2h, address, aperture, size, offset, count, out_file);
+    if (ret < 0)
+    {
         printf("dma_from_device ret < 0: %ld\n", ret);
     }
     printf("src: %s\n", in_file);
     printf("dest: %s\n", out_file);
+
+
+    sprintf(buf, "diff %s %s -s -q", in_file, out_file);
+    printf("%s\n", buf);
+    ret = system(buf);
+    printf("ret=%ld\n", ret);
 }

@@ -18,6 +18,7 @@ DEFINE_SPINLOCK(faultdata_lock);
 #define KPROBE_KALLSYMS_LOOKUP 1
 
 typedef unsigned long (*kallsyms_lookup_name_t)(const char *name);
+
 kallsyms_lookup_name_t kallsyms_lookup_name_func;
 #define kallsyms_lookup_name kallsyms_lookup_name_func
 
@@ -27,9 +28,13 @@ static struct kprobe kp = {
 #endif
 
 static int (*_soft_offline_page)(unsigned long pfn, int flags);
-static  bool (* _take_page_off_buddy)(struct page *page) = NULL;
 
-static int setup_lookup(void) {
+static bool (*_take_page_off_buddy)(struct page *page) = NULL;
+
+static bool (*_is_free_buddy_page)(struct page *page) = NULL;
+
+static int setup_lookup(void)
+{
     pr_info("setup_lookup\n");
 
     #ifdef KPROBE_KALLSYMS_LOOKUP
@@ -44,7 +49,7 @@ static int setup_lookup(void) {
     }
     #endif
 
-    #if 0
+    #if 1
     _soft_offline_page = (void *) kallsyms_lookup_name("soft_offline_page");
     if (_soft_offline_page == NULL)
     {
@@ -57,6 +62,15 @@ static int setup_lookup(void) {
         pr_info("lookup failed _take_page_off_buddy\n");
         return - ENXIO;
     }
+
+    _is_free_buddy_page = (void *) kallsyms_lookup_name("is_free_buddy_page");
+    if (_take_page_off_buddy == NULL)
+    {
+        pr_info("lookup failed _is_free_buddy_page\n");
+        return - ENXIO;
+    }
+
+
     #endif
     return 0;
 }
@@ -159,8 +173,14 @@ static int fh_verify_mapping(void)
             if (pfn_valid(pfn))
             {
                 struct page *page = pfn_to_page(pfn);
-                if (!PagePoisoned(page)) {
-                    if (notify == 0) {
+                if (! PagePoisoned(page))
+                {
+                    if (_is_free_buddy_page(page)) {
+                        _take_page_off_buddy(page);
+                        SetPageHWPoison(page);
+                    }
+                    if (notify == 0)
+                    {
                         pr_info("mapping less page without poison: %lx. "
                                 "This will lead to bugs!\n", pfn);
                         notify ++;
@@ -526,6 +546,34 @@ int fh_unpin_pages(struct pin_pages_struct *pinned, int do_free, bool do_write)
     return 0;
 }
 
+#if 0
+static int fh_compress_pin_pages(struct pin_pages_struct *pin_pages) {
+    unsigned long i;
+    unsigned long addr, offset, nbytes;
+    unsigned long last_addr, last_offset, last_nbytes;
+
+    if (pin_pages->pages_nr > 0) {
+
+    }
+    for(i = 1; i < pin_pages->pages_nr; i ++) {
+        last_addr = pin_pages->page_chunks[i - 1].addr;
+        last_offset = pin_pages->page_chunks[i - 1].offset;
+        last_nbytes = pin_pages->page_chunks[i -1].nbytes;
+        addr = pin_pages->page_chunks[i].addr;
+        offset = pin_pages->page_chunks[i].offset;
+        nbytes = pin_pages->page_chunks[i].nbytes;
+#if 0
+        pr_info("pinned page: %lx, %lx, %lx\n",
+                escape->page_chunks[i].addr,
+                escape->page_chunks[i].offset,
+                escape->page_chunks[i].nbytes);
+#endif
+    }
+
+    return 0;
+}
+#endif
+
 int fh_pin_pages(const char __user *buf, size_t count,
                  struct pin_pages_struct **ret_pages)
 {
@@ -536,17 +584,6 @@ int fh_pin_pages(const char __user *buf, size_t count,
     struct page **pages = NULL;
     unsigned long pages_nr = fh_get_page_count(buf, len);
     unsigned long pin_pages_alloc_size = 0;
-
-    #if 0
-    [  794.316529] xdma_stub:fh_pin_pages: pinning 8192 pages
-[  794.316610] xdma_stub:fh_pin_pages: alloc_size: 196616, total: 1610678272
-[  794.316768] xdma_stub:fh_pin_pages: pin_pages OOM:
-read_to_buffer: 33554432
-[  794.316901] xdma_stub:char_sgdma_read_write: pin_pages failed: -12
-/dev/xdma0_h2c_0, write 0x2000000 @ 0x0 failed -1.
-write file: Cannot allocate memory
-
-    #endif
 
     if (pages_nr == 0)
     {

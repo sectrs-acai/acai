@@ -195,6 +195,7 @@ struct ACTION_MODIFIER action_dma
     struct action_common common;
     unsigned long phy_addr;
     int do_write; /* 1 is write, 0 is read */
+    int do_aperture;
     char *user_buf;
     unsigned long len;
     unsigned long pages_nr;
@@ -219,6 +220,7 @@ struct fh_host_ioctl_dma
     pid_t pid;
     unsigned long phy_addr;
     int do_write; /* 1 is write, 0 is read */
+    int do_aperture;
     char *user_buf;
     unsigned long len;
     unsigned long chunks_nr;

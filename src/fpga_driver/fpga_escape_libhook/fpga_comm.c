@@ -106,9 +106,6 @@ static int do_dma(struct faultdata_struct *fault,
     unsigned long chunk_size;
     unsigned long pfn;
 
-    HERE;
-
-
     chunk_size = a->pages_nr * sizeof(struct page_chunk);
     printf("chunk_size=%ld\n", chunk_size);
     chunks = malloc(chunk_size);
@@ -144,6 +141,7 @@ static int do_dma(struct faultdata_struct *fault,
             .phy_addr = a->phy_addr,
             .do_write = a->do_write,
             .user_buf = a->user_buf,
+            .do_aperture = a->do_aperture,
             .chunks_nr = a->pages_nr,
             .len = a->len,
             .chunks = chunks
