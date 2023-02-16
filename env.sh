@@ -4,6 +4,7 @@ export ROOT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && p
 # ext
 export EXT_DIR=$ROOT_DIR/ext
 export EXT_BUILDROOT_DIR=$EXT_DIR/buildroot
+export EXT_PTEDIT_DIR=$ROOT_DIR/ext/pteditor
 
 # scr
 export SRC_DIR=$ROOT_DIR/src
