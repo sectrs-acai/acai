@@ -1,0 +1,3 @@
+#+title: xdma_stub
+
+xdma stub to escape Arm FVP.

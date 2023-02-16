@@ -3,6 +3,17 @@
  * libc allocator hook based fpga user space manager
  * the fvp needs libhook preloaded
  *
+ * Assumptions:
+ * - We map ESCAPE_PAGE_SIZE many bytes of target address
+ *   space into our own address space.
+ *   This may be less than the reserved size.
+ *   If the current value is not enough then increase as needed
+ * - The same machine runs the faulthook enabled kernel
+ * - The same machine runs the target device driver
+ * - This approach needs libc allocator hooks which preallocated a fixed mmaped region.
+ *   if you run the FVP with much DRAM you may increase libc hook preallocated area.
+ * - Run this program with sudo rights
+ * - /tmp/ and current directory must be read/writable
  */
 #include <stddef.h>
 #include <errno.h>

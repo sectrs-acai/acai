@@ -1,0 +1,18 @@
+#+title: fpga_libhook_manager
+
+This is the libc allocator hook based userspace manager for xdma.
+
+** Run
+- Run on a faulthook enabled kernel
+- Run with pteditor kernel module installed
+- Run with patched xdma kernel driver on host
+- Run FVP with libc allocator hooks
+#+begin_src
+./run_fpga_libhook_manager.sh
+#+end_src
+
+** Build
+#+begin_src
+source /trusted-peripherals-root/scripts/env-x86.sh
+make
+#+end_src
