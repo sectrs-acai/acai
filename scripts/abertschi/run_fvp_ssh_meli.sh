@@ -19,8 +19,11 @@ ssh $host mkdir -p $target_dir
 sync $ASSETS_DIR/tfa/
 sync $OUTPUT_LINUX_GUEST_DIR/images/
 
-bl1=$target_dir/bl1-fvp
-fip=$target_dir/fip-fvp
+bl1=$target_dir/23-02-14_bl1-unmod-tfa-unlimited-mem.bin
+fip=$target_dir/23-02-14_fip-unmod-tfa-unlimited-mem.bin
+
+#bl1=$target_dir/bl1.bin
+#fip=$target_dir/fip.bin
 
 image=$target_dir/Image
 rootfs=$target_dir/rootfs.ext2

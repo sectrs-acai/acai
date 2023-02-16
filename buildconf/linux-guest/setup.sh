@@ -66,8 +66,8 @@ function do_run_fvp {
     cd $BUILDROOT_OUTPUT_DIR
 
     local pre=$ASSETS_DIR/tfa
-    local bl1=$pre/bl1-fvp
-    local fip=$pre/fip-fvp
+    local bl1=$pre/23-02-14_bl1-unmod-tfa-unlimited-mem.bin
+    local fip=$pre/23-02-14_fip-unmod-tfa-unlimited-mem.bin
 	local image=./images/Image
 	local rootfs=./images/rootfs.ext4
 	local p9_folder=$ROOT_DIR
