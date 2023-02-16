@@ -1,6 +1,7 @@
 #ifndef TRUSTED_PERIPH_FPGA_MANAGER_H
 #define TRUSTED_PERIPH_FPGA_MANAGER_H
-
+#include <stdbool.h>
+#include <sys/types.h>
 #define FAULTDATA_MAGIC 0xAABBCCDDEEFF9984
 
 struct __attribute__((__packed__))  faultdata_struct
@@ -14,8 +15,18 @@ struct __attribute__((__packed__))  faultdata_struct
 
 typedef struct ctx_struct *ctx_struct;
 
+/**
+ * given a pfn, get vaddress on host
+ * bool notify: if 1, print error checks if pfn not found
+ */
+unsigned long get_addr_map_vaddr_verify(
+        ctx_struct ctx, unsigned long pfn, bool notify);
+
+unsigned long get_mapped_escape_buffer_size(ctx_struct ctx);
+
 unsigned long get_addr_map_vaddr(
-        ctx_struct ctx, unsigned long pfn);
+        ctx_struct ctx,
+        unsigned long pfn);
 
 int on_fault(unsigned long addr,
              unsigned long len,
@@ -76,6 +87,7 @@ static inline const char *fh_action_to_str(int action)
         case FH_ACTION_VERIFY_MAPPING: return "FH_ACTION_VERIFY_MAPPING";
         case FH_ACTION_DMA: return "FH_ACTION_DMA";
         case FH_ACTION_SEEK: return "FH_ACTION_SEEK";
+        case FH_ACTION_GET_EMPTY_MAPPINGS: return "FH_ACTION_GET_EMPTY_MAPPINGS";
         default:
         {
             return "unknown action";

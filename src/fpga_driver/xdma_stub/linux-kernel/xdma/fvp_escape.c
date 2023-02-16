@@ -69,8 +69,6 @@ static int setup_lookup(void)
         pr_info("lookup failed _is_free_buddy_page\n");
         return - ENXIO;
     }
-
-
     #endif
     return 0;
 }
@@ -78,7 +76,6 @@ static int setup_lookup(void)
 
 int fh_char_open(struct inode *inode, struct file *file)
 {
-    // HERE;
     int ret;
     struct faulthook_priv_data *info = kmalloc(sizeof(struct faulthook_priv_data), GFP_KERNEL);
     if (info == NULL)
@@ -119,7 +116,6 @@ int fh_char_open(struct inode *inode, struct file *file)
  */
 int fh_char_close(struct inode *inode, struct file *file)
 {
-    // HERE;
     int ret;
     fd_data_lock();
     struct faulthook_priv_data *info = file->private_data;
@@ -147,7 +143,7 @@ static int fh_verify_mapping(void)
 {
     int ret = 0;
     unsigned long i, pfn;
-    int notify = 0;
+    int pages_offline = 0, pages_busy = 0, pages_no_mapping = 0;
 
     pr_info("fvp_escape mapping fixup FH_ACTION_GET_EMPTY_MAPPINGS\n");
     fd_data_lock();
@@ -155,7 +151,6 @@ static int fh_verify_mapping(void)
     a->last_pfn = 0;
     a->pfn_max_nr_guest = DIV_ROUND_DOWN_ULL((fvp_escape_size
             - sizeof(struct faultdata_struct) - sizeof(struct action_empty_mappings)), 8);
-
     do
     {
         ret = fh_do_faulthook(FH_ACTION_GET_EMPTY_MAPPINGS);
@@ -167,28 +162,32 @@ static int fh_verify_mapping(void)
         {
             break;
         }
+        /*
+         * XXX: Fix up routine to ensure that we dont run in any page
+         * which we dont have a mapping for on the fvp userspace manager side.
+         */
         for (i = 0; i < a->pfn_nr; i ++)
         {
             pfn = a->pfn[i];
+            pages_no_mapping++;
             if (pfn_valid(pfn))
             {
                 struct page *page = pfn_to_page(pfn);
                 if (! PagePoisoned(page))
                 {
                     if (_is_free_buddy_page(page)) {
-                        _take_page_off_buddy(page);
-                        SetPageHWPoison(page);
+                        _soft_offline_page(pfn, 0);
+                        pages_offline ++;
+                    } else {
+                        pages_busy++;
                     }
-                    if (notify == 0)
-                    {
-                        pr_info("mapping less page without poison: %lx. "
-                                "This will lead to bugs!\n", pfn);
-                        notify ++;
-                    }
+
                 }
             }
         }
     } while (a->last_pfn != 0);
+    pr_info("pages put soft offline=%d, pages busy=%d, pages no mapping=%d\n",
+            pages_offline, pages_busy, pages_no_mapping);
 
     clean_up:
     fd_data_unlock();

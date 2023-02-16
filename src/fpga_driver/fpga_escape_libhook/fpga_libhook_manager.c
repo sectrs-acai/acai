@@ -10,27 +10,32 @@
  *   If the current value is not enough then increase as needed
  * - The same machine runs the faulthook enabled kernel
  * - The same machine runs the target device driver
- * - This approach needs libc allocator hooks which preallocated a fixed mmaped region.
+ * - This approach needs libc allocator hooks which preallocates a fixed mmaped region.
  *   if you run the FVP with much DRAM you may increase libc hook preallocated area.
  * - Run this program with sudo rights
  * - /tmp/ and current directory must be read/writable
+ * - We currently assume that the FVP memory is contiguous.
+ *   - We remove some 24 bytes from fvp allocations to make the pages contiguous
+ *   - This way contiguous FVP DRAM is contiguous on the host
+ *   - This is relevant when accessing the escape buffer at page boundaries
+ *   - If this no longer holds then escape page access turn a bit more complicated (tbd).
  */
 #include <stddef.h>
-#include <errno.h>
+
 #include <pthread.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
+
 #include "fh_host_header.h"
 #include "fpga_manager.h"
 #include "fvp_escape_setup.h"
 
 #define STATS_FILE "/tmp/hooks_mmap"
 
-#define SETTING_FILE "./.temp.libhook_settings.txt"
-#define MAPPING_FILE "./.temp.libhook_mapping.txt"
+#define SETTING_FILE "/tmp/.temp.libhook_settings.txt"
+#define MAPPING_FILE "/tmp/.temp.libhook_mapping.txt"
 
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
@@ -52,29 +57,37 @@
 
 
 // XXX: Increase this if needed
-#define ESCAPE_PAGE_SIZE (300 * PAGE_SIZE)
+// hard coded value in boot process of fvp
+#define ESCAPE_PAGE_SIZE (3000 * PAGE_SIZE)
 
 #ifndef DOING_UNIT_TESTS
 
 struct ctx_struct
 {
-    int target_mem_fd;
-    pid_t target_pid;
-    unsigned long target_from;
-    unsigned long target_to;
+    int target_mem_fd;           /* /proc/%d/mem fd */
+    pid_t target_pid;            /* pid of target to intercpet */
+    unsigned long target_from;   /* vaddr start of interesting target mem */
+    unsigned long target_to;     /* vaddr end of interesting target mem */
 
-    char *escape_page;
+    char *escape_page;               /* pointer to target's address space where escape buffer lies */
     struct fh_mmap_region_ctx escape_page_mmap_ctx;
-    unsigned long escape_page_pfn;
-    unsigned long escape_vaddr;
-    unsigned long escape_page_reserve_size;
+    unsigned long escape_page_pfn;   /* pfn within fvp of escape page  */
+    unsigned long escape_vaddr;      /* vaddr @target process of escape page */
+    unsigned long escape_page_reserve_size;  /* escape page size */
 
+    /* lookup array pfn -> vaddr */
     unsigned long *addr_map;
     unsigned long addr_map_pfn_min;
     unsigned long addr_map_pfn_max;
     unsigned long addr_map_size;
+
     unsigned long checksum_vaddrs; /*checksum of vaddr mapping for marshalling */
 };
+
+unsigned long get_mapped_escape_buffer_size(ctx_struct ctx)
+{
+    return ESCAPE_PAGE_SIZE;
+}
 
 static int read_stat_file(
         pid_t pid,
@@ -136,6 +149,16 @@ static int open_mem_fd(pid_t pid)
     return fd;
 }
 
+/*
+ * This captures an address map pfn -> vaddr
+ * XXX: Note that the dts may define holes in the physical dram address space.
+ *      The current data structure (array) will contain many empty entries
+ *      if said holes are large. This is not problematic as long as we have enough memory.
+ *      If device tree contains holes, then an empty mapping may be caused either by
+ *      a reserved area in existing dram or by a hole in the
+ *      memory range definition in the device tree. The assumption no mapping -> reserved area
+ *      may no longer hold in this case.
+ */
 static int init_addr_map(
         struct ctx_struct *ctx,
         unsigned long min_pfn,
@@ -177,7 +200,7 @@ static int free_addr_map(struct ctx_struct *ctx)
     return 0;
 }
 
-static unsigned long get_addr_map_vaddr_verify(
+unsigned long get_addr_map_vaddr_verify(
         ctx_struct ctx,
         unsigned long pfn,
         bool complain)
@@ -271,6 +294,7 @@ static int save_settings(struct ctx_struct *ctx)
 {
     FILE *f;
     unsigned long checksum = checksum_settings(ctx);
+    unsigned long mapping = 0;
 
     if ((f = fopen(SETTING_FILE, "w")) == NULL)
     {
@@ -301,7 +325,16 @@ static int save_settings(struct ctx_struct *ctx)
          i < ctx->addr_map_pfn_max;
          i ++)
     {
-        fprintf(f, "0x%lx=0x%lx\n", i, get_addr_map_vaddr_verify(ctx, i, 0));
+        mapping = get_addr_map_vaddr_verify(ctx, i, 0);
+        /*
+         * We only dump mapping entry which resolve to a value
+         * The address space may have holes so dumping everything
+         * leads to unnecessary large files!
+         */
+        if (mapping != 0)
+        {
+            fprintf(f, "0x%lx=0x%lx\n", i, mapping);
+        }
     }
     fclose(f);
     print_progress("Writing mappings to %s\n", MAPPING_FILE);
@@ -312,7 +345,7 @@ static int read_mappings(struct ctx_struct *ctx)
 {
     FILE *f;
     char line[256];
-    unsigned long count = 0, total;
+    unsigned long count = 0;
 
     print_progress("Reading mappings from %s\n", MAPPING_FILE);
     if ((f = fopen(MAPPING_FILE, "r")) == NULL)
@@ -320,21 +353,12 @@ static int read_mappings(struct ctx_struct *ctx)
         print_err("Error! opening file: %s\n", MAPPING_FILE);
         return - 1;
     }
-    total = ctx->addr_map_pfn_max - ctx->addr_map_pfn_min;
     while (fgets(line, sizeof(line), f))
     {
         unsigned long key, val;
         sscanf(line, "0x%lx=0x%lx", &key, &val);
         set_addr_map_vaddr(ctx, key, val);
         count ++;
-    }
-
-    if (count != total)
-    {
-        print_err("Something went wrong: count != total, count=%ld, total: %ld\n",
-                  count,
-                  total);
-        return - 1;
     }
 
     if (ctx->checksum_vaddrs != checksum_vaddrs(ctx))
@@ -416,7 +440,7 @@ static long fvpmem_find_escape_page(struct ctx_struct *ctx,
                        from,
                        to,
                        ctx->target_pid);
-        for (unsigned long addr = from; addr < to; addr += 4096)
+        for (unsigned long addr = from; addr < to; addr += PAGE_SIZE)
         {
             lseek(mem_fd, addr, SEEK_SET);
             ret = read(mem_fd,
@@ -445,7 +469,10 @@ static long fvpmem_find_escape_page(struct ctx_struct *ctx,
     return 0;
 }
 
-static long fvpmem_find_dimensions(struct ctx_struct *ctx)
+static long fvpmem_find_dimensions(
+        struct ctx_struct *ctx,
+        unsigned long *ret_min,
+        unsigned long *ret_max)
 {
     long ret;
     struct fvp_escape_scan_struct escape;
@@ -456,7 +483,7 @@ static long fvpmem_find_dimensions(struct ctx_struct *ctx)
     unsigned long min_pfn = INT64_MAX;
     unsigned long max_pfn = 0;
 
-    for (unsigned long addr = from; addr < to; addr += 4096)
+    for (unsigned long addr = from; addr < to; addr += PAGE_SIZE)
     {
 
         lseek(mem_fd, addr, SEEK_SET);
@@ -472,8 +499,14 @@ static long fvpmem_find_dimensions(struct ctx_struct *ctx)
             max_pfn = MAX(max_pfn, escape.addr_tag);
         }
     }
-    ctx->addr_map_pfn_min = min_pfn;
-    ctx->addr_map_pfn_max = max_pfn;
+    if (ret_min)
+    {
+        *ret_min = min_pfn;
+    }
+    if (ret_max)
+    {
+        *ret_max = max_pfn;
+    }
     return 0;
 }
 
@@ -485,7 +518,7 @@ static long fvpmem_scan_addresses(struct ctx_struct *ctx)
     const unsigned long to = ctx->target_to;
     const int mem_fd = ctx->target_mem_fd;
 
-    for (unsigned long addr = from; addr < to; addr += 4096)
+    for (unsigned long addr = from; addr < to; addr += PAGE_SIZE)
     {
         lseek(mem_fd, addr, SEEK_SET);
         ret = read(mem_fd, &escape, sizeof(struct fvp_escape_scan_struct));
@@ -562,7 +595,7 @@ static long map_memory_from_file(struct ctx_struct *ctx, int pid)
     return 0;
 }
 
-static long map_fvp_memory(struct ctx_struct *ctx)
+static long map_memory_fvp_boot(struct ctx_struct *ctx)
 {
     long ret;
     unsigned long escape_page_vaddr;
@@ -609,21 +642,23 @@ static long map_fvp_memory(struct ctx_struct *ctx)
     /* Make fvp wait until further notice */
     escape->action = fvp_escape_setup_action_wait_guest;
 
-    ret = fvpmem_find_dimensions(ctx);
+    ret = fvpmem_find_dimensions(ctx,
+                                 &ctx->addr_map_pfn_min,
+                                 &ctx->addr_map_pfn_max);
     if (ret != 0)
     {
         print_err("fvpmem_find_dimensions failed: %ld\n", ret);
         return ret;
     }
 
-    print_ok("init_addr_map with pfn: 0x%lx-0x%lx\n",
+    print_ok("init_addr_map with pfn: 0x%lx-0x%lx (%ld)\n",
              ctx->addr_map_pfn_min,
-             ctx->addr_map_pfn_max);
+             ctx->addr_map_pfn_max,
+             ctx->addr_map_pfn_max - ctx->addr_map_pfn_min);
 
     ret = init_addr_map(
             ctx,
             ctx->addr_map_pfn_min,
-
             ctx->addr_map_pfn_max);
     if (ret != 0)
     {
@@ -631,7 +666,7 @@ static long map_fvp_memory(struct ctx_struct *ctx)
         return ret;
     }
 
-    print_progress("fvpmem_scan_addresses\n");
+    print_progress("fvpmem_scan_addresses...\n");
     ret = fvpmem_scan_addresses(ctx);
     if (ret != 0)
     {
@@ -639,7 +674,7 @@ static long map_fvp_memory(struct ctx_struct *ctx)
         return ret;
     }
 
-    print_ok("escape_page: %ld\n", escape_page_vaddr);
+    print_ok("escape_page: 0x%lx\n", escape_page_vaddr);
     hex_dump(ctx->escape_page, 64);
 
     return 0;
@@ -725,7 +760,7 @@ static int verify_mappings(struct ctx_struct *ctx)
             null ++;
             continue;
         }
-        if (vaddr_prev + 4096 != vaddr)
+        if (vaddr_prev + PAGE_SIZE != vaddr)
         {
             print_progress("non-contiguous addresses : 0x%lx, 0x%lx\n", vaddr_prev, vaddr);
         }
@@ -739,7 +774,7 @@ static int verify_mappings(struct ctx_struct *ctx)
     {
         vaddr_prev = get_addr_map_vaddr_verify(ctx, i - 1, 0);
         vaddr = get_addr_map_vaddr_verify(ctx, i, 0);
-        if (vaddr_prev + 4096 != vaddr)
+        if (vaddr_prev + PAGE_SIZE != vaddr)
         {
             print_err("vaddr : 0x%lx, 0x%lx\n", vaddr_prev, vaddr);
             not_contiguous ++;
@@ -805,7 +840,7 @@ int main(int argc, char *argv[])
         ctx.target_to = addr_to;
         ctx.target_mem_fd = mem_fd;
 
-        ret = map_fvp_memory(&ctx);
+        ret = map_memory_fvp_boot(&ctx);
         if (ret != 0)
         {
             goto clean_up;
@@ -825,7 +860,8 @@ int main(int argc, char *argv[])
                 ->action = fvp_escape_setup_action_addr_mapping_success;
     }
 
-    if (ctx.escape_page_reserve_size < ESCAPE_PAGE_SIZE) {
+    if (ctx.escape_page_reserve_size < ESCAPE_PAGE_SIZE)
+    {
         print_err("escape reserve size (%lx) < ESCAPE_PAGE_SIZE (%lx)\n",
                   ctx.escape_page_reserve_size,
                   ESCAPE_PAGE_SIZE);

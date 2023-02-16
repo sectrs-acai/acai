@@ -243,10 +243,11 @@ fh_host_fn int fh_memory_map(struct fh_memory_map_ctx *req)
 fh_host_fn int fh_unmmap_region(struct fh_mmap_region_ctx *ctx)
 {
     if (ctx->entries) {
+        print_progress("unmapping entries (%ld) ... \n", ctx->len);
         for (int i = 0; i < ctx->len; i++) {
-            print_progress("unmapping entry %d \n", i);
             fh_memory_unmap(ctx->entries + i);
         }
+        print_ok("unmapped %ld entries \n", ctx->len);
         free(ctx->entries);
         ctx->entries = NULL;
         ctx->len = 0;
@@ -278,15 +279,20 @@ fh_host_fn int fh_mmap_region(pid_t pid,
         return -1;
     }
 
+    print_progress("mapping %d pages from addrs %lx-%lx@(pid %d) to %lx-%lx@(pid this)\n",
+                   count,
+                   (target_addr & ~0xFFF),
+                   (target_addr & ~0xFFF) + count * 4096,
+                   pid,
+                   (unsigned long) host_mem,
+                   (unsigned long) host_mem + count * 4096);
     for (i = 0; i < count; i += 1) {
         struct fh_memory_map_ctx *req = entries + i;
         req->addr = (target_addr & ~0xFFF) + (i * 4096);
         req->len = 4096;
         req->pid = pid;
         req->host_mem = (char *) host_mem + i * 4096;
-        print_progress("mapping addr %d/%d %lx, host=%lx, pid=%d \n", i, count, req->addr, req->host_mem, pid);
         ret = fh_memory_map(req);
-        // print_progress("mapping addr ok %lx", req->addr);
         if (ret!=0) {
             printf("error: %d, ret: %d", ret, i);
             print_progress("mapping addr %d/%d %lx, host=%lx, pid=%d",
@@ -298,6 +304,7 @@ fh_host_fn int fh_mmap_region(pid_t pid,
             goto clean_up;
         }
     }
+    print_ok("mapping successful\n");
 
     ret_ctx->len = count;
     ret_ctx->entries = entries;
