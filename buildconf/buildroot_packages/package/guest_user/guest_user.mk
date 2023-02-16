@@ -5,7 +5,7 @@
 ################################################################################
 
 GUEST_USER_VERSION = 1.0
-GUEST_USER_SITE = $(BR2_EXTERNAL_ARMCCA_PATH)/../../src/fvp_escape_guest_user
+GUEST_USER_SITE = $(BR2_EXTERNAL_ARMCCA_PATH)/../../src/fvp_escape_experiments/fvp_escape_guest_user
 GUEST_USER_SITE_METHOD = local
 GUEST_USER_INSTALL_STAGING = YES
 

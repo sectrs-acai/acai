@@ -18,7 +18,7 @@ buildroot/output
 ./assets/
 output/
 tmp-sync/
-/src/fvp_escape_host/ptedit/
+/src/fvp_escape_experiments/fvp_escape_host/ptedit/
 /src/fpga_driver/xdma_stub/linux-kernel/tools/dma_from_device
 /src/fpga_driver/xdma_stub/linux-kernel/tools/dma_to_device
 /src/fpga_driver/xdma_stub/linux-kernel/tools/performance
