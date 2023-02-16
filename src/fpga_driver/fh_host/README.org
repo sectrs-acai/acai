@@ -1,6 +1,6 @@
 #+title: fh_host
 
-Common utils to use intercept a process with faulthook. This is a header-only
+Common utils to intercept a process with faulthook. This is a header-only
 project. Include ~fh_host_header.h~ in your project.
 
 ** Build
