@@ -1,17 +1,13 @@
 #!/usr/bin/env bash
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-
+set +u
 
 source $SCRIPT_DIR/../env.sh
 
 FVP=$(which FVP_Base_RevC-2xAEMvA)
 
-LIBC_HOOK=$ASSETS_DIR/fvp/bin/libhook-libc-2.35.so
-
 
 function run_fvp {
-  set -euo pipefail
-
   local bl1=$1
   local fip=$2
   local image=$3
@@ -19,6 +15,7 @@ function run_fvp {
   local p9_folder=$5
   local mount_tag=host0
   local preload=$6
+  set -euo pipefail
 
 
   # XXX: libhook is in fvp bin directory along with fvp binary
@@ -118,8 +115,7 @@ fi
 
 preload=""
 if [ -z "$6" ]; then
-    preload=$LIBC_HOOK
-    echo "using default preload: $preload"
+    echo "using no preload"
 else
 	preload=$6
   echo "using preload: $preload"
