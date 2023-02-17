@@ -1,6 +1,6 @@
 #ifndef FVP_ESCAPE_H_
 #define FVP_ESCAPE_H_
-
+#include <stdbool.h>
 #include <linux/types.h>
 #include "fpga_escape_libhook/fpga_manager.h"
 

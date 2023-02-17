@@ -21,7 +21,8 @@
 #define _XDMA_IOCALLS_POSIX_H_
 
 #include <linux/ioctl.h>
-
+#include <stdbool.h>
+#include <linux/types.h>
 
 #define IOCTL_XDMA_PERF_V1 (1)
 #define XDMA_ADDRMODE_MEMORY (0)
@@ -71,7 +72,7 @@ ssize_t char_sgdma_read_write_remote(
         struct file *file,
         struct fh_host_ioctl_dma *dma,
         size_t count,
-        u64 remote_addr,
+        unsigned long remote_addr,
         bool write);
 
 /* IOCTL codes */

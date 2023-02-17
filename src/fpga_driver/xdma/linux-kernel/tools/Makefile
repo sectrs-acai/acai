@@ -1,6 +1,6 @@
 CC ?= gcc
 
-all: reg_rw dma_to_device dma_from_device performance test_chrdev mmap_test
+all: reg_rw dma_to_device dma_from_device performance test_chrdev
 
 dma_to_device: dma_to_device.o
 	$(CC) -lrt -o $@ $< -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -D_LARGE_FILE_SOURCE

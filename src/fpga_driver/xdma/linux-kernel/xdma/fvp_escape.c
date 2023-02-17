@@ -447,7 +447,7 @@ int fh_handle_dma(struct file *file, unsigned int cmd, unsigned long arg)
             file,
             &usr,
             usr.len,
-            usr.phy_addr,
+            (unsigned long) usr.phy_addr,
             usr.do_write);
 
 

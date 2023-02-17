@@ -1,7 +1,6 @@
 #ifndef TRUSTED_PERIPH_FPGA_MANAGER_H
 #define TRUSTED_PERIPH_FPGA_MANAGER_H
 #include <stdbool.h>
-#include <sys/types.h>
 #define FAULTDATA_MAGIC 0xAABBCCDDEEFF9984
 
 struct __attribute__((__packed__))  faultdata_struct

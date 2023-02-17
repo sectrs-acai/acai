@@ -347,7 +347,6 @@ static void vm_close(struct vm_area_struct *vma)
     unsigned long i;
     unsigned long pfn_start;
     int ret;
-    pr_info("vm_close\n");
 
     memset(escape, 0, sizeof(struct action_unmap));
     escape->common.fd = fh_info->fd;
@@ -370,7 +369,6 @@ static void vm_close(struct vm_area_struct *vma)
         pr_info("escape failed: %ld\n", escape->common.ret);
         goto clean_up;
     }
-    pr_info("fh_do_faulthook(FH_ACTION_UNMAP); is ok\n");
 
     clean_up:
     if (mmap_info->data != NULL)
@@ -592,7 +590,6 @@ int fh_pin_pages(const char __user *buf, size_t count,
     pr_info("pinning %ld pages \n", pages_nr);
     pin_pages_alloc_size = sizeof(struct pin_pages_struct *)
             + pages_nr * sizeof(struct page_chunk);
-    pr_info("alloc_size: %ld, total: %ld", pin_pages_alloc_size, pin_pages_alloc_size);
 
     // XXX: vmalloc is fine, we dont need contiguous memory for this
     pin_pages = vmalloc(pin_pages_alloc_size);
@@ -610,7 +607,7 @@ int fh_pin_pages(const char __user *buf, size_t count,
         rv = - ENOMEM;
         goto err_out;
     }
-    HERE;
+
     rv = get_user_pages_fast((unsigned long) buf,
                              pages_nr,
                              1/* write */,
@@ -664,7 +661,6 @@ int fh_pin_pages(const char __user *buf, size_t count,
     pin_pages->len = count;
     pin_pages->pages = pages;
     *ret_pages = pin_pages;
-    HERE;
 
     return 0;
 
