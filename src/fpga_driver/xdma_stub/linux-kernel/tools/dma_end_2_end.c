@@ -347,8 +347,6 @@ static long dma_to_device(char *devname,
     close(fpga_fd);
     if (infile_fd >= 0)
         close(infile_fd);
-//    if (outfile_fd >= 0)
-//        close(outfile_fd);
     free(allocated);
 
     if (rc < 0)
