@@ -1,1 +1,8 @@
 #+title: shrinkwrap
+
+- this builds tfa, rmm, linux based off ./src/ directory
+
+```sh
+./setup.sh init
+./setup.sh build
+```

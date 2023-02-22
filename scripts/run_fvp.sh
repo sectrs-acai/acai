@@ -15,17 +15,13 @@ function run_fvp {
   local mount_tag=host0
   local preload=$6
   set -euo pipefail
-  local LOCAL_NET_PORT=8022
 
-  # XXX: current fvp config can run vm in realm world
+
   # XXX: libhook is in fvp bin directory along with fvp binary
   # XXX: We need sudo so we can pin fvp memory
   sudo LD_PRELOAD=$preload $FVP \
       --data cluster0.cpu0=${image}@0x84000000 \
-      --plugin=$scal \
       --stat \
-      -C SVE.ScalableVectorExtension.has_sme=0 \
-      -C SVE.ScalableVectorExtension.has_sve2=1 \
       -C bp.dram_metadata.is_enabled=1 \
       -C bp.dram_size=4 \
       -C bp.flashloader0.fname=${fip} \
@@ -113,12 +109,11 @@ function run_fvp {
       -C pci.pci_smmuv3.mmu.root_register_page_offset=131072 \
       -C pctl.startup=0.0.0.0 \
       -C bp.virtiop9device.root_path=${p9_folder} \
-	  -C bp.virtiop9device.mount_tag=${mount_tag} \
-  	  -C bp.hostbridge.userNetworking=1 \
-	  -C bp.pl011_uart0.out_file=uart0.log \
-	  -C bp.pl011_uart1.out_file=uart1.log \
-	  -C bp.pl011_uart2.out_file=uart2.log
-
+      -C bp.virtiop9device.mount_tag=${mount_tag} \
+      -C bp.hostbridge.userNetworking=1 \
+      -C bp.pl011_uart0.out_file=uart0.log \
+      -C bp.pl011_uart1.out_file=uart1.log \
+      -C bp.pl011_uart2.out_file=uart2.log
 
   echo $?
   echo "return code"
