@@ -39,6 +39,12 @@ function do_init {
     pip3 show pyyaml termcolor tuxmake graphlib-backport
 }
 
+function do_local {
+    do_init
+    cd $SCRIPT_DIR
+    make -f ./Makefile_local.mk
+}
+
 function do_clean {
     do_init
 
@@ -49,7 +55,7 @@ function do_clean {
 function do_compile {
     update_overlay
     cd $SCRIPT_DIR
-    $SHRINKWRAP_EXE build cca-3world.yaml --overlay $OVERLAY
+    $SHRINKWRAP_EXE build cca-3world.yaml --overlay $OVERLAY --dry-run
 }
 
 function do_run {
@@ -101,6 +107,9 @@ case "$1" in
         ;;
     run)
         do_run
+        ;;
+    local)
+        do_local
         ;;
     *)
         echo "unknown"

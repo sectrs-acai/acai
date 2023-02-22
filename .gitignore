@@ -47,3 +47,5 @@ libhook_settings.txt
 /src/linux-cca/
 /test/
 /buildconf/linux-guest/tools/
+/buildconf/shrinkwrap/bl1.bin
+/buildconf/shrinkwrap/fip.bin
