@@ -19,17 +19,10 @@ ssh $host mkdir -p $target_dir
 sync $ASSETS_DIR/tfa/
 sync $OUTPUT_LINUX_GUEST_DIR/images/
 
-sync /home/b/2.5bay/mthesis-unsync/projects/shrinkwrap-assets/package
+bl1=$target_dir/tfa-unmod-realm-ready/bl1.bin
+fip=$target_dir/tfa-unmod-realm-ready/fip.bin
 
-
-
-bl1=$target_dir/23-02-14_bl1-unmod-tfa-unlimited-mem.bin
-fip=$target_dir/23-02-14_fip-unmod-tfa-unlimited-mem.bin
-
-#bl1=$target_dir/bl1.bin
-#fip=$target_dir/fip.bin
-
-image=$target_dir/package/cca-3world/Image
+image=$target_dir/tfa-unmod-realm-ready/Image
 rootfs=$target_dir/rootfs.ext2
 p9_folder=$remote_home
 
