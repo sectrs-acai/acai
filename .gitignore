@@ -44,3 +44,6 @@ libhook_settings.txt
 /src/fpga_driver/xdma_tests/tmp.txt
 /src/fpga_driver/xdma_tests/test_guest_transfer_n.sh
 /src/fpga_driver/xdma_stub/linux-kernel/tools/dma_end_2_end
+/src/linux-cca/
+/test/
+/buildconf/linux-guest/tools/
