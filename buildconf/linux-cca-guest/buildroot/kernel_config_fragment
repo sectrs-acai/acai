@@ -1,0 +1,71 @@
+# custom config
+CONFIG_NETCONSOLE=y
+
+CONFIG_DEBUG_FS=y
+CONFIG_DEBUG_INFO=y
+CONFIG_DEBUG_KERNEL=y
+CONFIG_GDB_SCRIPTS=y
+
+
+# zcat /proc/config.gz
+CONFIG_IKCONFIG=y
+CONFIG_IKCONFIG_PROC=y
+
+# TODO make example.
+# This seems to allow userspace to create arbitrary configuration trees,
+# which kernel modules can then read and interpret.
+CONFIG_CONFIGFS_FS=y
+
+# KGDB
+CONFIG_CONSOLE_POLL=y
+CONFIG_KDB_CONTINUE_CATASTROPHIC=0
+CONFIG_KDB_DEFAULT_ENABLE=0x1
+CONFIG_KDB_KEYBOARD=y
+CONFIG_KGDB=y
+CONFIG_KGDB_KDB=y
+CONFIG_KGDB_LOW_LEVEL_TRAP=y
+CONFIG_KGDB_SERIAL_CONSOLE=y
+CONFIG_KGDB_TESTS=y
+CONFIG_KGDB_TESTS_ON_BOOT=n
+CONFIG_MAGIC_SYSRQ=y
+CONFIG_MAGIC_SYSRQ_DEFAULT_ENABLE=0x1
+CONFIG_SERIAL_KGDB_NMI=n
+
+# Module.symvers in kernel tree and modules tree contains CRC of signatures.
+# TODO: I think the CRC are stored in the built kernel and module, and checked
+# at insmod, but bgrep did not find it in kernel image.
+# Does not show in /proc/kallyms either.
+CONFIG_MODVERSIONS=y
+
+
+# Required for Debian Stretch
+CONFIG_CONFIGFS_FS=y
+CONFIG_SECURITYFS=y
+
+# https://stackoverflow.com/questions/1414968/how-do-i-configure-the-linux-kernel-within-buildroot
+CONFIG_DEBUG_FS=y
+CONFIG_KALLSYMS=y
+
+# 9P support
+CONFIG_NET_9P=y
+CONFIG_NET_9P_VIRTIO=y
+CONFIG_NET_9P_DEBUG=y
+CONFIG_9P_FS=y
+CONFIG_9P_FS_POSIX_ACL=y
+CONFIG_PCI=y
+CONFIG_VIRTIO_PCI=y
+CONFIG_PCI=y
+CONFIG_VIRTIO_PCI=y
+
+CONFIG_STRICT_DEVMEM=n
+CONFIG_IO_STRICT_DEVMEM=n
+
+CONFIG_MMIOTRACE=n
+CONFIG_MMIOTRACE_TEST=n
+CONFIG_TRACING=n
+
+CONFIG_FVP_ESCAPE=y
+CONFIG_ARCH_KEEP_MEMBLOCK=y
+
+
+CONFIG_MEMORY_FAILURE=y

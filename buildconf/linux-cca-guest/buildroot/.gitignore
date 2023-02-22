@@ -1,0 +1,6 @@
+.DS_Store
+.idea
+*.log
+tmp/
+
+rootfs_overlay/cca-3world

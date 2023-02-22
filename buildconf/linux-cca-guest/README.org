@@ -1,0 +1,3 @@
+* linux-cca-guest
+
+- kernel_config: make defconfig ARCH=arm64
