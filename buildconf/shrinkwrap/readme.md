@@ -1,7 +1,5 @@
-#+title: shrinkwrap
-
-This builds tfa, rmm, linux based off ./src/ directory with the shrinkwrap
-docker image. Useful for tfa software development with linux integration testing.
+Build tfa, rmm, linux based off ./src/ directory with the shrinkwrap
+docker image.
 
 ```sh
 ./setup.sh init
