@@ -72,6 +72,7 @@ local-tfa: local-rmm local-tfa-tests
         BL33=$(LOCAL_TFTF) \
         all fip
 
+
 .PHONY: local-tfa-linux
 local-tfa-linux: local-rmm
 	cd $(LOCAL_TFA_ROOT) && \
@@ -95,8 +96,8 @@ local-tfa-linux: local-rmm
 		CTX_INCLUDE_EL2_REGS=1 \
 		ARM_LINUX_KERNEL_AS_BL33=1 \
 		PRELOADED_BL33_BASE=0x84000000 \
-		all \
-		fip
+		all fip
+
 	@echo created $(LOCAL_BL1)
 	@echo created $(LOCAL_FIP)
 	cp -f $(LOCAL_BL1) $(PWD)

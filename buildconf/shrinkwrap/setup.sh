@@ -2,14 +2,8 @@
 set -euo pipefail
 source $(git rev-parse --show-toplevel)/env.sh
 
-#
-# 22-02-22: abertschi: I am currently having linux CAP issues
-# using the yocto build of tfa when booting a realm,
-# so this script uses shrinkwrap to build tfa
-# as this was much easier to troubleshoot
-#
-# - build tfa, rmm, kernel, with projroot/src/* repositores
-# - use precompiled buildroot rootfile system
+# build tfa, rmm, kernel, with projroot/src/* repositores.
+# use precompiled buildroot rootfile system.
 #
 # we overwrite default shrinkwrap default configs with overlay
 # you find the orig configs in ./projroot/ext/shrinkwrap/config
@@ -45,47 +39,52 @@ function do_local {
     make -f ./Makefile_local.mk
 }
 
+function do_local_clean {
+    make -f ./Makefile_local.mk clean
+}
+
 function do_clean {
     do_init
 
     cd $SCRIPT_DIR
+    set -x
     $SHRINKWRAP_EXE clean cca-3world.yaml --overlay $OVERLAY
+    rm -r $HOME/.shrinkwrap
 }
 
 function do_compile {
     update_overlay
+
     cd $SCRIPT_DIR
-    $SHRINKWRAP_EXE build cca-3world.yaml --overlay $OVERLAY --dry-run
+    $SHRINKWRAP_EXE build cca-3world.yaml --overlay $OVERLAY
 }
 
 function do_run {
     local p9_folder=$ROOT_DIR
     local preload=$ASSETS_DIR/fvp/bin/libhook-libc-2.31.so
 
-    local shrinkwrap=$HOME/.shrinkwrap/package/cca-3world/
+    local shrinkwrap=$HOME/.shrinkwrap/package/cca-3world
     local pre=$ASSETS_DIR/tfa
 
-    if [[ true ]]; then
-        # prebuild
-        local asset_pre=$ASSETS_DIR/tfa/tfa-unmod-realm-ready
-        local bl1=$asset_pre/bl1.bin
-        local fip=$asset_pre/fip.bin
-        local image=$asset_pre/Image
-        local rootfs=$ASSETS_DIR/busybox-buildroot-lkvm-rootfs.ext2
-    else
-        # compiled
-        local bl1=$shrinkwrap/bl1.bin
-        local fip=$shrinkwrap/fip.bin
+    # prebuild from assets
+    # local asset_pre=$ASSETS_DIR/tfa/tfa-unmod-realm-ready
+    # local bl1=$asset_pre/bl1.bin
+    # local fip=$asset_pre/fip.bin
+    # local image=$asset_pre/Image
+    # local rootfs=$ASSETS_DIR/busybox-buildroot-lkvm-rootfs.ext2
 
-        local image_shrinkwrap=$shrinkwrap/Image
-        local image_buildroot=$OUTPUT_LINUX_GUEST_DIR/images/Image
-        local image=$image_shrinkwrap
+    # compiled with shrinkwrap
+    # XXX: When using local make file, change these to make output
+    local bl1=$shrinkwrap/bl1.bin
+    local fip=$shrinkwrap/fip.bin
 
-        local rootfs_buildroot=$OUTPUT_LINUX_GUEST_DIR/images/rootfs.ext4
-        local rootfs_prebuild=$ASSETS_DIR/busybox-buildroot-lkvm-rootfs.ext2
-        local rootfs=$rootfs_prebuild
-    fi
+    local image_shrinkwrap=$shrinkwrap/Image
+    local image_buildroot=$OUTPUT_LINUX_GUEST_DIR/images/Image
+    local image=$image_shrinkwrap
 
+    local rootfs_buildroot=$OUTPUT_LINUX_GUEST_DIR/images/rootfs.ext4
+    local rootfs_prebuild=$ASSETS_DIR/busybox-buildroot-lkvm-rootfs.ext2
+    local rootfs=$rootfs_prebuild
 
     $SCRIPTS_DIR/run_fvp.sh $bl1 $fip $image $rootfs $p9_folder $preload
 }
