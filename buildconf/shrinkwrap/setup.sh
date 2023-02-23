@@ -67,10 +67,10 @@ function do_run {
     local pre=$ASSETS_DIR/tfa
 
     # prebuild from assets
-    # local asset_pre=$ASSETS_DIR/tfa/tfa-unmod-realm-ready
-    # local bl1=$asset_pre/bl1.bin
-    # local fip=$asset_pre/fip.bin
-    # local image=$asset_pre/Image
+     local asset_pre=$ASSETS_DIR/tfa/tfa-unmod-realm-ready
+     #local bl1=$asset_pre/bl1.bin
+     #local fip=$asset_pre/fip.bin
+    local image=$asset_pre/Image
     # local rootfs=$ASSETS_DIR/busybox-buildroot-lkvm-rootfs.ext2
 
     # compiled with shrinkwrap
@@ -80,7 +80,7 @@ function do_run {
 
     local image_shrinkwrap=$shrinkwrap/Image
     local image_buildroot=$OUTPUT_LINUX_GUEST_DIR/images/Image
-    local image=$image_shrinkwrap
+    #local image=$image_shrinkwrap
 
     local rootfs_buildroot=$OUTPUT_LINUX_GUEST_DIR/images/rootfs.ext4
     local rootfs_prebuild=$ASSETS_DIR/busybox-buildroot-lkvm-rootfs.ext2

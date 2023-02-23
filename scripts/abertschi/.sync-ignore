@@ -5,7 +5,7 @@ tmp/
 .git/
 
 tmp
-
+src/linux-cca-guest/
 *.temp*
 temp
 assets/fvp/build
@@ -29,3 +29,4 @@ output/buildroot-linux-host/target
 ext/buildroot/dl/
 ext/buildroot/output
 ext/buildroot/package
+3world-overlay.yaml.tmp

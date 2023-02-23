@@ -66,8 +66,16 @@ function do_run_fvp {
     cd $BUILDROOT_OUTPUT_DIR
 
     local pre=$ASSETS_DIR/tfa
-    local bl1=$pre/23-02-14_bl1-unmod-tfa-unlimited-mem.bin
-    local fip=$pre/23-02-14_fip-unmod-tfa-unlimited-mem.bin
+    # local bl1=$pre/23-02-14_bl1-unmod-tfa-unlimited-mem.bin
+    # local fip=$pre/23-02-14_fip-unmod-tfa-unlimited-mem.bin
+
+    #local bl1=$pre/tfa-unmod-realm-ready/bl1.bin
+    #local fip=$pre/tfa-unmod-realm-ready/fip.bin
+
+    local shrinkwrap=$HOME/.shrinkwrap/package/cca-3world
+    local bl1=$shrinkwrap/bl1.bin
+    local fip=$shrinkwrap/fip.bin
+
 	local image=./images/Image
 	local rootfs=./images/rootfs.ext4
 	local p9_folder=$ROOT_DIR

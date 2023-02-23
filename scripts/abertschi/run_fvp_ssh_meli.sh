@@ -17,12 +17,18 @@ set -x
 cd $ROOT_DIR
 ssh $host mkdir -p $target_dir
 sync $ASSETS_DIR/tfa/
-sync $OUTPUT_LINUX_GUEST_DIR/images/
+sync $OUTPUT_LINUX_CCA_GUEST_DIR/images/
 
+# shrinkwrap output
+# shrinkwrap=/home/armcca/.shrinkwrap/package/cca-3world
+# bl1=$shrinkwrap/bl1.bin
+# fip=$shrinkwrap/fip.bin
+
+# assets output
 bl1=$target_dir/tfa-unmod-realm-ready/bl1.bin
 fip=$target_dir/tfa-unmod-realm-ready/fip.bin
 
-image=$target_dir/tfa-unmod-realm-ready/Image
+image=$target_dir/Image
 rootfs=$target_dir/rootfs.ext2
 p9_folder=$remote_home
 
