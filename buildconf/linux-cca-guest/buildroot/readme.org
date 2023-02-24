@@ -1,0 +1,4 @@
+#+begin_src sh
+kernel_config: make olddefconfig ARCH=arm64
+kernel_config_fragment: custon kconfig
+#+end_src

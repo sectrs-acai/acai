@@ -48,6 +48,7 @@ function do_compile {
 }
 
 
+# XXX: this does not work with qemu without cca patches
 function do_run {
     cd $BUILDROOT_OUTPUT_DIR
     exec qemu-system-aarch64 \

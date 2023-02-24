@@ -1,6 +1,7 @@
 # custom config
 CONFIG_NETCONSOLE=y
 
+# XXX: Disable this for benchmarks
 CONFIG_DEBUG_FS=y
 CONFIG_DEBUG_INFO=y
 CONFIG_DEBUG_KERNEL=y
@@ -11,7 +12,6 @@ CONFIG_GDB_SCRIPTS=y
 CONFIG_IKCONFIG=y
 CONFIG_IKCONFIG_PROC=y
 
-# TODO make example.
 # This seems to allow userspace to create arbitrary configuration trees,
 # which kernel modules can then read and interpret.
 CONFIG_CONFIGFS_FS=y
@@ -31,12 +31,7 @@ CONFIG_MAGIC_SYSRQ=y
 CONFIG_MAGIC_SYSRQ_DEFAULT_ENABLE=0x1
 CONFIG_SERIAL_KGDB_NMI=n
 
-# Module.symvers in kernel tree and modules tree contains CRC of signatures.
-# TODO: I think the CRC are stored in the built kernel and module, and checked
-# at insmod, but bgrep did not find it in kernel image.
-# Does not show in /proc/kallyms either.
 CONFIG_MODVERSIONS=y
-
 
 # Required for Debian Stretch
 CONFIG_CONFIGFS_FS=y
@@ -69,3 +64,7 @@ CONFIG_ARCH_KEEP_MEMBLOCK=y
 
 
 CONFIG_MEMORY_FAILURE=y
+
+
+# disable idle driver to speed up fvp
+CONFIG_CPU_IDLE=n

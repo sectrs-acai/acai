@@ -1,3 +1,9 @@
 * linux-cca-guest
 
-- kernel_config: make defconfig ARCH=arm64
+cca enabled kernel with custom rootfs and pre compiled tfa.
+
+#+begin_src sh
+./setup.sh init
+./setup.sh build
+./setup.sh run
+#+end_src
