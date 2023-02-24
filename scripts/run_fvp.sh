@@ -5,20 +5,6 @@ set +u
 source $SCRIPT_DIR/../env.sh
 
 FVP=$(which FVP_Base_RevC-2xAEMvA)
-SVE=$(which ScalableVectorExtension.so)
-
-
-# FVP=/home/b/2.5bay/mthesis-unsync/projects/trusted-periph/buildconf/linux-guest/tools/Base_RevC_AEMvA_pkg/models/Linux64_GCC-9.3/FVP_Base_RevC-2xAEMvA
-#scal=/home/b/2.5bay/mthesis-unsync/projects/trusted-periph/buildconf/linux-guest/tools/Base_RevC_AEMvA_pkg/plugins/Linux64_GCC-9.3/ScalableVectorExtension.so
-
-#-C bp.terminal_0.mode=telnet \
-    #-C bp.terminal_0.start_telnet=0 \
-    #-C bp.terminal_1.mode=raw \
-    #-C bp.terminal_1.start_telnet=0 \
-    #-C bp.terminal_2.mode=raw \
-    #-C bp.terminal_2.start_telnet=0 \
-    #-C bp.terminal_3.mode=raw \
-    #-C bp.terminal_3.start_telnet=0 \
 
 function run_fvp {
   local bl1=$1
@@ -30,8 +16,6 @@ function run_fvp {
   local preload=$6
   set -euo pipefail
   local LOCAL_NET_PORT=8022
-
-
 
   # XXX: libhook is in fvp bin directory along with fvp binary
   # XXX: We need sudo so we can pin fvp memory
@@ -125,11 +109,11 @@ function run_fvp {
       -C pci.pci_smmuv3.mmu.root_register_page_offset=131072 \
       -C pctl.startup=0.0.0.0 \
       -C bp.virtiop9device.root_path=${p9_folder} \
-	  -C bp.virtiop9device.mount_tag=${mount_tag} \
-  	  -C bp.hostbridge.userNetworking=1 \
-	  -C bp.pl011_uart0.out_file=uart0.log \
-	  -C bp.pl011_uart1.out_file=uart1.log \
-	  -C bp.pl011_uart2.out_file=uart2.log
+      -C bp.virtiop9device.mount_tag=${mount_tag} \
+      -C bp.hostbridge.userNetworking=1 \
+      -C bp.pl011_uart0.out_file=uart0.log \
+      -C bp.pl011_uart1.out_file=uart1.log \
+      -C bp.pl011_uart2.out_file=uart2.log
 
 
   echo $?
