@@ -62,6 +62,7 @@ function do_run {
 
 function do_run_fvp {
     cd $BUILDROOT_OUTPUT_DIR
+    local preload=$ASSETS_DIR/fvp/bin/libhook-libc-2.31.so
 
     # XXX: For shrinkwrap output when compiling locally
     # local shrinkwrap=$HOME/.shrinkwrap/package/cca-3world
@@ -69,14 +70,14 @@ function do_run_fvp {
     # local fip=$shrinkwrap/fip.bin
 
     # XXX: For tfa prebuilt off assets
-    local bl1=$ASSETS_DIR/tfa/tfa-unmod-realm-ready/bl1.bin
-    local fip=$ASSETS_DIR/tfa/tfa-unmod-realm-ready/fip.bin
+    local bl1=$ASSETS_DIR/tfa/tfa-unmod-realm-ready/2gb-memcap-unmod-bl1.bin
+    local fip=$ASSETS_DIR/tfa/tfa-unmod-realm-ready/2gb-memcap-unmod-fip.bin
 
-	local image=./images/Image
-	local rootfs=./images/rootfs.ext4
-	local p9_folder=$ROOT_DIR
+    local image=./images/Image
+    local rootfs=./images/rootfs.ext4
+    local p9_folder=$ROOT_DIR
 
-    $SCRIPTS_DIR/run_fvp.sh $bl1 $fip $image $rootfs $p9_folder
+    $SCRIPTS_DIR/run_fvp.sh $bl1 $fip $image $rootfs $p9_folder $preload
 }
 
 function do_compilationdb {

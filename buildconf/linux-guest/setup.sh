@@ -66,21 +66,21 @@ function do_run_fvp {
     cd $BUILDROOT_OUTPUT_DIR
 
     local pre=$ASSETS_DIR/tfa
-    # local bl1=$pre/23-02-14_bl1-unmod-tfa-unlimited-mem.bin
-    # local fip=$pre/23-02-14_fip-unmod-tfa-unlimited-mem.bin
-
-    #local bl1=$pre/tfa-unmod-realm-ready/bl1.bin
-    #local fip=$pre/tfa-unmod-realm-ready/fip.bin
-
+    local preload=$ASSETS_DIR/fvp/bin/libhook-libc-2.31.so
     local shrinkwrap=$HOME/.shrinkwrap/package/cca-3world
-    local bl1=$shrinkwrap/bl1.bin
-    local fip=$shrinkwrap/fip.bin
 
-	local image=./images/Image
-	local rootfs=./images/rootfs.ext4
-	local p9_folder=$ROOT_DIR
+    # use static assets
+    local bl1=$pre/tfa-unmod-realm-ready/bl1.bin
+    local fip=$pre/tfa-unmod-realm-ready/fip.bin
 
-    $SCRIPTS_DIR/run_fvp.sh $bl1 $fip $image $rootfs $p9_folder
+    # local bl1=$shrinkwrap/bl1.bin
+    # local fip=$shrinkwrap/fip.bin
+
+    local image=./images/Image
+    local rootfs=./images/rootfs.ext4
+    local p9_folder=$ROOT_DIR
+
+    $SCRIPTS_DIR/run_fvp.sh $bl1 $fip $image $rootfs $p9_folder $preload
 }
 
 function do_compilationdb {
