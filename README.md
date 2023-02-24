@@ -24,14 +24,11 @@
 
 ## run
 ```sh
-# 5.10 lts ns world
-./buildconf/linux-guest/setup.sh run         # run on qemu (no tfa stack)
+./buildconf/linux-guest/setup.sh run         # run on qemu (no tfa stack. lts 5.10)
 ./buildconf/linux-guest/setup.sh run_fvp     # run on fvp (full stack, lts 5.10)
 
-# 5.10 x86 fvp host
 ./buildconf/linux-host/setup.sh run          # run on qemu
 
-# cca patchset ns/realm world
 ./buildconf/linux-cca-guest/setup.sh run_fvp # run on fvp (cca, full stack)
 ```
 - `/mnt/host/` mounts to source root of this directory.
