@@ -26,9 +26,7 @@
 ```sh
 ./buildconf/linux-guest/setup.sh run         # run on qemu (no tfa stack. lts 5.10)
 ./buildconf/linux-guest/setup.sh run_fvp     # run on fvp (full stack, lts 5.10)
-
 ./buildconf/linux-host/setup.sh run          # run on qemu
-
 ./buildconf/linux-cca-guest/setup.sh run_fvp # run on fvp (cca, full stack)
 ```
 - `/mnt/host/` mounts to source root of this directory.
