@@ -6,7 +6,7 @@
 
 set -euo pipefail
 source $(git rev-parse --show-toplevel)/env.sh
-source env-aarch64.sh
-export LINUX_DIR=$OUTPUT_LINUX_CCA_GUEST_HEADERS
+source env-aarch64-realm.sh
+export LINUX_DIR=$OUTPUT_LINUX_CCA_REALM_HEADERS
 
 make "$@"

@@ -11,7 +11,7 @@ SCRIPTS_DIR=$(SCRIPT_DIR)/scripts
 SHELL := /bin/bash
 
 MAKE_BIN=make
-LOG_LEVEL=40
+LOG_LEVEL=10
 jobs=$(shell nproc)
 CFLAGS=-Wno-error
 
@@ -55,7 +55,7 @@ local-rmm:
 local-tfa-tests:
 	cd $(LOCAL_TFA_TESTS_ROOT) && \
     $(MAKE_BIN) -j$(jobs) \
-		PLAT=fvp DEBUG=1 LOG_LEVEL=$(LOG_LEVEL) \
+		PLAT=fvp DEBUG=0 LOG_LEVEL=$(LOG_LEVEL) \
 		USE_NVM=0 SHELL_COLOR=1 CFLAGS=-Wno-error \
 		pack_realm all \
 		TESTS=realm-payload
@@ -67,7 +67,7 @@ local-tfa: local-rmm local-tfa-tests
         ENABLE_RME=1 \
 		RMM=$(LOCAL_RMM) \
         FVP_HW_CONFIG_DTS=fdts/fvp-base-gicv3-psci-1t.dts \
-        DEBUG=1 \
+        DEBUG=0 \
 	    LOG_LEVEL=$(LOG_LEVEL) \
         BL33=$(LOCAL_TFTF) \
         all fip
@@ -77,7 +77,7 @@ local-tfa: local-rmm local-tfa-tests
 local-tfa-linux: local-rmm
 	cd $(LOCAL_TFA_ROOT) && \
 	$(MAKE_BIN) -j$(jobs) PLAT=fvp \
-		DEBUG=1 \
+		DEBUG=0 \
 		LOG_LEVEL=$(LOG_LEVEL) \
 		ARM_DISABLE_TRUSTED_WDOG=1 \
 		FVP_HW_CONFIG_DTS=fdts/fvp-base-gicv3-psci-1t.dts \

@@ -25,8 +25,8 @@ sync $OUTPUT_LINUX_CCA_GUEST_DIR/images/
 # fip=$shrinkwrap/fip.bin
 
 # assets output
-bl1=$target_dir/tfa-unmod-realm-ready/2gb-memcap-unmod-bl1.bin
-fip=$target_dir/tfa-unmod-realm-ready/2gb-memcap-unmod-fip.bin
+bl1=$target_dir/tfa-unmod-realm-ready/bl1.bin
+fip=$target_dir/tfa-unmod-realm-ready/fip.bin
 
 image=$target_dir/Image
 rootfs=$target_dir/rootfs.ext2

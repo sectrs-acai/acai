@@ -17,6 +17,9 @@ export OUTPUT_LINUX_GUEST_HEADERS=$OUTPUT_LINUX_GUEST_DIR/build/linux-custom
 export OUTPUT_LINUX_CCA_GUEST_DIR=$OUTPUT_DIR/buildroot-linux-cca-guest
 export OUTPUT_LINUX_CCA_GUEST_HEADERS=$OUTPUT_LINUX_CCA_GUEST_DIR/build/linux-custom
 
+export OUTPUT_LINUX_CCA_REALM_DIR=$OUTPUT_DIR/buildroot-linux-cca-realm
+export OUTPUT_LINUX_CCA_REALM_HEADERS=$OUTPUT_LINUX_CCA_REALM_DIR/build/linux-custom
+
 export OUTPUT_LINUX_HOST_DIR=$OUTPUT_DIR/buildroot-linux-host
 export OUTPUT_LINUX_HOST_HEADERS=$OUTPUT_LINUX_HOST_DIR/build/linux-custom
 

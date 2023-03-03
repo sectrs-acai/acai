@@ -7,7 +7,7 @@
 set -euo pipefail
 
 source $(git rev-parse --show-toplevel)/env.sh
-source env-aarch64.sh
+source env-aarch64-5-10.sh
 export LINUX_DIR=$OUTPUT_LINUX_GUEST_HEADERS
 
 make "$@"
