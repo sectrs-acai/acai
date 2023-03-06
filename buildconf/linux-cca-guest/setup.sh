@@ -70,8 +70,10 @@ function do_run_fvp {
     # local fip=$shrinkwrap/fip.bin
 
     # XXX: For tfa prebuilt off assets
-    local bl1=$ASSETS_DIR/tfa/tfa-unmod-realm-ready/2gb-memcap-unmod-bl1.bin
-    local fip=$ASSETS_DIR/tfa/tfa-unmod-realm-ready/2gb-memcap-unmod-fip.bin
+    # local bl1=$ASSETS_DIR/tfa/tfa-unmod-realm-ready/2gb-memcap-unmod-bl1.bin
+    # local fip=$ASSETS_DIR/tfa/tfa-unmod-realm-ready/2gb-memcap-unmod-fip.bin
+    local bl1=$ASSETS_DIR/tfa/bl1.bin
+    local fip=$ASSETS_DIR/tfa/fip.bin
 
     local image=./images/Image
     local rootfs=./images/rootfs.ext4
