@@ -31,3 +31,6 @@
 [submodule "src/tfa-tests"]
 	path = src/tfa-tests
 	url = git@gitlab.inf.ethz.ch:PRV-SHINDE/projects/proj-2022/rmm/tfa-tests-rmm.git
+[submodule "src/kvmtool-cca"]
+	path = src/kvmtool-cca
+	url = https://gitlab.arm.com/linux-arm/kvmtool-cca
