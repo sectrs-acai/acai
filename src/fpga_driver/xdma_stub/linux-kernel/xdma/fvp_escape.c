@@ -10,6 +10,12 @@
 #include <linux/kallsyms.h>
 #include <fpga_escape_libhook/fvp_escape_setup.h>
 #include <linux/vmalloc.h>
+#include <linux/types.h>
+#include <linux/highmem.h>
+
+ulong param_escape_page = 0;
+ulong param_escape_size = 0;
+int param_do_verify = 0;
 
 struct faultdata_driver_struct fd_ctx;
 DEFINE_SPINLOCK(faultdata_lock);
@@ -35,8 +41,6 @@ static bool (*_is_free_buddy_page)(struct page *page) = NULL;
 
 static int setup_lookup(void)
 {
-    pr_info("setup_lookup\n");
-
     #ifdef KPROBE_KALLSYMS_LOOKUP
     register_kprobe(&kp);
     kallsyms_lookup_name = (kallsyms_lookup_name_t) kp.addr;
@@ -64,7 +68,7 @@ static int setup_lookup(void)
     }
 
     _is_free_buddy_page = (void *) kallsyms_lookup_name("is_free_buddy_page");
-    if (_take_page_off_buddy == NULL)
+    if (_is_free_buddy_page == NULL)
     {
         pr_info("lookup failed _is_free_buddy_page\n");
         return - ENXIO;
@@ -144,6 +148,9 @@ static int fh_verify_mapping(void)
     int ret = 0;
     unsigned long i, pfn;
     int pages_offline = 0, pages_busy = 0, pages_no_mapping = 0;
+    int buddy_is_free = 0;
+    struct zone *zone;
+    unsigned long flags = 0;
 
     pr_info("fvp_escape mapping fixup FH_ACTION_GET_EMPTY_MAPPINGS\n");
     fd_data_lock();
@@ -164,7 +171,7 @@ static int fh_verify_mapping(void)
         }
         /*
          * XXX: Fix up routine to ensure that we dont run in any page
-         * which we dont have a mapping for on the fvp userspace manager side.
+         * which we don't have a mapping for on the fvp userspace manager side.
          */
         for (i = 0; i < a->pfn_nr; i ++)
         {
@@ -175,11 +182,20 @@ static int fh_verify_mapping(void)
                 struct page *page = pfn_to_page(pfn);
                 if (! PagePoisoned(page))
                 {
-                    if (_is_free_buddy_page(page)) {
-                        _soft_offline_page(pfn, 0);
+                    zone = page_zone(pfn_to_page(pfn));
+                    spin_lock_irqsave(&zone->lock, flags);
+                    buddy_is_free = _is_free_buddy_page(page);
+                    spin_unlock_irqrestore(&zone->lock, flags);
+
+                    if (buddy_is_free) {
+                        ret = _soft_offline_page(pfn, 0);
+                        if (ret  != 0) {
+                            pr_info("_soft_offline_page failed for %lx: %d\n", pfn, ret);
+                        }
                         pages_offline ++;
                     } else {
                         pages_busy++;
+                        // pr_info("busy page without mapping: %lx\n", pfn);
                     }
 
                 }
@@ -196,9 +212,27 @@ static int fh_verify_mapping(void)
 
 int faulthook_init(void)
 {
-    pr_info("faulthook page: %lx+%lx\n", (unsigned long) fvp_escape_page, fvp_escape_size);
-    memset(&fd_ctx, 0, sizeof(struct faultdata_driver_struct));
-    memset(fvp_escape_page, 0, fvp_escape_size);
+    if (param_escape_page > 0) {
+        pr_info("Overwriting fvp_escape_page=%lx\n", param_escape_page);
+        pr_info("Overwriting fvp_escape_size=%lx\n", param_escape_size);
+        fvp_escape_page = (unsigned long *) param_escape_page;
+        fvp_escape_size = param_escape_size;
+    } else {
+        memset(&fd_ctx, 0, sizeof(struct faultdata_driver_struct));
+        memset(fvp_escape_page, 0, fvp_escape_size);
+    }
+    pr_info("faulthook page: %lx+%lx, pfn=%lx, phyaddr=%lx \n",
+            (unsigned long) fvp_escape_page, fvp_escape_size,
+            page_to_pfn(virt_to_page(fvp_escape_page)),
+            virt_to_phys(fvp_escape_page)
+            );
+
+    {
+        unsigned long pfn = page_to_pfn(virt_to_page(fvp_escape_page));
+        struct page *epage = pfn_to_page(pfn);
+        unsigned long *p = kmap(epage);
+        pr_info("%lx=%lx\n", p, *p);
+    }
 
     fd_data_lock();
     fd_data = (struct faultdata_struct *) fvp_escape_page;
@@ -206,7 +240,11 @@ int faulthook_init(void)
     fd_data_unlock();
 
     setup_lookup();
-    fh_verify_mapping();
+    if (param_do_verify) {
+        fh_verify_mapping();
+    } else {
+        pr_info("Skipping mapping verify\n");
+    }
 
     return 0;
 }

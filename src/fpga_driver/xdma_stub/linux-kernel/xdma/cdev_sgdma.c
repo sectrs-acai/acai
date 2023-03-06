@@ -55,6 +55,64 @@ static ssize_t cdev_read_iter(struct kiocb *iocb, struct iov_iter *io)
 
 #endif
 
+static int transfer_chunk_to_host(
+        struct file *file,
+        char *data,
+        unsigned long size,
+        int info_ctx)
+{
+    int ret;
+    unsigned long transfer_size = 0;
+    unsigned long size_remain = 0;
+    long transfer = 0;
+    struct action_transfer_escape_data *escape =
+            (struct action_transfer_escape_data *) &fd_data->data;
+    if (size == 0)
+    {
+        return 0;
+    }
+    fd_data_lock();
+    escape->status = action_transfer_escape_data_status_transfer_size;
+    escape->handshake.total_size = size;
+    escape->handshake.chunk_size = 0;
+    escape->handshake.info_ctx = info_ctx;
+    ret = fh_do_faulthook(FH_ACTION_TRANSFER_ESCAPE_DATA);
+    if (ret != 0)
+    {
+        pr_info("fh_do_faulthook failed\n");
+        return ret;
+    }
+    transfer_size = escape->handshake.chunk_size;
+    pr_info("using transfer size : %lx\n", transfer_size);
+
+    size_remain = size;
+    ret = 0;
+    do
+    {
+        transfer = min(transfer_size, size_remain);
+        memcpy(escape->chunk.chunk_data, data + (size - size_remain), transfer);
+        escape->chunk.chunk_data_size = transfer;
+        size_remain -= transfer;
+        escape->status = action_transfer_escape_data_status_transfer_data;
+        pr_info("transfering %ld bytes, remain: %ld\n", transfer, size_remain);
+
+        ret = fh_do_faulthook(FH_ACTION_TRANSFER_ESCAPE_DATA);
+        if (ret != 0)
+        {
+            pr_info("fh_do_faulthook failed\n");
+            break;
+        }
+    } while (escape->status == action_transfer_escape_data_status_ok && size_remain > 0);
+    if (escape->status != action_transfer_escape_data_status_ok)
+    {
+        pr_info("transfer failed with status: %d\n", escape->status);
+        ret = - 1;
+    }
+
+    fd_data_unlock();
+    return ret;
+}
+
 static ssize_t char_sgdma_read_write(struct file *file,
                                      const char __user *buf,
                                      size_t count,
@@ -78,6 +136,23 @@ static ssize_t char_sgdma_read_write(struct file *file,
         pr_info("escape page too small\n");
         return - ENOMEM;
     }
+
+    ret = transfer_chunk_to_host(file, (void*) pinned->page_chunks, page_chunk_size, FH_ACTION_DMA);
+    if (ret < 0) {
+        pr_info("transfer_chunk_to_host failed\n");
+        goto clean_up;
+    }
+
+    for (i = 0; i < pinned->pages_nr; i ++)
+    {
+        #if 0
+        pr_info("pinned page: %lx, %lx, %lx\n",
+                pinned->page_chunks[i].addr,
+                pinned->page_chunks[i].offset,
+                pinned->page_chunks[i].nbytes);
+        #endif
+    }
+
     fd_data_lock();
     struct faulthook_priv_data *fh_info = file->private_data;
     struct action_dma *escape = (struct action_dma *) &fd_data->data;
@@ -88,17 +163,7 @@ static ssize_t char_sgdma_read_write(struct file *file,
     escape->do_aperture = do_aperture;
     escape->pages_nr = pinned->pages_nr;
     escape->user_buf = (char *) buf;
-    memcpy(escape->page_chunks, pinned->page_chunks, page_chunk_size);
 
-    for (i = 0; i < escape->pages_nr; i ++)
-    {
-        #if 0
-        pr_info("pinned page: %lx, %lx, %lx\n",
-                escape->page_chunks[i].addr,
-                escape->page_chunks[i].offset,
-                escape->page_chunks[i].nbytes);
-        #endif
-    }
     pr_info("ret = fh_do_faulthook(FH_ACTION_DMA): size: %lx\n", page_chunk_size);
     ret = fh_do_faulthook(FH_ACTION_DMA);
     if (ret < 0)

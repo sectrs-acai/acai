@@ -18,6 +18,9 @@ struct xdma_pci_dev *xpdev = NULL;
 
 #define  VM_RESERVED   (VM_DONTEXPAND | VM_DONTDUMP)
 
+module_param(param_escape_page, ulong, 0);
+module_param(param_do_verify, int, 0);
+module_param(param_escape_size, ulong, 0);
 
 static int enable_stub_devices(void)
 {

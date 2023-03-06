@@ -29,7 +29,5 @@ void cdev_xvc_init(struct xdma_cdev *xcdev)
 #else
     xcdev->base = XVC_BAR_OFFSET_DFLT;
 #endif
-    pr_info("xcdev 0x%p, bar %u, offset 0x%lx.\n",
-            xcdev, xcdev->bar, xcdev->base);
     cdev_init(&xcdev->cdev, &xvc_fops);
 }

@@ -1,7 +1,11 @@
 #ifndef TRUSTED_PERIPH_FPGA_MANAGER_H
 #define TRUSTED_PERIPH_FPGA_MANAGER_H
-#include <stdbool.h>
+
 #define FAULTDATA_MAGIC 0xAABBCCDDEEFF9984
+
+#ifndef MODULE
+#include <stdbool.h>
+#endif
 
 struct __attribute__((__packed__))  faultdata_struct
 {
@@ -63,6 +67,7 @@ enum fh_action
     FH_ACTION_DMA = 23,
     FH_ACTION_SEEK = 24,
     FH_ACTION_GET_EMPTY_MAPPINGS = 25,
+    FH_ACTION_TRANSFER_ESCAPE_DATA = 30,
 };
 
 #define PING_LEN 512
@@ -87,6 +92,7 @@ static inline const char *fh_action_to_str(int action)
         case FH_ACTION_DMA: return "FH_ACTION_DMA";
         case FH_ACTION_SEEK: return "FH_ACTION_SEEK";
         case FH_ACTION_GET_EMPTY_MAPPINGS: return "FH_ACTION_GET_EMPTY_MAPPINGS";
+        case FH_ACTION_TRANSFER_ESCAPE_DATA: return "FH_ACTION_TRANSFER_ESCAPE_DATA";
         default:
         {
             return "unknown action";
@@ -245,6 +251,31 @@ struct ACTION_MODIFIER action_empty_mappings
     unsigned long pfn_max_nr_guest;
     unsigned long pfn_nr;
     unsigned long pfn[0];
+};
+
+
+enum action_transfer_escape_data_status {
+    action_transfer_escape_data_status_done = 0,
+    action_transfer_escape_data_status_ok = 1,
+    action_transfer_escape_data_status_transfer_size = 2,
+    action_transfer_escape_data_status_transfer_data = 3,
+    action_transfer_escape_data_status_error = 4,
+};
+
+struct ACTION_MODIFIER action_transfer_escape_data
+{
+    int status;
+    union {
+        struct ACTION_MODIFIER handshake {
+            unsigned int total_size;
+            unsigned int chunk_size;
+            unsigned long info_ctx;
+        } handshake;
+        struct ACTION_MODIFIER chunk {
+            unsigned int chunk_data_size;
+            char chunk_data[0];
+        } chunk;
+    };
 };
 
 

@@ -76,8 +76,6 @@ static int config_kobject(struct xdma_cdev *xcdev, enum cdev_type type)
     struct xdma_dev *xdev = xcdev->xdev;
     struct xdma_engine *engine = xcdev->engine;
 
-    pr_info("%s, idx: %d, bar: %d\n", devnode_names[type], xdev->idx, xcdev->bar);
-
     switch (type) {
         case CHAR_XDMA_H2C:
         case CHAR_XDMA_C2H:
@@ -118,7 +116,6 @@ int xcdev_check(const char *fname, struct xdma_cdev *xcdev, bool check_engine)
     return 0;
 }
 
-
 static int create_sys_device(struct xdma_cdev *xcdev, enum cdev_type type)
 {
     struct xdma_dev *xdev = xcdev->xdev;
@@ -130,9 +127,6 @@ static int create_sys_device(struct xdma_cdev *xcdev, enum cdev_type type)
         last_param = engine ? engine->channel:0;
     }
 
-    pr_info("devnode_names[type]=%s, idx=%d, last_param=%d\n",
-            devnode_names[type], xdev->idx, last_param
-            );
     xcdev->sys_device = device_create(g_xdma_class, NULL,
                                       xcdev->cdevno, NULL, devnode_names[type], xdev->idx,
                                       last_param);
@@ -190,7 +184,6 @@ static int create_xcdev(struct xdma_pci_dev *xpdev, struct xdma_cdev *xcdev,
         /* allocate a dynamically allocated char device node */
         int rv = alloc_chrdev_region(&dev, XDMA_MINOR_BASE,
                                      XDMA_MINOR_COUNT, XDMA_NODE_NAME);
-
         if (rv) {
             pr_err("unable to allocate cdev region %d.\n", rv);
             return rv;
@@ -255,10 +248,7 @@ static int create_xcdev(struct xdma_pci_dev *xpdev, struct xdma_cdev *xcdev,
         goto unregister_region;
     }
 
-    pr_info("xcdev 0x%p, %u:%u, %s, type 0x%x.\n",
-            xcdev, xpdev->major, minor, xcdev->cdev.kobj.name, type);
     /* create device on our class */
-
     if (g_xdma_class) {
         rv = create_sys_device(xcdev, type);
         if (rv < 0) {
@@ -384,7 +374,6 @@ int xpdev_create_interfaces(struct xdma_pci_dev *xpdev)
 
     xpdev_flag_set(xpdev, XDF_CDEV_CTRL);
 
-    pr_info("xpdev->user_max: %d\n", xpdev->user_max);
     /* initialize events character device */
     for (i = 0; i < xpdev->user_max; i++) {
         rv = create_xcdev(xpdev, &xpdev->events_cdev[i], i, NULL,
@@ -396,7 +385,6 @@ int xpdev_create_interfaces(struct xdma_pci_dev *xpdev)
     }
     xpdev_flag_set(xpdev, XDF_CDEV_EVENT);
 
-    pr_info("xpdev->h2c_channel_max: %d\n", xpdev->h2c_channel_max);
     /* iterate over channels */
     for (i = 0; i < xpdev->h2c_channel_max; i++) {
         engine = &xdev->engine_h2c[i];
@@ -405,8 +393,6 @@ int xpdev_create_interfaces(struct xdma_pci_dev *xpdev)
             pr_info("engine mismatch\n");
             continue;
         }
-
-        pr_info("creatnig xcdev for sgdma h2c %d\n", i);
         rv = create_xcdev(xpdev, &xpdev->sgdma_h2c_cdev[i], i, engine,
                           CHAR_XDMA_H2C);
         if (rv < 0) {
@@ -414,8 +400,6 @@ int xpdev_create_interfaces(struct xdma_pci_dev *xpdev)
             goto fail;
         }
     }
-
-    pr_info("xpdev->c2h_channel_max: %d\n", xpdev->c2h_channel_max);
     for (i = 0; i < xpdev->c2h_channel_max; i++) {
         engine = &xdev->engine_c2h[i];
 
@@ -431,8 +415,6 @@ int xpdev_create_interfaces(struct xdma_pci_dev *xpdev)
         }
     }
     xpdev_flag_set(xpdev, XDF_CDEV_SG);
-
-    pr_info("xdev->bypass_bar_idx: %d\n", xdev->bypass_bar_idx);
     /* Initialize Bypass Character Device */
     if (xdev->bypass_bar_idx > 0) {
         for (i = 0; i < xpdev->h2c_channel_max; i++) {
@@ -450,7 +432,6 @@ int xpdev_create_interfaces(struct xdma_pci_dev *xpdev)
                 goto fail;
             }
         }
-        pr_info("xpdev->c2h_channel_max: %d\n", xpdev->c2h_channel_max);
         for (i = 0; i < xpdev->c2h_channel_max; i++) {
             engine = &xdev->engine_c2h[i];
 
@@ -477,8 +458,6 @@ int xpdev_create_interfaces(struct xdma_pci_dev *xpdev)
     }
 
     /* initialize user character device */
-    pr_info("xdev->user_bar_idx: %d\n", xdev->user_bar_idx);
-
     if (xdev->user_bar_idx >= 0) {
         rv = create_xcdev(xpdev, &xpdev->user_cdev, xdev->user_bar_idx,
                           NULL, CHAR_USER);

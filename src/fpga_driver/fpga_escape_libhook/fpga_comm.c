@@ -47,6 +47,70 @@
     a->common.err_no = _r
 
 
+
+static char *action_transfer_data_ptr = NULL;
+static unsigned long action_transfer_data_size = 0;
+static unsigned long action_transfer_data_info_ctx = 0;
+static unsigned long action_transfer_data_chunk = 0;
+
+int do_action_transfer_escape_data_free(ctx_struct ctx) {
+    free(action_transfer_data_ptr);
+    action_transfer_data_ptr = NULL;
+    action_transfer_data_chunk = 0;
+    action_transfer_data_info_ctx = 0;
+    action_transfer_data_size = 0;
+    return 0;
+}
+
+int do_action_transfer_escape_data(struct faultdata_struct *fault,
+                                    pid_t pid,
+                                    ctx_struct ctx)
+{
+    struct action_transfer_escape_data *a = (struct action_transfer_escape_data *) fault->data;
+    const unsigned long transfer_max =
+            get_mapped_escape_buffer_size(ctx) - sizeof (struct action_transfer_escape_data)
+                    - sizeof(struct faultdata_struct);
+
+    print_ok("max transfer_size %ld\n", transfer_max);
+
+    if (a->status == action_transfer_escape_data_status_transfer_size) {
+        if (action_transfer_data_ptr != NULL) {
+            print_err("do_action_transfer_escape_data without a free. memory leak\n");
+        }
+        a->handshake.chunk_size = transfer_max;
+        action_transfer_data_size = a->handshake.total_size;
+        action_transfer_data_chunk = 0;
+        action_transfer_data_info_ctx = a->handshake.info_ctx;
+        action_transfer_data_ptr = malloc(action_transfer_data_size);
+
+        if (action_transfer_data_ptr == NULL) {
+            print_err("oom issue\n");
+            a->status = action_transfer_escape_data_status_error;
+            return -1;
+        }
+        a->status = action_transfer_escape_data_status_ok;
+
+    } else if (a->status == action_transfer_escape_data_status_transfer_data) {
+        unsigned long transfer = MIN(a->chunk.chunk_data_size, transfer_max);
+        print_progress("transfer: %ld\n", transfer);
+
+        if (action_transfer_data_chunk + transfer > action_transfer_data_size) {
+            print_err("Program error. out of bounds memory transfer!\n");
+            return -1;
+        }
+
+        memcpy(action_transfer_data_ptr + action_transfer_data_chunk,
+               a->chunk.chunk_data,
+               transfer);
+
+        action_transfer_data_chunk += transfer;
+        a->status = action_transfer_escape_data_status_ok;
+    } else {
+        print_err("unknown status: %d\n", a->status);
+    }
+    return 0;
+}
+
 inline static void print_status(int action, struct action_common *c)
 {
     print_progress("ret: %ld, err_no: %d, fd: %d \n",
@@ -107,15 +171,34 @@ static int do_dma(struct faultdata_struct *fault,
     unsigned long chunk_size;
     unsigned long pfn;
 
+    if (action_transfer_data_info_ctx != FH_ACTION_DMA)
+    {
+        print_err("No action_transfer_data done beforehand\n");
+        set_ret_and_err_no(a, - 1);
+        return - 1;
+    }
+
+    #if 0
     chunk_size = a->pages_nr * sizeof(struct page_chunk);
     print_progress("chunk_size=%ld\n", chunk_size);
-    chunks = malloc(chunk_size);
+    chunks = action_transfer_data_ptr;
     if (chunks == NULL)
     {
         print_err("addrs is null\n");
+        set_ret_and_err_no(a, -1);
         return - 1;
     }
     memcpy(chunks, a->page_chunks, chunk_size);
+    #endif
+
+    chunks = (struct page_chunk *) action_transfer_data_ptr;
+    chunk_size = action_transfer_data_size;
+
+    for (int i = 0; i < a->pages_nr; i ++) {
+        chunk = chunks + i;
+        // print_ok("%lx, %lx, %lx\n", chunk->addr, chunk->nbytes, chunk->offset);
+    }
+
     print_progress("transfering %d pages\n", a->pages_nr);
     for (int i = 0; i < a->pages_nr; i ++)
     {
@@ -157,7 +240,7 @@ static int do_dma(struct faultdata_struct *fault,
     }
     dma_clean:
 set_ret_and_err_no(a, ret);
-    free(chunks);
+    do_action_transfer_escape_data_free(ctx);
 
     return ret;
 }
@@ -331,7 +414,18 @@ int on_fault(unsigned long addr,
         }
         case FH_ACTION_DMA:
         {
-            do_dma(fault, pid, ctx);
+            int ret = do_dma(fault, pid, ctx);
+            if (ret <  0) {
+                return ret;
+            }
+            break;
+        }
+        case FH_ACTION_TRANSFER_ESCAPE_DATA:
+        {
+            int ret = do_action_transfer_escape_data(fault, pid, ctx);
+            if (ret <  0) {
+                return ret;
+            }
             break;
         }
         default:
@@ -342,3 +436,4 @@ int on_fault(unsigned long addr,
     fault->turn = FH_TURN_GUEST;
     return 0;
 }
+

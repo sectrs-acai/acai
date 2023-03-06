@@ -100,4 +100,8 @@ inline unsigned long fh_get_page_count(const char __user *buf, size_t len);
 int fh_pin_pages(const char __user *buf, size_t count,
                      struct pin_pages_struct **ret_pages);
 
+extern ulong param_escape_page;
+extern ulong param_escape_size;
+extern int param_do_verify;
+
 #endif //XDMA__FVP_ESCAPE_H_

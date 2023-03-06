@@ -28,6 +28,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+
 #include "fh_host_header.h"
 #include "fpga_manager.h"
 #include "fvp_escape_setup.h"
@@ -58,7 +59,7 @@
 
 // XXX: Increase this if needed
 // hard coded value in boot process of fvp
-#define ESCAPE_PAGE_SIZE (3000 * PAGE_SIZE)
+#define ESCAPE_PAGE_SIZE (1 * PAGE_SIZE)
 
 #ifndef DOING_UNIT_TESTS
 
