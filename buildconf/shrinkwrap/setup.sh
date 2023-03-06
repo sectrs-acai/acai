@@ -93,6 +93,7 @@ function do_run {
 case "$1" in
     clean)
         do_clean
+        do_local_clean
         ;;
     init)
         do_init

@@ -27,10 +27,11 @@ LOCAL_TFA_TEST_BUILD_DIR=$(LOCAL_TFA_TESTS_ROOT)/build
 
 LOCAL_TFTF=$(LOCAL_TFA_TEST_BUILD_DIR)/fvp/debug/tftf.bin
 LOCAL_RMM=$(LOCAL_RMM_BUILD_DIR)/rmm.img
-LOCAL_FIP=$(LOCAL_TFA_ROOT)/build/fvp/debug/fip.bin
-LOCAL_BL1=$(LOCAL_TFA_ROOT)/build/fvp/debug/bl1.bin
+LOCAL_FIP=$(LOCAL_TFA_ROOT)/build/fvp/release/fip.bin
+LOCAL_BL1=$(LOCAL_TFA_ROOT)/build/fvp/release/bl1.bin
 
 local: local-tfa-linux
+clean: local-clean
 
 .PHONY:  local-clean
 local-clean:
@@ -100,5 +101,5 @@ local-tfa-linux: local-rmm
 
 	@echo created $(LOCAL_BL1)
 	@echo created $(LOCAL_FIP)
-	cp -f $(LOCAL_BL1) $(PWD)
-	cp -f $(LOCAL_FIP) $(PWD)
+	cp -f $(LOCAL_BL1) $(PROJ_ROOT)/assets/tfa
+	cp -f $(LOCAL_FIP) $(PROJ_ROOT)/assets/tfa
