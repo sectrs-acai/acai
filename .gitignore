@@ -50,3 +50,4 @@ libhook_settings.txt
 /buildconf/shrinkwrap/bl1.bin
 /buildconf/shrinkwrap/fip.bin
 /src/fpga_driver/xdma_stub/linux-kernel/tools/dma_end_2_end_memory
+buildconf/shrinkwrap/kvmtool.yaml.tmp
