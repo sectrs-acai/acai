@@ -44,7 +44,8 @@ function do_compile {
 
 function do_run {
     # XXX: use host qemu, we get some error otherwise
-    # # cd $SCRIPT_DIR && source $SCRIPTS_DIR/env-x86.sh
+    # cd $SCRIPT_DIR && source $SCRIPTS_DIR/env-x86.sh
+
 
     cd $BUILDROOT_OUTPUT_DIR
     qemu-system-x86_64 \
@@ -55,16 +56,18 @@ function do_run {
         -kernel ./images/bzImage \
         -drive file=./images/rootfs.ext2,if=virtio,format=raw \
         -virtfs local,path=$SHARE_DIR,mount_tag=host0,security_model=none,id=host0 \
-        -append "root=/dev/vda console=ttyS0 nokaslr" \
+        -append "root=/dev/vda console=ttyS0 nokaslr raid=noautodetect" \
         -net nic,model=virtio -net user \
         -nographic
+
+
 }
 
 function do_run_debian {
-    cd $SCRIPT_DIR && source $SCRIPTS_DIR/env-x86.sh
+    # cd $SCRIPT_DIR && source $SCRIPTS_DIR/env-x86.sh
     cd $BUILDROOT_OUTPUT_DIR
 
-    $SCRIPT_DIR/../debian-rootfs/run.sh ./images/bzImage $SHARE_DIR
+    $SCRIPT_DIR/debootstrap/run.sh ./images/bzImage $SHARE_DIR
 }
 
 function do_compilationdb {

@@ -1,1 +1,0 @@
-scripts/env-aarch64.sh

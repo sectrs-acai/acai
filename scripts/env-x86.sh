@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-source $(git rev-parse --show-toplevel)/env.sh
+
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+source $SCRIPT_DIR/../env.sh
 source $OUTPUT_LINUX_HOST_DIR/host/environment-setup
 
 target_usr_lib=$OUTPUT_LINUX_HOST_DIR/target/usr/lib

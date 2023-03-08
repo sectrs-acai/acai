@@ -1,0 +1,15 @@
+* linux-cca-guest
+
+cca enabled kernel with custom rootfs and pre compiled tfa.
+
+#+begin_src sh
+./setup.sh init
+./setup.sh build
+./setup.sh run
+#+end_src
+
+.config base:
+#+begin_src
+make defconfig ARCH=arm64
+make kvm_guest.config ARCH=arm64
+#+end_src

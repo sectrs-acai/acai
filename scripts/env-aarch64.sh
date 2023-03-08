@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
-source $(git rev-parse --show-toplevel)/env.sh
-source $OUTPUT_LINUX_GUEST_DIR/host/environment-setup
 
-export PS1="tools-aarch64: "
+#
+# toolchain for aarch64 and arm cca kernel headers
+#
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+source $SCRIPT_DIR/../env.sh
+source $OUTPUT_LINUX_CCA_GUEST_DIR/host/environment-setup
+
+export PS1="tools-cca-aarch64: "
 alias make=$SCRIPTS_DIR/make-aarch64.sh
+export LINUX_DIR=$OUTPUT_LINUX_CCA_GUEST_HEADERS

@@ -1,0 +1,10 @@
+.DS_Store
+.idea
+*.log
+tmp/
+
+bl1.bin
+fip.bin
+uart*.log
+3world-overlay.yaml.tmp
+.tmp

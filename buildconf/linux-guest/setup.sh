@@ -26,12 +26,6 @@ function do_init {
     rm -f $BUILDROOT_OUTPUT_DIR/.config.old
 
     make V=1 BR2_EXTERNAL=$BR2_EXTERNAL O=$BUILDROOT_OUTPUT_DIR  qemu_aarch64_virt_defconfig
-    #mv $BUILDROOT_OUTPUT_DIR/.config $BUILDROOT_OUTPUT_DIR/.config.old
-
-    #./support/kconfig/merge_config.sh configs/qemu_aarch64_virt_defconfig $BUILDROOT_CONFIG_DIR/buildroot_config_fragment_aarch64
-    #mv .config $BUILDROOT_OUTPUT_DIR
-    #make V=1 BR2_EXTERNAL=$BR2_EXTERNAL O=$BUILDROOT_OUTPUT_DIR olddefconfig
-
 
     cat $BUILDROOT_CONFIG_DIR/buildroot_config_fragment_aarch64 >> $BUILDROOT_OUTPUT_DIR/.config
     make V=1 BR2_EXTERNAL=$BR2_EXTERNAL O=$BUILDROOT_OUTPUT_DIR olddefconfig
@@ -50,16 +44,17 @@ function do_compile {
     set -x
     env -u LD_LIBRARY_PATH \
         time make BR2_JLEVEL=$BR2_JLEVEL O=$BUILDROOT_OUTPUT_DIR \
-        all
+        linux-rebuild all
 }
 
 
 function do_run {
     # source $SCRIPTS_DIR/env-aarch64.sh
 
+    # -s -M virt -cpu cortex-a53 -nographic -smp 2 \
     cd $BUILDROOT_OUTPUT_DIR
     exec qemu-system-aarch64 \
-        -M virt -cpu cortex-a53 -nographic -smp 2 \
+        -s -M virt -m 2G -cpu cortex-a53 -nographic -smp 2 \
         -kernel ./images/Image -append "rootwait root=/dev/vda console=ttyAMA0 nokaslr" \
         -netdev user,id=eth0 -device virtio-net-device,netdev=eth0 \
         -drive file=./images/rootfs.ext4,if=none,format=raw,id=hd0 -device virtio-blk-device,drive=hd0 \
@@ -71,14 +66,32 @@ function do_run_fvp {
     cd $BUILDROOT_OUTPUT_DIR
 
     local pre=$ASSETS_DIR/tfa
-    local bl1=$pre/bl1-fvp
-    local fip=$pre/fip-fvp
-	local image=./images/Image
-	local rootfs=./images/rootfs.ext4
-	local p9_folder=$ROOT_DIR
+    local preload=$ASSETS_DIR/fvp/bin/libhook-libc-2.31.so
+    local shrinkwrap=$HOME/.shrinkwrap/package/cca-3world
 
-    $SCRIPTS_DIR/run_fvp.sh $bl1 $fip $image $rootfs $p9_folder
+    # use static assets
+    local bl1=$pre/tfa-unmod-realm-ready/bl1.bin
+    local fip=$pre/tfa-unmod-realm-ready/fip.bin
 
+    # local bl1=$shrinkwrap/bl1.bin
+    # local fip=$shrinkwrap/fip.bin
+
+    local image=./images/Image
+    local rootfs=./images/rootfs.ext4
+    local p9_folder=$ROOT_DIR
+
+    $SCRIPTS_DIR/run_fvp.sh $bl1 $fip $image $rootfs $p9_folder $preload
+}
+
+function do_compilationdb {
+    local buildroot_kernel=$BUILDROOT_OUTPUT_DIR/build/linux-custom
+    local src_kernel=$SRC_LINUX
+    local out=$src_kernel/compile_commands.json
+
+    cd $BUILDROOT_OUTPUT_DIR/build/linux-custom/
+    ./scripts/clang-tools/gen_compile_commands.py -o $out
+    cd $src_kernel
+    sed -i "s#$buildroot_kernel#$src_kernel#g" compile_commands.json
 }
 
 # "${@:2}"
@@ -108,6 +121,9 @@ case "$1" in
         ;;
     run_fvp)
         do_run_fvp
+        ;;
+    compilationdb)
+        do_compilationdb
         ;;
     *)
         echo "unknown"

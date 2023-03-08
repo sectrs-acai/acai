@@ -1,0 +1,9 @@
+build:
+  tfa:
+    sourcedir: ROOT_DIR/src/tfa
+  rmm:
+    sourcedir: ROOT_DIR/src/rmm
+  linux:
+    sourcedir: ROOT_DIR/src/linux-cca-guest
+  kvmtool:
+    sourcedir: ROOT_DIR/src/kvmtool-cca

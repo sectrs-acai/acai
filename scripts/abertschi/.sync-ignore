@@ -4,10 +4,15 @@
 tmp/
 .git/
 
-assets/
+tmp
+src/linux-cca-guest/
+*.temp*
+temp
+assets/fvp/build
 **/.git/
 src/linux-guest
 src/linux-host
+src/linux-guest*
 ext/buildroot
 output/
 assets/toolchain-arm/
@@ -20,6 +25,8 @@ output/buildroot-linux-host/build
 output/buildroot-linux-host/host
 output/buildroot-linux-host/staging
 output/buildroot-linux-host/target
+
 ext/buildroot/dl/
 ext/buildroot/output
 ext/buildroot/package
+3world-overlay.yaml.tmp
