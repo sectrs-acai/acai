@@ -55,6 +55,7 @@ static ssize_t cdev_read_iter(struct kiocb *iocb, struct iov_iter *io)
 
 #endif
 
+// XXX: Caller has to hold escape lock
 static int transfer_chunk_to_host(
         struct file *file,
         char *data,
@@ -71,7 +72,6 @@ static int transfer_chunk_to_host(
     {
         return 0;
     }
-    fd_data_lock();
     escape->status = action_transfer_escape_data_status_transfer_size;
     escape->handshake.total_size = size;
     escape->handshake.chunk_size = 0;
@@ -108,8 +108,6 @@ static int transfer_chunk_to_host(
         pr_info("transfer failed with status: %d\n", escape->status);
         ret = - 1;
     }
-
-    fd_data_unlock();
     return ret;
 }
 
@@ -137,6 +135,7 @@ static ssize_t char_sgdma_read_write(struct file *file,
         return - ENOMEM;
     }
 
+    fd_data_lock();
     ret = transfer_chunk_to_host(file, (void*) pinned->page_chunks, page_chunk_size, FH_ACTION_DMA);
     if (ret < 0) {
         pr_info("transfer_chunk_to_host failed\n");
@@ -153,7 +152,7 @@ static ssize_t char_sgdma_read_write(struct file *file,
         #endif
     }
 
-    fd_data_lock();
+
     struct faulthook_priv_data *fh_info = file->private_data;
     struct action_dma *escape = (struct action_dma *) &fd_data->data;
     escape->do_write = do_write;

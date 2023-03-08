@@ -46,8 +46,6 @@
     a->common.ret = _r; \
     a->common.err_no = _r
 
-
-
 static char *action_transfer_data_ptr = NULL;
 static unsigned long action_transfer_data_size = 0;
 static unsigned long action_transfer_data_info_ctx = 0;
@@ -160,6 +158,10 @@ static inline void hex_dump(
 
 
 
+/*
+ * precondition: dma, requires chunk transfer with
+ * action_transfer_data
+ */
 static int do_dma(struct faultdata_struct *fault,
                   pid_t pid,
                   ctx_struct ctx)

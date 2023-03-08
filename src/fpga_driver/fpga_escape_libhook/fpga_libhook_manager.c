@@ -750,6 +750,7 @@ static int verify_mappings(struct ctx_struct *ctx)
 {
     unsigned long vaddr, vaddr_prev;
     int null = 0;
+    int mapped = 0;
     int not_contiguous = 0;
     print_progress("verifying pfn-vaddr mappings\n");
     for (unsigned long i = ctx->addr_map_pfn_min + 1; i < ctx->addr_map_pfn_max; i += 1)
@@ -760,6 +761,8 @@ static int verify_mappings(struct ctx_struct *ctx)
         {
             null ++;
             continue;
+        } else {
+            mapped ++;
         }
         if (vaddr_prev + PAGE_SIZE != vaddr)
         {
@@ -767,6 +770,7 @@ static int verify_mappings(struct ctx_struct *ctx)
         }
     }
     print_ok("number of unmapped pfn: %d\n", null);
+    print_ok("number of mapped pfn: %d\n", mapped);
     print_progress("verifying escape_page_pfn\n");
 
     not_contiguous = 0;
@@ -823,6 +827,7 @@ int main(int argc, char *argv[])
     ctx.target_pid = pid;
     ctx.target_from = addr_from;
     ctx.target_to = addr_to;
+    print_ok("escape page size: %lx bytes\n", ESCAPE_PAGE_SIZE);
 
     ret = map_memory_from_file(&ctx, pid);
     if (ret != 0)
