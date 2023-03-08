@@ -18,6 +18,7 @@ cd $ROOT_DIR
 ssh $host mkdir -p $target_dir
 sync $ASSETS_DIR/tfa/
 sync $OUTPUT_LINUX_CCA_GUEST_DIR/images/
+sync $ASSETS_DIR/snapshots
 
 # shrinkwrap output
 # shrinkwrap=/home/armcca/.shrinkwrap/package/cca-3world
@@ -25,8 +26,8 @@ sync $OUTPUT_LINUX_CCA_GUEST_DIR/images/
 # fip=$shrinkwrap/fip.bin
 
 # assets output
-bl1=$target_dir/bl1.bin
-fip=$target_dir/fip.bin
+bl1=$target_dir/snapshots/bl1.bin
+fip=$target_dir/snapshots/fip.bin
 
 image=$target_dir/Image
 rootfs=$target_dir/rootfs.ext2

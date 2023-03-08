@@ -18,11 +18,22 @@ SHRINKWRAP_EXE=$SHRINKWRAP_DIR/shrinkwrap/shrinkwrap
 OVERLAY_ORIG=./3world-overlay.yaml
 OVERLAY=${OVERLAY_ORIG}.tmp
 
+OVERLAY_KVMTOOL_ORIG=./kvmtool.yaml
+OVERLAY_KVMTOOL=${OVERLAY_KVMTOOL_ORIG}.tmp
+
+
 function update_overlay {
     cd $SCRIPT_DIR
     cp -f $OVERLAY_ORIG $OVERLAY
     local root=$ROOT_DIR
     sed -i "s#ROOT_DIR#${ROOT_DIR}#g" $OVERLAY
+}
+
+function update_overlay_kvmtool {
+    cd $SCRIPT_DIR
+    cp -f ${OVERLAY_KVMTOOL_ORIG} ${OVERLAY_KVMTOOL}
+    local root=$ROOT_DIR
+    sed -i "s#ROOT_DIR#${ROOT_DIR}#g" ${OVERLAY_KVMTOOL}
 }
 
 function do_init {
@@ -49,14 +60,26 @@ function do_clean {
     cd $SCRIPT_DIR
     set -x
     $SHRINKWRAP_EXE clean cca-3world.yaml --overlay $OVERLAY
-    rm -r $HOME/.shrinkwrap
+    rm -fr $HOME/.shrinkwrap
 }
 
 function do_compile {
     update_overlay
 
+    set -x
     cd $SCRIPT_DIR
     $SHRINKWRAP_EXE build cca-3world.yaml --overlay $OVERLAY
+    set +x
+}
+
+function do_kvmtool {
+    update_overlay_kvmtool
+
+    set -x
+    cd $SCRIPT_DIR
+    $SHRINKWRAP_EXE build ${OVERLAY_KVMTOOL}
+    cp $HOME/.shrinkwrap/package/kvmtool.yaml/lkvm $ASSETS_DIR/snapshots
+    set +x
 }
 
 function do_run {
@@ -110,6 +133,9 @@ case "$1" in
         ;;
     local)
         do_local
+        ;;
+    kvmtool)
+        do_kvmtool
         ;;
     *)
         echo "unknown"
