@@ -90,9 +90,9 @@ function do_run {
     local pre=$ASSETS_DIR/tfa
 
     # prebuild from assets
-     local asset_pre=$ASSETS_DIR/tfa/tfa-unmod-realm-ready
-     #local bl1=$asset_pre/bl1.bin
-     #local fip=$asset_pre/fip.bin
+    local asset_pre=$ASSETS_DIR/snapshots
+    local bl1=$asset_pre/bl1.bin
+    local fip=$asset_pre/fip.bin
     local image=$asset_pre/Image
     # local rootfs=$ASSETS_DIR/busybox-buildroot-lkvm-rootfs.ext2
 

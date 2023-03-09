@@ -45,6 +45,10 @@ function do_compile {
     env -u LD_LIBRARY_PATH \
         time make BR2_JLEVEL=$BR2_JLEVEL O=$BUILDROOT_OUTPUT_DIR \
         linux-rebuild all
+
+    ls -al $BUILDROOT_OUTPUT_DIR/images/
+    cp -rf $BUILDROOT_OUTPUT_DIR/images/Image $ASSETS_DIR/snapshots/Image-cca
+    cp -rf $BUILDROOT_OUTPUT_DIR/images/rootfs.ext2 $ASSETS_DIR/snapshots/rootfs.ext2
 }
 
 
@@ -125,6 +129,7 @@ case "$1" in
         do_compilationdb
         ;;
     *)
-        echo "unknown"
-        exit 1
+      echo "unknown"
+      exit 1
+       ;;
 esac
