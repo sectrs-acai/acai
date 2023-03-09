@@ -4,6 +4,8 @@
 ```sh
 ./scripts/init.sh
 ```
+If git fails with `error: Server does not allow request for
+  unadvertised object X` you may run `git submodule sync` to fix the issue.
 
 ## build x86 host
 ```sh
@@ -68,4 +70,3 @@ make
 
 ## misc
 - Run the FVP with faulthook and libc hooks: ./doc/fvp_libhook_setup.md
-
