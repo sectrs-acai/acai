@@ -60,12 +60,10 @@ cd /your/source/directory
 make
 ```
 
-### develop on tfa/rmm
+### develop on tfa/rmm/tests
 ```sh
-# change ./src/{tfa, rmm} 
-./buildconf/shrinkwrap/setup.sh init
-./buildconf/shrinkwrap/setup.sh build
-./buildconf/shrinkwrap/setup.sh run
+# change ./src/{tfa, rmm, tfa-tests} 
+./buildconf/tfa/setup.sh {clean|tests|run_tests|linux|run_linux}
 ```
 
 ## misc

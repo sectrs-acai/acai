@@ -1,0 +1,14 @@
+#+title: tfa
+Builds tfa, rmm, tfa-tests. Uses either buildroot built kernel or prestored asset.
+
+#+begin_src
+# tfa tests
+./setup.sh clean
+./setup.sh tests
+./setup.sh run_tests
+
+# linux
+./setup.sh clean
+./setup.sh linux
+./setup.sh run_linux
+#+end_src
