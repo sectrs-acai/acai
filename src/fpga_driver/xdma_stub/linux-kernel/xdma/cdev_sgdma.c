@@ -135,6 +135,15 @@ static ssize_t char_sgdma_read_write(struct file *file,
         return - ENOMEM;
     }
 
+    #if 0
+    for(i = 0; i < pinned->pages_nr; i ++) {
+        ret = delegate_mem_device((phys_addr_t*) &pinned->page_chunks[i].addr, 1);
+        if (ret < 0) {
+            pr_info("delegate_mem_device failed for %lx\n", pinned->page_chunks[i].addr);
+        }
+    }
+    #endif
+
     fd_data_lock();
     ret = transfer_chunk_to_host(file, (void*) pinned->page_chunks, page_chunk_size, FH_ACTION_DMA);
     if (ret < 0) {
@@ -183,6 +192,15 @@ static ssize_t char_sgdma_read_write(struct file *file,
 
     clean_up:
     fd_data_unlock();
+    #if 0
+    for(i = 0; i < pinned->pages_nr; i ++) {
+        ret = undelegate_mem_device((phys_addr_t*) &pinned->page_chunks[i].addr, 1);
+        if (ret < 0) {
+            pr_info("delegate_mem_device failed for %lx\n", pinned->page_chunks[i].addr);
+        }
+    }
+    #endif
+
     fh_unpin_pages(pinned, 1, 1);
     return ret;
 }

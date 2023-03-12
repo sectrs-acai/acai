@@ -12,6 +12,7 @@
 #include <linux/vmalloc.h>
 #include <linux/types.h>
 #include <linux/highmem.h>
+#include <asm/rsi_cmds.h>
 
 ulong param_escape_page = 0;
 ulong param_escape_size = 0;
@@ -19,6 +20,8 @@ int param_do_verify = 0;
 
 struct faultdata_driver_struct fd_ctx;
 DEFINE_SPINLOCK(faultdata_lock);
+
+#define ENABLE_RSI_DEV_MEM
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 7, 0)
 #define KPROBE_KALLSYMS_LOOKUP 1
@@ -38,6 +41,15 @@ static int (*_soft_offline_page)(unsigned long pfn, int flags);
 static bool (*_take_page_off_buddy)(struct page *page) = NULL;
 
 static bool (*_is_free_buddy_page)(struct page *page) = NULL;
+
+static inline int rsi_dev_mem_enabled(void)
+{
+    #ifdef ENABLE_RSI_DEV_MEM
+    return 1;
+    #else
+    return 0;
+    #endif
+}
 
 static int setup_lookup(void)
 {
@@ -176,7 +188,7 @@ static int fh_verify_mapping(void)
         for (i = 0; i < a->pfn_nr; i ++)
         {
             pfn = a->pfn[i];
-            pages_no_mapping++;
+            pages_no_mapping ++;
             if (pfn_valid(pfn))
             {
                 struct page *page = pfn_to_page(pfn);
@@ -187,14 +199,17 @@ static int fh_verify_mapping(void)
                     buddy_is_free = _is_free_buddy_page(page);
                     spin_unlock_irqrestore(&zone->lock, flags);
 
-                    if (buddy_is_free) {
+                    if (buddy_is_free)
+                    {
                         ret = _soft_offline_page(pfn, 0);
-                        if (ret  != 0) {
+                        if (ret != 0)
+                        {
                             pr_info("_soft_offline_page failed for %lx: %d\n", pfn, ret);
                         }
                         pages_offline ++;
-                    } else {
-                        pages_busy++;
+                    } else
+                    {
+                        pages_busy ++;
                         // pr_info("busy page without mapping: %lx\n", pfn);
                     }
 
@@ -212,12 +227,14 @@ static int fh_verify_mapping(void)
 
 int faulthook_init(void)
 {
-    if (param_escape_page > 0) {
+    if (param_escape_page > 0)
+    {
         pr_info("Overwriting fvp_escape_page=%lx\n", param_escape_page);
         pr_info("Overwriting fvp_escape_size=%lx\n", param_escape_size);
         fvp_escape_page = (unsigned long *) param_escape_page;
         fvp_escape_size = param_escape_size;
-    } else {
+    } else
+    {
         memset(&fd_ctx, 0, sizeof(struct faultdata_driver_struct));
         memset(fvp_escape_page, 0, fvp_escape_size);
     }
@@ -225,7 +242,7 @@ int faulthook_init(void)
             (unsigned long) fvp_escape_page, fvp_escape_size,
             page_to_pfn(virt_to_page(fvp_escape_page)),
             virt_to_phys(fvp_escape_page)
-            );
+    );
 
     {
         unsigned long pfn = page_to_pfn(virt_to_page(fvp_escape_page));
@@ -240,9 +257,11 @@ int faulthook_init(void)
     fd_data_unlock();
 
     setup_lookup();
-    if (param_do_verify) {
+    if (param_do_verify)
+    {
         fh_verify_mapping();
-    } else {
+    } else
+    {
         pr_info("Skipping mapping verify\n");
     }
 
@@ -482,32 +501,43 @@ int fh_bridge_mmap(struct file *file, struct vm_area_struct *vma)
     escape->vm_page_prot = (unsigned long) vma->vm_page_prot.pgprot;
     escape->pfn_size = size >> PAGE_SHIFT;
 
-    // pr_info("number of entries (escape->pfn_size): %ld\n", escape->pfn_size);
-
+    /*
+     * XXX: This assumes contiguous escape buffer.
+     * Change if this no longer holds
+     */
     pfn_start = page_to_pfn(virt_to_page((char *) mmap_info->data));
     for (i = 0; i < escape->pfn_size; i ++)
     {
         pfn = pfn_start + i * PAGE_SIZE;
-        // pr_info("pfn: %lx\n", pfn);
         escape->pfn[i] = pfn;
     }
+    #if 0
+    ret = delegate_mem_device((phys_addr_t *) escape->pfn, escape->pfn_size);
+    if (ret < 0)
+    {
+        pr_info("delegate_mem_device failed\n");
+        ret = ENOMEM;
+        goto err_cleanup;
+    }
+    #endif
+
     ret = fh_do_faulthook(FH_ACTION_MMAP);
     if (ret < 0)
     {
         pr_info("host not online");
-        goto err_cleanup;
+        goto err_cleanup_rsi;
     }
     if (escape->common.ret < 0)
     {
         pr_info("escape failed");
         ret = escape->common.err_no;
-        goto err_cleanup;
+        goto err_cleanup_rsi;
     }
     ret = remap_pfn_range(vma, vma->vm_start, pfn_start, size, vma->vm_page_prot);
     if (ret)
     {
         pr_info("remap_pfn_range failed");
-        goto err_cleanup;
+        goto err_cleanup_rsi;
     }
     #if 0
     pr_info("map kernel 0x%px to user 0x%lx, size: 0x%lx\n",
@@ -524,6 +554,11 @@ int fh_bridge_mmap(struct file *file, struct vm_area_struct *vma)
 
     ret = 0;
     return ret;
+
+    err_cleanup_rsi:
+    #if 0
+    undelegate_mem_device((phys_addr_t *) escape->pfn, escape->pfn_size);
+    #endif
 
     err_cleanup:
     if (mmap_info->data != NULL)
@@ -705,4 +740,46 @@ int fh_pin_pages(const char __user *buf, size_t count,
     err_out:
     fh_unpin_pages(pin_pages, 1, 1);
     return rv;
+}
+
+int delegate_mem_device(phys_addr_t *pfns, unsigned long num)
+{
+    unsigned int i;
+    unsigned long ret;
+    phys_addr_t addr;
+    if (rsi_dev_mem_enabled())
+    {
+        for (i = 0; i < num; i ++)
+        {
+            addr = pfns[i] << PAGE_SHIFT;
+            ret = rsi_set_addr_dev_mem(addr, 1 /* delegate */);
+            if (ret < 0)
+            {
+                pr_err("rsi_set_addr_dev_mem failed for %lx\n", addr);
+                return ret;
+            }
+        }
+    }
+    return 0;
+}
+
+int undelegate_mem_device(phys_addr_t *pfns, unsigned long num)
+{
+    unsigned int i;
+    unsigned long ret;
+    phys_addr_t addr;
+    if (rsi_dev_mem_enabled())
+    {
+        for (i = 0; i < num; i ++)
+        {
+            addr = pfns[i] << PAGE_SHIFT;
+            ret = rsi_set_addr_dev_mem(addr, 0 /* undelegate */);
+            if (ret < 0)
+            {
+                pr_err("rsi_set_addr_dev_mem failed for %lx\n", addr);
+                return ret;
+            }
+        }
+    }
+    return 0;
 }
