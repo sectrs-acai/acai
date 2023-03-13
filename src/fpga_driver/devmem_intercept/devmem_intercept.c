@@ -73,12 +73,12 @@ static int pre_remap_pfn_range(struct kprobe *p, struct pt_regs *regs)
     unsigned long size = regs->regs[3];
     unsigned long pgprot = regs->regs[4];
 
-    pr_info("pre_dma_map_sg_attrs vma: %lx, addr %lx pfn %lx size %lx, pgprot %lx\n",
+    pr_info("pre_remap_pfn_range vma: %lx, addr %lx pfn %lx size %lx, pgprot %lx\n",
             vma, addr, pfn, size, pgprot);
 
-    if (is_dev_mem(pfn << PAGE_OFFSET, size))
+    if (is_dev_mem(pfn << PAGE_SHIFT, size))
     {
-        devmem_delegate_mem_device(pfn << PAGE_OFFSET);
+        devmem_delegate_mem_device(pfn << PAGE_SHIFT);
     }
     return 0;
 }
