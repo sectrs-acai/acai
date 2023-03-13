@@ -29,6 +29,7 @@ struct __attribute__((__packed__)) pin_pages_struct
     unsigned long len;
     struct page **pages;
     unsigned long pages_nr;
+    unsigned long priv_data; /* for dma simulation, pointer to data */
     struct page_chunk page_chunks[0];
 };
 
@@ -99,10 +100,6 @@ int fh_unpin_pages(struct pin_pages_struct *pinned, int do_free, bool do_write);
 inline unsigned long fh_get_page_count(const char __user *buf, size_t len);
 int fh_pin_pages(const char __user *buf, size_t count,
                      struct pin_pages_struct **ret_pages);
-
-
-int delegate_mem_device(phys_addr_t *pfns, unsigned long num);
-int undelegate_mem_device(phys_addr_t * pfns, unsigned long num);
 
 extern ulong param_escape_page;
 extern ulong param_escape_size;

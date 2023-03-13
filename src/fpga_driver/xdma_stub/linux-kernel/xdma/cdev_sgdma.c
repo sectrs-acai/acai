@@ -10,9 +10,13 @@
 
 #endif
 
+#include <linux/pci.h>
+#include <linux/dma-map-ops.h>
+
 #include "xdma_cdev.h"
 #include "cdev_sgdma.h"
 #include "xdma_thread.h"
+
 
 /* Module Parameters */
 unsigned int h2c_timeout = 10;
@@ -111,6 +115,110 @@ static int transfer_chunk_to_host(
     return ret;
 }
 
+/*
+ * XXX: This simualtes dma communction because we dont have a device yet
+ * in realm
+ */
+static int simulate_pci_dma(struct pin_pages_struct *pinned)
+{
+    unsigned long i = 0;
+    unsigned long num, offset, nbytes;
+    struct sg_table *sgt;
+    struct scatterlist *sg;
+    struct page *page;
+
+    pr_info("simulating pci dma access...\n");
+    sgt = kmalloc(sizeof(struct sg_table), GFP_KERNEL);
+    if (sgt == NULL)
+    {
+        pr_err("sgl OOM.\n");
+        return - ENOMEM;
+    }
+    if (sg_alloc_table(sgt, pinned->pages_nr, GFP_KERNEL))
+    {
+        pr_err("sgl OOM.\n");
+        return - ENOMEM;
+    }
+    sg = sgt->sgl;
+    for (i = 0; i < pinned->pages_nr; i ++, sg = sg_next(sg))
+    {
+        page = pfn_to_page(pinned->page_chunks[i].addr);
+        offset = pinned->page_chunks[i].offset;
+        nbytes = pinned->page_chunks[i].nbytes;
+        #if 0
+        pr_info("sg_set_page(pages[%d], %x, %x\n", i, nbytes, offset);
+        #endif
+        sg_set_page(sg, page, nbytes, offset);
+    }
+
+    /*
+     * XXX: We dont have a device, so the code below
+     * initializes dummy structes such that pci_map_sg returns with an error
+     * without causing segfaults. This simulates pci_map_sg
+     * and allows us to notify tfa about which regions to assign as devmem.
+     */
+    {
+        struct dma_map_ops dma_ops;
+        struct pci_dev *dummy = kmalloc(sizeof(struct pci_dev), GFP_KERNEL);
+        if (dummy == NULL)
+        {
+            return - ENOMEM;
+        }
+        memset(dummy, 0, sizeof(struct pci_dev));
+        memset(&dma_ops, 0, sizeof(struct dma_map_ops));
+        dummy->dev.dma_ops = &dma_ops;
+        /* pci_map_sg calls these functions: make sure they dont crash:
+         *
+         * const struct dma_map_ops *ops = get_dma_ops(dev);
+         * if (WARN_ON_ONCE(!dev->dma_mask))
+         *   return 0; // return here
+         */
+        dma_map_sg(&dummy->dev, sgt->sgl, sgt->orig_nents,
+                   0 /* bidirectional */);
+
+        kfree(dummy);
+    }
+    pinned->priv_data = (unsigned long) sgt;
+    return 0;
+}
+
+static int simulate_pci_dma_cleanup(struct pin_pages_struct *pinned)
+{
+
+    struct sg_table *sgt;
+    if (pinned->priv_data == 0)
+    {
+        return 0;
+    }
+    sgt = (struct sg_table* )  pinned->priv_data;
+
+    /* TODO(bean): Clean up logic, for now we dont unmap */
+    #if 0
+    {
+        struct dma_map_ops dma_ops;
+        struct pci_dev *dummy = kmalloc(sizeof(struct pci_dev), GFP_KERNEL);
+        if (dummy == NULL)
+        {
+            return - ENOMEM;
+        }
+        memset(dummy, 0, sizeof(struct pci_dev));
+        memset(&dma_ops, 0, sizeof(struct dma_map_ops));
+        dummy->dev.dma_ops = &dma_ops;
+
+        dma_unmap_sg(&dummy->dev, sgt->sgl, sgt->orig_nents,
+                   0 /* bidirectional */);
+
+        kfree(dummy);
+    }
+    #endif
+
+    sg_free_table(sgt);
+    kfree(sgt);
+    pinned->priv_data = 0;
+
+    return 0;
+}
+
 static ssize_t char_sgdma_read_write(struct file *file,
                                      const char __user *buf,
                                      size_t count,
@@ -128,6 +236,12 @@ static ssize_t char_sgdma_read_write(struct file *file,
         pr_info("pin_pages failed: %d\n", ret);
         return ret;
     }
+    ret = simulate_pci_dma(pinned);
+    if (ret < 0)
+    {
+        pr_info("simulate_pci_dma failed with: %d. continue\n", ret);
+    }
+
     page_chunk_size = pinned->pages_nr * sizeof(struct page_chunk);
     if (sizeof(struct action_dma) + page_chunk_size > fvp_escape_size)
     {
@@ -135,18 +249,13 @@ static ssize_t char_sgdma_read_write(struct file *file,
         return - ENOMEM;
     }
 
-    #if 0
-    for(i = 0; i < pinned->pages_nr; i ++) {
-        ret = delegate_mem_device((phys_addr_t*) &pinned->page_chunks[i].addr, 1);
-        if (ret < 0) {
-            pr_info("delegate_mem_device failed for %lx\n", pinned->page_chunks[i].addr);
-        }
-    }
-    #endif
-
     fd_data_lock();
-    ret = transfer_chunk_to_host(file, (void*) pinned->page_chunks, page_chunk_size, FH_ACTION_DMA);
-    if (ret < 0) {
+    ret = transfer_chunk_to_host(file,
+                                 (void *) pinned->page_chunks,
+                                 page_chunk_size,
+                                 FH_ACTION_DMA);
+    if (ret < 0)
+    {
         pr_info("transfer_chunk_to_host failed\n");
         goto clean_up;
     }
@@ -192,15 +301,7 @@ static ssize_t char_sgdma_read_write(struct file *file,
 
     clean_up:
     fd_data_unlock();
-    #if 0
-    for(i = 0; i < pinned->pages_nr; i ++) {
-        ret = undelegate_mem_device((phys_addr_t*) &pinned->page_chunks[i].addr, 1);
-        if (ret < 0) {
-            pr_info("delegate_mem_device failed for %lx\n", pinned->page_chunks[i].addr);
-        }
-    }
-    #endif
-
+    simulate_pci_dma_cleanup(pinned);
     fh_unpin_pages(pinned, 1, 1);
     return ret;
 }

@@ -21,8 +21,6 @@ int param_do_verify = 0;
 struct faultdata_driver_struct fd_ctx;
 DEFINE_SPINLOCK(faultdata_lock);
 
-#define ENABLE_RSI_DEV_MEM
-
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 7, 0)
 #define KPROBE_KALLSYMS_LOOKUP 1
 
@@ -41,15 +39,6 @@ static int (*_soft_offline_page)(unsigned long pfn, int flags);
 static bool (*_take_page_off_buddy)(struct page *page) = NULL;
 
 static bool (*_is_free_buddy_page)(struct page *page) = NULL;
-
-static inline int rsi_dev_mem_enabled(void)
-{
-    #ifdef ENABLE_RSI_DEV_MEM
-    return 1;
-    #else
-    return 0;
-    #endif
-}
 
 static int setup_lookup(void)
 {
@@ -511,15 +500,6 @@ int fh_bridge_mmap(struct file *file, struct vm_area_struct *vma)
         pfn = pfn_start + i * PAGE_SIZE;
         escape->pfn[i] = pfn;
     }
-    #if 0
-    ret = delegate_mem_device((phys_addr_t *) escape->pfn, escape->pfn_size);
-    if (ret < 0)
-    {
-        pr_info("delegate_mem_device failed\n");
-        ret = ENOMEM;
-        goto err_cleanup;
-    }
-    #endif
 
     ret = fh_do_faulthook(FH_ACTION_MMAP);
     if (ret < 0)
@@ -556,10 +536,6 @@ int fh_bridge_mmap(struct file *file, struct vm_area_struct *vma)
     return ret;
 
     err_cleanup_rsi:
-    #if 0
-    undelegate_mem_device((phys_addr_t *) escape->pfn, escape->pfn_size);
-    #endif
-
     err_cleanup:
     if (mmap_info->data != NULL)
     {
@@ -740,46 +716,4 @@ int fh_pin_pages(const char __user *buf, size_t count,
     err_out:
     fh_unpin_pages(pin_pages, 1, 1);
     return rv;
-}
-
-int delegate_mem_device(phys_addr_t *pfns, unsigned long num)
-{
-    unsigned int i;
-    unsigned long ret;
-    phys_addr_t addr;
-    if (rsi_dev_mem_enabled())
-    {
-        for (i = 0; i < num; i ++)
-        {
-            addr = pfns[i] << PAGE_SHIFT;
-            ret = rsi_set_addr_dev_mem(addr, 1 /* delegate */);
-            if (ret < 0)
-            {
-                pr_err("rsi_set_addr_dev_mem failed for %lx\n", addr);
-                return ret;
-            }
-        }
-    }
-    return 0;
-}
-
-int undelegate_mem_device(phys_addr_t *pfns, unsigned long num)
-{
-    unsigned int i;
-    unsigned long ret;
-    phys_addr_t addr;
-    if (rsi_dev_mem_enabled())
-    {
-        for (i = 0; i < num; i ++)
-        {
-            addr = pfns[i] << PAGE_SHIFT;
-            ret = rsi_set_addr_dev_mem(addr, 0 /* undelegate */);
-            if (ret < 0)
-            {
-                pr_err("rsi_set_addr_dev_mem failed for %lx\n", addr);
-                return ret;
-            }
-        }
-    }
-    return 0;
 }

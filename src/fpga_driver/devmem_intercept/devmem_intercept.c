@@ -8,6 +8,7 @@
 
 /* set when running in realm world */
 static int realm = 0;
+
 module_param(realm, int, 0);
 
 /*
@@ -23,6 +24,10 @@ struct kprobe remap_pfn_range_probe;
  *                               int nents, enum dma_data_direction dir, unsigned long attrs);
  */
 struct kprobe dma_map_sg_attrs_probe;
+
+/* for dma_unmap_sg_attrs(d, s, n, r, 0) */
+struct kprobe dma_unmap_sg_attrs_probe;
+
 
 static inline int devmem_delegate_mem_device(phys_addr_t addr)
 {
@@ -86,24 +91,6 @@ static void post_remap_pfn_range(struct kprobe *p, struct pt_regs *regs,
     #if 0
     pr_info("post_remap_pfn_range: x0: %lx, x1: %lx\n", x0, x1);
     #endif
-
-    // TODO(bean): Undelegate
-}
-
-static void sgt_dump(struct sg_table *sgt)
-{
-    int i;
-    struct scatterlist *sg = sgt->sgl;
-
-    pr_info("sgt 0x%p, sgl 0x%p, nents %u/%u.\n", sgt, sgt->sgl, sgt->nents,
-            sgt->orig_nents);
-
-    for (i = 0; i < sgt->orig_nents; i ++, sg = sg_next(sg))
-        pr_info("%d, 0x%p, pg 0x%p,%u+%u, dma 0x%llx,%u.\n",
-                i,
-                sg,
-                sg_page(sg), sg->offset, sg->length, sg_dma_address(sg),
-                sg_dma_len(sg));
 }
 
 static int pre_dma_map_sg_attrs(struct kprobe *p, struct pt_regs *regs)
@@ -116,14 +103,18 @@ static int pre_dma_map_sg_attrs(struct kprobe *p, struct pt_regs *regs)
     enum dma_data_direction dir = (enum dma_data_direction) regs->regs[3];
     unsigned long attrs = regs->regs[4];
 
+    pr_info("pre_dma_map_sg_attrs dev %lx, sg %lx, nents %lx, dir: %lx, attr %lx\n",
+            dev, sg, nents, dir, attrs);
+
     for (i = 0; i < nents; i ++, sg = sg_next(sg))
     {
+        #if 0
         pr_info("%d, 0x%p, pg 0x%p,%u+%u, dma 0x%llx,%u.\n",
                 i,
                 sg,
                 sg_page(sg), sg->offset, sg->length, sg_dma_address(sg),
                 sg_dma_len(sg));
-
+        #endif
         devmem_delegate_mem_device(page_to_phys(sg_page(sg)));
     }
 
@@ -138,8 +129,34 @@ static void post_dma_map_sg_attrs(struct kprobe *p, struct pt_regs *regs,
     #if 0
     pr_info("post_dma_map_sg_attrs: x0: %lx, x1: %lx\n", x0, x1);
     #endif
-    // TODO(bean): Undelegate
+    // TODO(bean): Undelegate if call failed
 }
+
+static int pre_dma_unmap_sg_attrs(struct kprobe *p, struct pt_regs *regs)
+{
+    int ret;
+    int i;
+    struct device *dev = (struct device *) regs->regs[0];
+    struct scatterlist *sg = (struct scatterlist *) regs->regs[1];
+    int nents = (int) regs->regs[2];
+    enum dma_data_direction dir = (enum dma_data_direction) regs->regs[3];
+    unsigned long attrs = regs->regs[4];
+
+    pr_info("pre_dma_unmap_sg_attrs dev %lx, sg %lx, nents %lx, dir: %lx, attr %lx\n",
+            dev, sg, nents, dir, attrs);
+
+    for (i = 0; i < nents; i ++, sg = sg_next(sg))
+    {
+        devmem_undelegate_mem_device(page_to_phys(sg_page(sg)));
+    }
+    return 0;
+}
+
+static void post_dma_unmap_sg_attrs(struct kprobe *p, struct pt_regs *regs,
+                                    unsigned long flags)
+{
+}
+
 
 static int devmem_register_kprobes(void)
 {
@@ -163,6 +180,15 @@ static int devmem_register_kprobes(void)
     {
         pr_err("dma_map_sg_attrs_probe kprobe failed\n");
     }
+    memset(&dma_unmap_sg_attrs_probe, 0, sizeof(dma_unmap_sg_attrs_probe));
+    dma_unmap_sg_attrs_probe.pre_handler = pre_dma_unmap_sg_attrs;
+    dma_unmap_sg_attrs_probe.post_handler = post_dma_unmap_sg_attrs;
+    dma_unmap_sg_attrs_probe.symbol_name = "dma_unmap_sg_attrs";
+    ret = register_kprobe(&dma_unmap_sg_attrs_probe);
+    if (ret != 0)
+    {
+        pr_err("dma_unmap_sg_attrs_probe kprobe failed\n");
+    }
     return ret;
 }
 
@@ -170,6 +196,7 @@ static void devmem_unregister_kprobes(void)
 {
     unregister_kprobe(&remap_pfn_range_probe);
     unregister_kprobe(&dma_map_sg_attrs_probe);
+    unregister_kprobe(&dma_unmap_sg_attrs_probe);
 }
 
 MODULE_LICENSE("GPL");
