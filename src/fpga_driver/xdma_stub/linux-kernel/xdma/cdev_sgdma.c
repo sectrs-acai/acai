@@ -167,6 +167,8 @@ static int simulate_pci_dma(struct pin_pages_struct *pinned)
         memset(dummy, 0, sizeof(struct pci_dev));
         memset(&dma_ops, 0, sizeof(struct dma_map_ops));
         dummy->dev.dma_ops = &dma_ops;
+
+        // this access will lead to WARN_ON_ONCE which is expected
         /* pci_map_sg calls these functions: make sure they dont crash:
          *
          * const struct dma_map_ops *ops = get_dma_ops(dev);

@@ -35,7 +35,7 @@ static inline int devmem_delegate_mem_device(phys_addr_t addr)
     if (realm)
     {
         ret = rsi_set_addr_dev_mem(addr, 1 /* delegate */);
-        if (ret < 0)
+        if (ret != 0)
         {
             pr_info("rsi_set_addr_dev_mem delegate failed for %lx\n", addr);
         }
@@ -49,8 +49,8 @@ static inline int devmem_undelegate_mem_device(phys_addr_t addr)
     int ret = 0;
     if (realm)
     {
-        ret = rsi_set_addr_dev_mem(addr, 0 /* delegate */);
-        if (ret < 0)
+        ret = rsi_set_addr_dev_mem(addr, 0 /* undelegate */);
+        if (ret != 0)
         {
             pr_info("rsi_set_addr_dev_mem undelegate failed for %lx\n", addr);
         }
@@ -67,6 +67,7 @@ static int inline is_dev_mem(unsigned long pfn, unsigned long size)
 static int pre_remap_pfn_range(struct kprobe *p, struct pt_regs *regs)
 {
     int ret;
+    unsigned long j;
     unsigned long vma = regs->regs[0];
     unsigned long addr = regs->regs[1];
     unsigned long pfn = regs->regs[2];
@@ -78,7 +79,9 @@ static int pre_remap_pfn_range(struct kprobe *p, struct pt_regs *regs)
 
     if (is_dev_mem(pfn << PAGE_SHIFT, size))
     {
-        devmem_delegate_mem_device(pfn << PAGE_SHIFT);
+        for(j = 0; j < size; j +=PAGE_SIZE) {
+            devmem_delegate_mem_device((pfn << PAGE_SHIFT) + j);
+        }
     }
     return 0;
 }
@@ -96,7 +99,8 @@ static void post_remap_pfn_range(struct kprobe *p, struct pt_regs *regs,
 static int pre_dma_map_sg_attrs(struct kprobe *p, struct pt_regs *regs)
 {
     int ret;
-    int i;
+    unsigned long i, j;
+
     struct device *dev = (struct device *) regs->regs[0];
     struct scatterlist *sg = (struct scatterlist *) regs->regs[1];
     int nents = (int) regs->regs[2];
@@ -115,7 +119,9 @@ static int pre_dma_map_sg_attrs(struct kprobe *p, struct pt_regs *regs)
                 sg_page(sg), sg->offset, sg->length, sg_dma_address(sg),
                 sg_dma_len(sg));
         #endif
-        devmem_delegate_mem_device(page_to_phys(sg_page(sg)));
+        for(j = 0; j < sg->length; j +=PAGE_SIZE) {
+            devmem_delegate_mem_device(page_to_phys(sg_page(sg) + j));
+        }
     }
 
     return 0;
@@ -135,7 +141,7 @@ static void post_dma_map_sg_attrs(struct kprobe *p, struct pt_regs *regs,
 static int pre_dma_unmap_sg_attrs(struct kprobe *p, struct pt_regs *regs)
 {
     int ret;
-    int i;
+    unsigned long i, j;
     struct device *dev = (struct device *) regs->regs[0];
     struct scatterlist *sg = (struct scatterlist *) regs->regs[1];
     int nents = (int) regs->regs[2];
@@ -147,7 +153,9 @@ static int pre_dma_unmap_sg_attrs(struct kprobe *p, struct pt_regs *regs)
 
     for (i = 0; i < nents; i ++, sg = sg_next(sg))
     {
-        devmem_undelegate_mem_device(page_to_phys(sg_page(sg)));
+        for(j = 0; j < sg->length; j +=PAGE_SIZE) {
+            devmem_undelegate_mem_device(page_to_phys(sg_page(sg) + j));
+        }
     }
     return 0;
 }

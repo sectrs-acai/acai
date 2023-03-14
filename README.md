@@ -68,3 +68,4 @@ make
 
 ## misc
 - Run the FVP with faulthook and libc hooks: ./doc/fvp_libhook_setup.md
+- mount 9p directory in realm: `mount -t 9p -o trans=virtio,version=9p2000.L host0 /mnt`
