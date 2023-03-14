@@ -13,7 +13,7 @@ function do_clean {
 }
 
 function do_build_tests {
-    make -f ./Makefile tests
+    make -f ./Makefile tests DEBUG=1
 }
 
 function do_run_tests {

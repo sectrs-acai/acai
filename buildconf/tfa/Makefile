@@ -12,7 +12,7 @@ MAKE_BIN=make
 LOG_LEVEL=10
 jobs=$(shell nproc)
 CFLAGS=-Wno-error
-DEBUG=0
+DEBUG?=0
 
 BUILD_CONFIG=release
 ifeq ($(DEBUG), 1)
@@ -85,6 +85,8 @@ local-tfa: download-toolchain local-rmm local-tfa-tests
 	    LOG_LEVEL=$(LOG_LEVEL) \
         BL33=$(LOCAL_TFTF) \
         all fip
+	@echo created $(LOCAL_BL1)
+	@echo created $(LOCAL_FIP)
 
 local-tfa-linux: local-rmm
 	cd $(LOCAL_TFA_ROOT) && \

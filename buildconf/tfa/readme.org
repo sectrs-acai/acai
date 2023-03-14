@@ -9,6 +9,6 @@ Builds tfa, rmm, tfa-tests. Uses either buildroot built kernel or prestored asse
 
 # linux
 ./setup.sh clean
-./setup.sh linux
+DEBUG={1|0} ./setup.sh linux
 ./setup.sh run_linux
 #+end_src
