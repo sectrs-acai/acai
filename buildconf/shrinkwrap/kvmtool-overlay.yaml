@@ -1,0 +1,3 @@
+build:
+  kvmtool:
+    sourcedir: ROOT_DIR/src/kvmtool

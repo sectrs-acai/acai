@@ -8,3 +8,4 @@ fip.bin
 uart*.log
 3world-overlay.yaml.tmp
 .tmp
+*.tmp
