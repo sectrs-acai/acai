@@ -41,6 +41,7 @@ function do_clean {
 
 function do_compile {
     cd $BUILDROOT_DIR
+    echo "building root image with linux kernel"
     set -x
     env -u LD_LIBRARY_PATH \
         time make BR2_JLEVEL=$BR2_JLEVEL O=$BUILDROOT_OUTPUT_DIR \
@@ -51,7 +52,19 @@ function do_compile {
     cp -rf $BUILDROOT_OUTPUT_DIR/images/rootfs.ext2 $ASSETS_DIR/snapshots/rootfs-ns.ext2
 }
 
+function do_libdrm {
+    cd $BUILDROOT_DIR
+    echo "=== building libdrm only"
+    set -x
+    env -u LD_LIBRARY_PATH \
+        time make BR2_JLEVEL=$BR2_JLEVEL O=$BUILDROOT_OUTPUT_DIR \
+        libdrm-rebuild
 
+
+    ls -al $BUILDROOT_OUTPUT_DIR/build/libdrm-custom/build
+    cp -rf $BUILDROOT_OUTPUT_DIR/build/libdrm-custom/build/lib*.so* $ASSETS_DIR/snapshots/lib64/
+    ls -al $ASSETS_DIR/snapshots/lib64/
+}
 # XXX: this does not work with qemu without cca patches
 function do_run {
     cd $BUILDROOT_OUTPUT_DIR
@@ -62,7 +75,7 @@ function do_run {
         -drive file=./images/rootfs.ext4,if=none,format=raw,id=hd0 -device virtio-blk-device,drive=hd0 \
         -virtfs local,path=$SHARE_DIR,mount_tag=host0,security_model=none,id=host0
     #-s  \
-        }
+}
 
 function do_run_fvp {
     cd $BUILDROOT_OUTPUT_DIR
@@ -114,6 +127,9 @@ case "$1" in
         ;;
     compile)
         do_compile
+        ;;
+    libdrm)
+        do_libdrm
         ;;
     build)
         do_compile

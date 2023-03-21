@@ -8,10 +8,11 @@ tmp
 src/linux-cca-guest/
 *.temp*
 temp
+*temp*
+*build*
 assets/fvp/build
 **/.git/
 src/linux-guest
-src/linux-host
 src/linux-guest*
 ext/buildroot
 output/
@@ -25,8 +26,12 @@ output/buildroot-linux-host/build
 output/buildroot-linux-host/host
 output/buildroot-linux-host/staging
 output/buildroot-linux-host/target
-
+src/linux-host
 ext/buildroot/dl/
 ext/buildroot/output
 ext/buildroot/package
 3world-overlay.yaml.tmp
+.cache
+src/linux-host-old/
+src/linux-host.bak/
+src/linux-host-3-15-no-git

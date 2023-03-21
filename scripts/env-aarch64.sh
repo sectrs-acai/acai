@@ -8,5 +8,6 @@ source $SCRIPT_DIR/../env.sh
 source $OUTPUT_LINUX_CCA_GUEST_DIR/host/environment-setup
 
 export PS1="tools-cca-aarch64: "
-alias make=$SCRIPTS_DIR/make-aarch64.sh
 export LINUX_DIR=$OUTPUT_LINUX_CCA_GUEST_HEADERS
+export LINUXDIR=$OUTPUT_LINUX_CCA_GUEST_HEADERS
+echo $PATH

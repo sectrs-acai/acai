@@ -1,0 +1,10 @@
+** gdev
+In order to run the gpu on the fvp we need:
+- a kernel stub for nouveau which exposes the same char drm device
+- libdrm, libucuda and libgdev compiled for aarch64
+  - libdrm is part of buildroot build, dynamically loaded during execution
+  - we have to build libucuda and libgdev
+- the benchmark itself
+  - contains of c code and cudabin
+    - c code: needs aarch64 cross compiler
+    - cuda bin needs cuda 8 nvcc with fermi support (sm20), which itself needs gcc 4.8
