@@ -107,6 +107,8 @@ function run_fvp {
     -C pci.pci_smmuv3.mmu.SMMU_S_IDR2=0 \
     -C pci.pci_smmuv3.mmu.SMMU_S_IDR3=0 \
     -C pci.pci_smmuv3.mmu.root_register_page_offset=0x20000 \
+    -C pci.pci_smmuv3.mmu.SMMU_IDR0=0x80fe6bf                      \
+    -C pci.pci_smmuv3.mmu.SMMU_IDR1=0xe739d08  \
     -C pctl.startup=0.0.0.0 \
     -C bp.virtiop9device.root_path=${p9_folder} \
     -C bp.virtiop9device.mount_tag=${mount_tag} \
