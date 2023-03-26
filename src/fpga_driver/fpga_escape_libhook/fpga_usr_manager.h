@@ -1,11 +1,10 @@
 #ifndef TRUSTED_PERIPH_FPGA_MANAGER_H
 #define TRUSTED_PERIPH_FPGA_MANAGER_H
 
+#include "usr_manager.h"
+
 #define FAULTDATA_MAGIC 0xAABBCCDDEEFF9984
 
-#ifndef MODULE
-#include <stdbool.h>
-#endif
 
 struct __attribute__((__packed__))  faultdata_struct
 {
@@ -16,30 +15,6 @@ struct __attribute__((__packed__))  faultdata_struct
     char data[0];
 };
 
-typedef struct ctx_struct *ctx_struct;
-
-/**
- * given a pfn, get vaddress on host
- * bool notify: if 1, print error checks if pfn not found
- */
-unsigned long get_addr_map_vaddr_verify(
-        ctx_struct ctx, unsigned long pfn, bool notify);
-
-unsigned long get_mapped_escape_buffer_size(ctx_struct ctx);
-
-unsigned long get_addr_map_vaddr(
-        ctx_struct ctx,
-        unsigned long pfn);
-
-int on_fault(unsigned long addr,
-             unsigned long len,
-             pid_t target_pid,
-             unsigned long target_addr,
-             ctx_struct ctx);
-
-
-unsigned long get_addr_map_dims(
-        ctx_struct ctx, unsigned long *pfn_min, unsigned long *pfn_max);
 
 enum fh_turn
 {

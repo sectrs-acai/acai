@@ -27,19 +27,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-
 #include "fh_host_header.h"
-#include "fpga_manager.h"
 #include "fvp_escape_setup.h"
+#include "usr_manager.h"
 
 #define STATS_FILE "/tmp/hooks_mmap"
-
 #define SETTING_FILE "/tmp/.temp.libhook_settings.txt"
 #define MAPPING_FILE "/tmp/.temp.libhook_mapping.txt"
-
-#define MIN(a, b) (((a) < (b)) ? (a) : (b))
-#define MAX(a, b) (((a) > (b)) ? (a) : (b))
 
 #define STR(X) #X
 #define WRITE_CTX(f, name) fprintf(f, STR(name) "=0x%lx\n", ctx->name)
