@@ -417,6 +417,30 @@ static int read_settings(struct ctx_struct *ctx)
     return 0;
 }
 
+ssize_t copy_from_target(ctx_struct ctx,
+                  unsigned long from, unsigned long size, void* dest) {
+    int ret;
+    int mem_fd = ctx->target_mem_fd;
+    print_progress("reading.. %lx+%lx to %lx\n", from, size, dest);
+
+    lseek(mem_fd, from, SEEK_SET);
+    return read(mem_fd,
+               dest,
+               size);
+}
+
+ssize_t copy_to_target(ctx_struct ctx,
+                         void* source, unsigned long size, unsigned long dest) {
+    int ret;
+    int mem_fd = ctx->target_mem_fd;
+    print_progress("writing.. %lx+%lx to %lx\n", (unsigned long) source, size, dest);
+
+    lseek(mem_fd, dest, SEEK_SET);
+    return write(mem_fd,
+                source,
+                size);
+}
+
 static long fvpmem_find_escape_page(struct ctx_struct *ctx,
                                     unsigned long *ret_escape_vaddr,
                                     unsigned long *ret_escape_pfn)

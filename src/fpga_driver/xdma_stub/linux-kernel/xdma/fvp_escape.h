@@ -5,7 +5,7 @@
 #include <linux/types.h>
 #include <linux/uaccess.h>
 #include <linux/errno.h>
-#include <fpga_escape_libhook/fpga_manager.h>
+#include <fpga_escape_libhook/fpga_usr_manager.h>
 
 #include <asm/cacheflush.h>
 

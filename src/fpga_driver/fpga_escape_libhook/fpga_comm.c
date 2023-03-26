@@ -15,7 +15,7 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 
-#include "fpga_manager.h"
+#include "fpga_usr_manager.h"
 #include "../xdma/linux-kernel/xdma/cdev_ctrl.h"
 
 #define HERE printf("%s/%s: %d\n", __FILE__, __FUNCTION__, __LINE__)
