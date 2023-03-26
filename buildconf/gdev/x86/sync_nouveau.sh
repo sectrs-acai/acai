@@ -1,6 +1,6 @@
 #!/bin/bash
 script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-sync_dir="$script_dir/../../src/linux-host/drivers/gpu/drm"
+sync_dir="$script_dir/../../../src/linux-host/drivers/gpu/drm"
 
 host=armcca@192.33.93.245
 target=/home/armcca/trusted-peripherals/src/linux-host/drivers/gpu
