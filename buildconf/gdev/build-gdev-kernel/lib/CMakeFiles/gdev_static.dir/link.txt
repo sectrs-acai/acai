@@ -1,2 +1,0 @@
-/home/b/2.5bay/mthesis-unsync/projects/trusted-periph/output/buildroot-linux-cca-guest/host/bin/aarch64-none-linux-gnu-ar qc libgdev_static.a CMakeFiles/gdev_static.dir/kernel/gdev_lib.c.o
-/home/b/2.5bay/mthesis-unsync/projects/trusted-periph/output/buildroot-linux-cca-guest/host/bin/aarch64-none-linux-gnu-ranlib libgdev_static.a
