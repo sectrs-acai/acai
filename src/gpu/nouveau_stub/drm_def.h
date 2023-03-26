@@ -1,8 +1,77 @@
-#include <drm/drm_drv.h>
-#include <drm/drm.h>
-/* Ioctl table */
+#ifndef GPU_NOUVEAU_STUB_TEST_H_
+#define GPU_NOUVEAU_STUB_TEST_H_
+ #include <drm/drm_drv.h>
+ #include <drm/drm.h>
+ #include <drm/drm_ioctl.h>
+ #include <drm/nouveau_drm.h>
+ #include "nouveau_abi16.h"
 
+#define DRM_IOCTL_NR(n)                _IOC_NR(n)
+#define DRM_IOCTL_TYPE(n)              _IOC_TYPE(n)
+#define DRM_MAJOR       226
+
+/*
+ * Copy and IOCTL return string to user space
+ */
+static inline int drm_copy_field(char __user *buf, size_t *buf_len, const char *value)
+{
+    size_t len;
+
+    /* don't attempt to copy a NULL pointer */
+    if (WARN_ONCE(!value, "BUG: the value to copy was not set!")) {
+        *buf_len = 0;
+        return 0;
+    }
+
+    /* don't overflow userbuf */
+    len = strlen(value);
+    if (len > *buf_len)
+        len = *buf_len;
+
+    /* let userspace know exact length of driver value (which could be
+     * larger than the userspace-supplied buffer) */
+    *buf_len = strlen(value);
+
+    /* finally, try filling in the userbuf */
+    if (len && buf)
+        if (copy_to_user(buf, value, len))
+            return -EFAULT;
+    return 0;
+}
+
+#if IS_ENABLED(CONFIG_DRM_LEGACY)
+#undef DRM_LEGACY_IOCTL_DEF
+#define DRM_LEGACY_IOCTL_DEF(ioctl, _func, _flags)  DRM_IOCTL_DEF(ioctl, _func, _flags)
+#else
+#undef DRM_LEGACY_IOCTL_DEF
+#define DRM_LEGACY_IOCTL_DEF(ioctl, _func, _flags) DRM_IOCTL_DEF(ioctl, drm_invalid_op, _flags)
+#endif
+
+
+#undef DRM_IOCTL_DEF
+#define DRM_IOCTL_DEF(ioctl, _func, _flags)	\
+	[DRM_IOCTL_NR(ioctl)] = {		\
+		.cmd = ioctl,			\
+		.func = NULL,			\
+		.flags = 0,		\
+		.name = #ioctl			\
+	}
+
+#undef DRM_IOCTL_DEF_DRV
+#define DRM_IOCTL_DEF_DRV(ioctl, _func, _flags)				\
+	[DRM_IOCTL_NR(DRM_IOCTL_##ioctl) - DRM_COMMAND_BASE] = {	\
+		.cmd = DRM_IOCTL_##ioctl,				\
+		.func = NULL,						\
+		.flags = 0,					\
+		.name = #ioctl						\
+	}
+
+#define DRM_IOCTL_CORE_COUNT	ARRAY_SIZE( drm_ioctls )
+#define DRM_IOCTL_NOUVEAU_COUNT	ARRAY_SIZE( nouveau_ioctls )
+
+/* Ioctl table */
 static const struct drm_ioctl_desc drm_ioctls[] = {
+
         DRM_IOCTL_DEF(DRM_IOCTL_VERSION, drm_version, DRM_RENDER_ALLOW),
         DRM_IOCTL_DEF(DRM_IOCTL_GET_UNIQUE, drm_getunique, 0),
         DRM_IOCTL_DEF(DRM_IOCTL_GET_MAGIC, drm_getmagic, 0),
@@ -56,13 +125,13 @@ static const struct drm_ioctl_desc drm_ioctls[] = {
 
 #if IS_ENABLED(CONFIG_AGP)
         DRM_IOCTL_DEF(DRM_IOCTL_AGP_ACQUIRE, drm_agp_acquire_ioctl, DRM_AUTH|DRM_MASTER|DRM_ROOT_ONLY),
-	DRM_IOCTL_DEF(DRM_IOCTL_AGP_RELEASE, drm_agp_release_ioctl, DRM_AUTH|DRM_MASTER|DRM_ROOT_ONLY),
-	DRM_IOCTL_DEF(DRM_IOCTL_AGP_ENABLE, drm_agp_enable_ioctl, DRM_AUTH|DRM_MASTER|DRM_ROOT_ONLY),
-	DRM_IOCTL_DEF(DRM_IOCTL_AGP_INFO, drm_agp_info_ioctl, DRM_AUTH),
-	DRM_IOCTL_DEF(DRM_IOCTL_AGP_ALLOC, drm_agp_alloc_ioctl, DRM_AUTH|DRM_MASTER|DRM_ROOT_ONLY),
-	DRM_IOCTL_DEF(DRM_IOCTL_AGP_FREE, drm_agp_free_ioctl, DRM_AUTH|DRM_MASTER|DRM_ROOT_ONLY),
-	DRM_IOCTL_DEF(DRM_IOCTL_AGP_BIND, drm_agp_bind_ioctl, DRM_AUTH|DRM_MASTER|DRM_ROOT_ONLY),
-	DRM_IOCTL_DEF(DRM_IOCTL_AGP_UNBIND, drm_agp_unbind_ioctl, DRM_AUTH|DRM_MASTER|DRM_ROOT_ONLY),
+        DRM_IOCTL_DEF(DRM_IOCTL_AGP_RELEASE, drm_agp_release_ioctl, DRM_AUTH|DRM_MASTER|DRM_ROOT_ONLY),
+        DRM_IOCTL_DEF(DRM_IOCTL_AGP_ENABLE, drm_agp_enable_ioctl, DRM_AUTH|DRM_MASTER|DRM_ROOT_ONLY),
+        DRM_IOCTL_DEF(DRM_IOCTL_AGP_INFO, drm_agp_info_ioctl, DRM_AUTH),
+        DRM_IOCTL_DEF(DRM_IOCTL_AGP_ALLOC, drm_agp_alloc_ioctl, DRM_AUTH|DRM_MASTER|DRM_ROOT_ONLY),
+        DRM_IOCTL_DEF(DRM_IOCTL_AGP_FREE, drm_agp_free_ioctl, DRM_AUTH|DRM_MASTER|DRM_ROOT_ONLY),
+        DRM_IOCTL_DEF(DRM_IOCTL_AGP_BIND, drm_agp_bind_ioctl, DRM_AUTH|DRM_MASTER|DRM_ROOT_ONLY),
+        DRM_IOCTL_DEF(DRM_IOCTL_AGP_UNBIND, drm_agp_unbind_ioctl, DRM_AUTH|DRM_MASTER|DRM_ROOT_ONLY),
 #endif
 
         DRM_LEGACY_IOCTL_DEF(DRM_IOCTL_SG_ALLOC, drm_legacy_sg_alloc, DRM_AUTH|DRM_MASTER|DRM_ROOT_ONLY),
@@ -145,8 +214,6 @@ static const struct drm_ioctl_desc drm_ioctls[] = {
         DRM_IOCTL_DEF(DRM_IOCTL_MODE_REVOKE_LEASE, drm_mode_revoke_lease_ioctl, DRM_MASTER),
 };
 
-#define DRM_CORE_IOCTL_COUNT	ARRAY_SIZE( drm_ioctls )
-
 
 static const struct drm_ioctl_desc
         nouveau_ioctls[] = {
@@ -165,3 +232,9 @@ static const struct drm_ioctl_desc
         DRM_IOCTL_DEF_DRV(NOUVEAU_GEM_CPU_FINI, nouveau_gem_ioctl_cpu_fini, DRM_RENDER_ALLOW),
         DRM_IOCTL_DEF_DRV(NOUVEAU_GEM_INFO, nouveau_gem_ioctl_info, DRM_RENDER_ALLOW),
 };
+
+
+
+
+#endif //GPU_NOUVEAU_STUB_TEST_H_
+/* Ioctl table */

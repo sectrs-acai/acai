@@ -1,7 +1,8 @@
-DRIVER=nouveau_stub
+DRIVER=nouveau-stub
 
 ifneq ($(KERNELRELEASE),)
 obj-m	:= $(DRIVER).o
+$(DRIVER)-objs := fh_kernel.o nouveau_stub.o
 else
 ifndef LINUX_DIR
 LINUX_DIR	:= /lib/modules/$(shell uname -r)/build
