@@ -27,7 +27,7 @@
     a->common.err_no = _r < 0 ? errno:0
 
 #define set_ret_and_err_no_direct(a, _r) \
-    if (_r < 0) {print_progress("ret: %d\n", _r );}; \
+    if (_r < 0) {print_progress("ret: %d\n %s", _r, strerror(_r) ); }; \
     a->common.fd = _r; \
     a->common.ret = _r; \
     a->common.err_no = _r
@@ -111,6 +111,246 @@ static Ghandle get_gdev_handle(int index)
     return gdev_handles[index];
 }
 
+static ssize_t do_copy_to_from_target(ctx_struct ctx,
+                                      uint8_t to_target, /* = 1 to target,  = 0 from target */
+                                      unsigned long nbytes_tot,
+                                      unsigned long *pfn_buf,
+                                      unsigned long pfn_num,
+                                      char *to_device_dma_buf,
+                                      char **ret_from_device_dma_buf
+)
+{
+    ssize_t ret;
+    unsigned long i = 0;
+    unsigned long nbytes_copied = 0;
+    unsigned long nbytes_per_page = 0;
+    unsigned long vaddr_fvp;
+
+    char *from_device_dma_buf = malloc(nbytes_tot);
+    if (from_device_dma_buf == NULL) {
+        return - ENOMEM;
+    }
+
+    for (i = 0; i < pfn_num; i ++) {
+        nbytes_per_page = MIN(nbytes_tot - nbytes_copied, 4096);
+        vaddr_fvp = get_addr_map_vaddr(ctx, pfn_buf[i]);
+
+        if (to_target) {
+            ret = copy_to_target(ctx,
+                                 to_device_dma_buf + nbytes_copied,
+                                 nbytes_per_page,
+                                 vaddr_fvp);
+        } else {
+            ret = copy_from_target(ctx,
+                                   vaddr_fvp,
+                                   nbytes_per_page,
+                                   from_device_dma_buf + nbytes_copied);
+        }
+
+
+        if (ret < nbytes_per_page) {
+            print_err("only copied: %ld bytes instead of %ld\n",
+                      ret,
+                      nbytes_per_page);
+            ret = - ENOMEM;
+            goto mem_cleanup;
+        }
+        if (ret < 0) {
+            print_err("copy failed at vaddr_fvp: %lx\n", vaddr_fvp);
+            goto mem_cleanup;
+        }
+
+        nbytes_copied += nbytes_per_page;
+    }
+    if (! to_target) {
+        /* from target */
+        *ret_from_device_dma_buf = from_device_dma_buf;
+    }
+    return 0;
+
+    mem_cleanup:
+    if (to_target) {
+        free(to_device_dma_buf);
+    }
+    return ret;
+}
+
+static ssize_t do_copy_from_target(ctx_struct ctx,
+                                   unsigned long nbytes_tot,
+                                   unsigned long *pfn_buf,
+                                   unsigned long pfn_num,
+                                   char **ret_dma_buf
+)
+{
+    return do_copy_to_from_target(ctx, /* from device */ 0,
+                                  nbytes_tot, pfn_buf, pfn_num, NULL, ret_dma_buf);
+}
+
+static ssize_t do_copy_to_target(ctx_struct ctx,
+                                 unsigned long nbytes_tot,
+                                 unsigned long *pfn_buf,
+                                 unsigned long pfn_num,
+                                 char *dma_buf
+)
+{
+    return do_copy_to_from_target(ctx, /* to device */ 1,
+                                  nbytes_tot, pfn_buf, pfn_num, dma_buf, NULL);
+}
+
+
+static ssize_t do_ioctl_gmemcpy_to_dev(ctx_struct ctx,
+                                       Ghandle handle,
+                                       struct fh_gdev_ioctl *a)
+{
+    ssize_t ret = 0;
+    const unsigned long nbytes_tot = a->gmemcpy_to_device.req.size;
+    const unsigned long dma_dst_addr = a->gmemcpy_to_device.req.dst_addr;
+    unsigned long *buf_pfn = (unsigned long *) &a->gmemcpy_to_device.src_buf_pfn;
+    unsigned long buf_pfn_num = (unsigned long) a->gmemcpy_to_device.src_buf_pfn_num;
+    char *target_buf = NULL;
+
+    ret = do_copy_from_target(ctx, nbytes_tot, buf_pfn, buf_pfn_num, &target_buf);
+    if (ret < 0) {
+        print_err("do_copy_from_target failed: %d\n", ret);
+        goto memcpy_to_dev_cleanup;
+    }
+
+    ret = gmemcpy_to_device(handle, dma_dst_addr, target_buf, nbytes_tot);
+    if (ret < 0) {
+        print_err("gmemcpy_to_device failed with %d\n", ret);
+        goto memcpy_to_dev_cleanup;
+    }
+
+    memcpy_to_dev_cleanup:
+    if (target_buf != NULL) {
+        free(target_buf);
+    }
+    return ret;
+}
+
+static ssize_t do_ioctl_gmemcpy_from_dev(ctx_struct ctx,
+                                         Ghandle handle,
+                                         struct fh_gdev_ioctl *a)
+{
+    ssize_t ret = 0;
+    struct fh_ioctl_memcpy_from_device *memcpy_from_device = &a->gmemcpy_from_device;
+    const unsigned long nbytes_tot = memcpy_from_device->req.size;
+    const unsigned long dma_src_addr = memcpy_from_device->req.src_addr;
+    const unsigned long buf_pfn_num = (unsigned long) memcpy_from_device->dest_buf_pfn_num;
+    unsigned long *buf_pfn = (unsigned long *) &memcpy_from_device->dest_buf_pfn;
+
+    char *dma_buf = malloc(nbytes_tot);
+    if (dma_buf == NULL) {
+        ret = - ENOMEM;
+        return ret;
+    }
+    ret = gmemcpy_from_device(handle, dma_buf, dma_src_addr, nbytes_tot);
+    if (ret < 0) {
+        print_err("gmemcpy_from_device failed with %d\n", ret);
+        goto memcpy_from_dev_cleanup;
+    }
+    ret = do_copy_to_target(ctx, nbytes_tot, buf_pfn, buf_pfn_num, dma_buf);
+    if (ret < 0) {
+        print_err("do_copy_to_target failed: %d\n", ret);
+        goto memcpy_from_dev_cleanup;
+    }
+
+    memcpy_from_dev_cleanup:
+    free(dma_buf);
+    return ret;
+}
+
+static ssize_t do_ioctl_launch(ctx_struct ctx,
+                               Ghandle handle,
+                               struct fh_gdev_ioctl *a)
+{
+    ssize_t ret = 0;
+    const char name[16] = "dummy";
+    struct gdev_kernel *kernel = malloc(sizeof(struct gdev_kernel));
+    const unsigned long param_buf_size = a->glaunch.kernel_param_size;
+    uint32_t *param_buf = malloc(param_buf_size);
+    if (! kernel || ! param_buf) {
+        ret = - ENOMEM;
+        return ret;
+    }
+    memcpy(kernel, &a->glaunch.kernel, sizeof(struct gdev_kernel));
+    memcpy(param_buf, (uint32_t *) &a->glaunch.kernel_param, param_buf_size);
+    kernel->param_buf = param_buf;
+    kernel->name = (char *) name;
+
+    ret = glaunch(handle, kernel, &a->glaunch.id);
+    print_progress("glaunch id: %d\n", a->glaunch.id);
+    free(kernel);
+    free(param_buf);
+    return ret;
+}
+
+static int do_ioctl(ctx_struct ctx, struct fh_gdev_ioctl *a)
+{
+    ssize_t ret = 0;
+    Ghandle handle = get_gdev_handle(a->common.fd);
+    if (handle == NULL) {
+        return - EINVAL;
+    }
+    switch (a->gdev_command) {
+        case GDEV_IOCTL_GTUNE: {
+            ret = gtune(handle, a->gtune.req.type, a->gtune.req.value);
+            debug_gdev_ioctl_tune(a->gtune.req);
+            break;
+        }
+        case GDEV_IOCTL_GQUERY: {
+            ret = gquery(handle, a->gquery.req.type, &a->gquery.req.result);
+            debug_gdev_ioctl_query(a->gquery.req);
+            break;
+        }
+        case GDEV_IOCTL_GMALLOC: {
+            a->gmalloc.req.addr = gmalloc(handle, a->gmalloc.req.size);
+            debug_gdev_ioctl_mem(a->gmalloc.req);
+            ret = 0;
+            break;
+        }
+        case GDEV_IOCTL_GFREE: {
+            a->gmalloc.req.size = gfree(handle, a->gfree.req.addr);
+            debug_gdev_ioctl_mem(a->gfree.req);
+            ret = 0;
+            break;
+        }
+        case GDEV_IOCTL_GMALLOC_DMA: {
+            a->gmalloc_dma.req.addr = (unsigned long)
+                    gmalloc_dma(handle, a->gmalloc_dma.req.size);
+            ret = 0;
+            break;
+        }
+        case GDEV_IOCTL_GMEMCPY_TO_DEVICE: {
+            ret = do_ioctl_gmemcpy_to_dev(ctx, handle, a);
+            break;
+        }
+        case GDEV_IOCTL_GMEMCPY_FROM_DEVICE: {
+            ret = do_ioctl_gmemcpy_from_dev(ctx, handle, a);
+            break;
+        }
+        case GDEV_IOCTL_GLAUNCH: {
+            ret = do_ioctl_launch(ctx, handle, a);
+            break;
+        }
+        case GDEV_IOCTL_GSYNC: {
+            struct gdev_time *timeout = a->gsync.has_timeout ? &a->gsync.timeout:NULL;
+            const uint32_t id = a->gsync.id;
+            ret = gsync(handle, id, timeout);
+            break;
+        }
+        case GDEV_IOCTL_GBARRIER: {
+            ret = gbarrier(handle);
+            break;
+        }
+        default: {
+            print_err("not supported gdev_ioctl: %ld\n", a->gdev_command);
+            ret = - EINVAL;
+        }
+    }
+    return ret;
+}
+
 int on_fault(unsigned long addr,
              unsigned long len,
              pid_t pid,
@@ -181,198 +421,10 @@ int on_fault(unsigned long addr,
             break;
         }
         case FH_ACTION_IOCTL: {
-            ssize_t ret = 0;
             struct fh_gdev_ioctl *a = (struct fh_gdev_ioctl *) fault->data;
             print_ok("FH_ACTION_IOCTL: %s\n", debug_ioctl_cmd_name(a->gdev_command));
-            Ghandle handle = get_gdev_handle(a->common.fd);
-            if (handle == NULL) {
-                set_ret_and_err_no_direct(a, - EINVAL);
-                break;
-            }
 
-            switch (a->gdev_command) {
-                case GDEV_IOCTL_GTUNE: {
-                    ret = gtune(handle, a->gtune.req.type, a->gtune.req.value);
-                    debug_gdev_ioctl_tune(a->gtune.req);
-                    break;
-                }
-                case GDEV_IOCTL_GQUERY: {
-                    ret = gquery(handle, a->gquery.req.type, &a->gquery.req.result);
-                    debug_gdev_ioctl_query(a->gquery.req);
-                    break;
-                }
-                case GDEV_IOCTL_GMALLOC: {
-                    a->gmalloc.req.addr = gmalloc(handle, a->gmalloc.req.size);
-                    debug_gdev_ioctl_mem(a->gmalloc.req);
-                    ret = 0;
-                    break;
-                }
-                case GDEV_IOCTL_GFREE: {
-                    a->gmalloc.req.size = gfree(handle, a->gfree.req.addr);
-                    debug_gdev_ioctl_mem(a->gfree.req);
-                    ret = 0;
-                    break;
-                }
-                case GDEV_IOCTL_GMEMCPY_TO_DEVICE: {
-                    unsigned long i = 0;
-                    unsigned long nbytes_copied = 0;
-                    unsigned long nbytes_per_page = 0;
-                    unsigned long vaddr_fvp;
-                    unsigned long *src_buf_pfn;
-                    const unsigned long nbytes_tot = a->gmemcpy_to_device.req.size;
-                    const unsigned long dma_dst_addr = a->gmemcpy_to_device.req.dst_addr;
-
-                    char *target_buf = malloc(a->gmemcpy_to_device.req.size);
-                    if (target_buf == NULL) {
-                        ret = - ENOMEM;
-                        break;
-                    }
-                    src_buf_pfn = (unsigned long *) &a->gmemcpy_to_device.src_buf_pfn;
-
-                    printf("size: %ld, dst_addr: %lx, src_buf_pfn_size: %d, src_buf_pfn: %lx\n",
-                           nbytes_tot,
-                           dma_dst_addr,
-                           a->gmemcpy_to_device.src_buf_pfn_num,
-                           src_buf_pfn);
-
-
-                    for (i = 0; i < a->gmemcpy_to_device.src_buf_pfn_num; i ++) {
-                        print_progress("i: %d\n", i);
-                        nbytes_per_page = MIN(nbytes_tot - nbytes_copied, 4096);
-                        vaddr_fvp = get_addr_map_vaddr(ctx, src_buf_pfn[i]);
-
-                        print_progress("i: %d, nbytes_pp %d, vaddr_fvp: %lx\n",
-                                       i,
-                                       nbytes_per_page,
-                                       vaddr_fvp);
-                        ret = copy_from_target(ctx,
-                                               vaddr_fvp,
-                                               nbytes_per_page,
-                                               target_buf + nbytes_copied);
-
-
-                        if (ret < nbytes_per_page) {
-                            print_err("only copied: %ld bytes instead of %ld\n", ret,
-                                      nbytes_per_page);
-                            ret = - ENOMEM;
-                            goto memcpy_to_dev_cleanup;
-                        }
-                        if (ret < 0) {
-                            print_err("copy failed at vaddr_fvp: %lx\n", vaddr_fvp);
-                            goto memcpy_to_dev_cleanup;
-                        }
-
-                        nbytes_copied += nbytes_per_page;
-                    }
-                    ret = gmemcpy_to_device(handle, dma_dst_addr, target_buf, nbytes_tot);
-                    if (ret < 0) {
-                        print_err("gmemcpy_to_device failed with %d\n", ret);
-                    }
-                    memcpy_to_dev_cleanup:
-                    free(target_buf);
-                    break;
-                }
-                case GDEV_IOCTL_GMEMCPY_FROM_DEVICE: {
-                    unsigned long i = 0;
-                    unsigned long nbytes_copied = 0;
-                    unsigned long nbytes_per_page = 0;
-                    struct fh_ioctl_memcpy_from_device *memcpy_from_device = &a->gmemcpy_from_device;
-                    const unsigned long nbytes_tot = memcpy_from_device->req.size;
-                    unsigned long vaddr_fvp;
-                    const unsigned long dma_src_addr = memcpy_from_device->req.src_addr;
-                    unsigned long *buf_pfn;
-
-                    char *dma_buf = malloc(nbytes_tot);
-                    if (dma_buf == NULL) {
-                        ret = - ENOMEM;
-                        break;
-                    }
-
-                    ret = gmemcpy_from_device(handle, dma_buf, dma_src_addr, nbytes_tot);
-                    if (ret < 0) {
-                        print_err("gmemcpy_from_device failed with %d\n", ret);
-                        goto memcpy_from_dev_cleanup;
-                    }
-
-                    printf("size: %ld, dst_addr: %lx, src_buf_pfn_size: %d, src_buf_pfn: %lx\n",
-                           nbytes_tot,
-                           dma_src_addr,
-                           memcpy_from_device->dest_buf_pfn_num,
-                           buf_pfn);
-
-                    buf_pfn = (unsigned long *) &memcpy_from_device->dest_buf_pfn;
-
-                    for (i = 0; i < memcpy_from_device->dest_buf_pfn_num; i ++) {
-                        print_progress("i: %d\n", i);
-                        nbytes_per_page = MIN(nbytes_tot - nbytes_copied, 4096);
-                        vaddr_fvp = get_addr_map_vaddr(ctx, buf_pfn[i]);
-
-                        print_progress("i: %d, nbytes_pp %d, vaddr_fvp: %lx\n",
-                                       i,
-                                       nbytes_per_page,
-                                       vaddr_fvp);
-                        ret = copy_to_target(ctx,
-                                             dma_buf + nbytes_copied,
-                                             nbytes_per_page,
-                                             vaddr_fvp);
-                        if (ret < nbytes_per_page) {
-                            print_err("only wrote: %ld bytes instead of %ld\n", ret,
-                                      nbytes_per_page);
-                            ret = - ENOMEM;
-                            goto memcpy_from_dev_cleanup;
-                        }
-                        if (ret < 0) {
-                            print_err("copy failed at vaddr_fvp: %lx\n", vaddr_fvp);
-                            goto memcpy_from_dev_cleanup;
-                        }
-
-                        nbytes_copied += nbytes_per_page;
-                    }
-                    memcpy_from_dev_cleanup:
-                    free(dma_buf);
-                    break;
-                }
-                case GDEV_IOCTL_GLAUNCH: {
-                    const char name[16] = "dummy";
-                    struct gdev_kernel *kernel = malloc(sizeof(struct gdev_kernel));
-                    const unsigned long param_buf_size = a->glaunch.kernel_param_size;
-                    uint32_t *param_buf = malloc(param_buf_size);
-                    if (! kernel || ! param_buf) {
-                        ret = - ENOMEM;
-                        break;
-                    }
-                    memcpy(kernel, &a->glaunch.kernel, sizeof(struct gdev_kernel));
-                    memcpy(param_buf, (uint32_t *) &a->glaunch.kernel_param, param_buf_size);
-                    kernel->param_buf = param_buf;
-                    kernel->name = (char *) name;
-
-                    ret = glaunch(handle, kernel, &a->glaunch.id);
-                    print_progress("glaunch id: %d\n", a->glaunch.id);
-                    free(kernel);
-                    free(param_buf);
-                    break;
-                }
-                case GDEV_IOCTL_GSYNC: {
-                    struct gdev_time *timeout = a->gsync.has_timeout ? &a->gsync.timeout:NULL;
-                    const uint32_t id = a->gsync.id;
-                    ret = gsync(handle, id, timeout);
-                    break;
-                }
-                case GDEV_IOCTL_GBARRIER: {
-                    // HERE;
-                    // print_err("GDEV_IOCTL_GBARRIER not yet impl\n");
-                    //  TODO this makes everything hang
-//                    ret = 0;
-                    #if 1
-                    ret = gbarrier(handle);
-                    #endif
-                    break;
-                }
-                default: {
-                    print_err("not supported gdev_ioctl: %ld\n", a->gdev_command);
-                    ret = - EINVAL;
-                }
-            }
+            ssize_t ret = do_ioctl(ctx, a);
             set_ret_and_err_no_direct(a, ret);
             break;
         }
