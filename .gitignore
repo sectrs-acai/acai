@@ -53,3 +53,4 @@ libhook_settings.txt
 buildconf/shrinkwrap/kvmtool.yaml.tmp
 /ext/dtc/
 /src/gpu/nouveau_stub/out
+/doc/fvp_escape_guest/
