@@ -116,6 +116,9 @@ struct fh_gdev_ioctl {
         struct fh_ioctl_gfree {
             struct gdev_ioctl_mem req;
         } gfree;
+        struct fh_ioctl_gmalloc_dma {
+            struct gdev_ioctl_mem req;
+        } gmalloc_dma;
     };
 };
 

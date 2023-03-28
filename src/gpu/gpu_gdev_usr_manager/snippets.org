@@ -1,0 +1,102 @@
+static ssize_t _copy_from_device(ctx_struct ctx,
+                                 unsigned long nbytes_tot,
+                                 unsigned long *pfn_buf,
+                                 unsigned long pfn_num,
+                                 char **ret_dma_buf
+)
+{
+    ssize_t ret;
+    unsigned long i = 0;
+    unsigned long nbytes_copied = 0;
+    unsigned long nbytes_per_page = 0;
+    unsigned long vaddr_fvp;
+
+    char *dma_buf = malloc(nbytes_tot);
+    if (dma_buf == NULL) {
+        return - ENOMEM;
+    }
+
+    for (i = 0; i < pfn_num; i ++) {
+        print_progress("i: %d\n", i);
+        nbytes_per_page = MIN(nbytes_tot - nbytes_copied, 4096);
+        vaddr_fvp = get_addr_map_vaddr(ctx, pfn_buf[i]);
+
+        print_progress("i: %d, nbytes_pp %d, vaddr_fvp: %lx\n",
+                       i,
+                       nbytes_per_page,
+                       vaddr_fvp);
+
+        ret = copy_from_target(ctx,
+                               vaddr_fvp,
+                               nbytes_per_page,
+                               dma_buf + nbytes_copied);
+
+        if (ret < nbytes_per_page) {
+            print_err("only copied: %ld bytes instead of %ld\n",
+                      ret,
+                      nbytes_per_page);
+            ret = - ENOMEM;
+            goto mem_cleanup;
+        }
+        if (ret < 0) {
+            print_err("copy failed at vaddr_fvp: %lx\n", vaddr_fvp);
+            goto mem_cleanup;
+        }
+
+
+        nbytes_copied += nbytes_per_page;
+    }
+    *ret_dma_buf = dma_buf;
+    return 0;
+    mem_cleanup:
+    free(dma_buf);
+    return ret;
+}
+
+
+static ssize_t copy_to_device(ctx_struct ctx,
+                              char *dma_buf,
+                              unsigned long nbytes_tot,
+                              unsigned long *pfn_buf,
+                              unsigned long pfn_num
+)
+{
+    ssize_t ret;
+    unsigned long i = 0;
+    unsigned long nbytes_copied = 0;
+    unsigned long nbytes_per_page = 0;
+    unsigned long vaddr_fvp;
+
+    for (i = 0; i < pfn_num; i ++) {
+        print_progress("i: %d\n", i);
+        nbytes_per_page = MIN(nbytes_tot - nbytes_copied, 4096);
+        vaddr_fvp = get_addr_map_vaddr(ctx, pfn_buf[i]);
+
+        print_progress("i: %d, nbytes_pp %d, vaddr_fvp: %lx\n",
+                       i,
+                       nbytes_per_page,
+                       vaddr_fvp);
+
+        ret = copy_to_target(ctx,
+                             dma_buf + nbytes_copied,
+                             nbytes_per_page,
+                             vaddr_fvp);
+
+        if (ret < nbytes_per_page) {
+            print_err("only copied: %ld bytes instead of %ld\n",
+                      ret,
+                      nbytes_per_page);
+            ret = - ENOMEM;
+            goto cleanup;
+        }
+        if (ret < 0) {
+            print_err("copy failed at vaddr_fvp: %lx\n", vaddr_fvp);
+            goto cleanup;
+        }
+
+        nbytes_copied += nbytes_per_page;
+    }
+    ret = 0;
+    cleanup:
+    return ret;
+}
