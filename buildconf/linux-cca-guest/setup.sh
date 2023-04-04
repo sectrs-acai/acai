@@ -45,6 +45,21 @@ function do_compile {
     set -x
     env -u LD_LIBRARY_PATH \
         time make BR2_JLEVEL=$BR2_JLEVEL O=$BUILDROOT_OUTPUT_DIR \
+        gdev_guest-rebuild all
+
+    # linux-rebuild
+
+    ls -al $BUILDROOT_OUTPUT_DIR/images/
+    cp -rf $BUILDROOT_OUTPUT_DIR/images/Image $ASSETS_DIR/snapshots/Image-cca
+    cp -rf $BUILDROOT_OUTPUT_DIR/images/rootfs.ext2 $ASSETS_DIR/snapshots/rootfs-ns.ext2
+}
+
+function do_linux {
+    cd $BUILDROOT_DIR
+    echo "building root image with linux kernel"
+    set -x
+    env -u LD_LIBRARY_PATH \
+        time make BR2_JLEVEL=$BR2_JLEVEL O=$BUILDROOT_OUTPUT_DIR \
         linux-rebuild all
 
     ls -al $BUILDROOT_OUTPUT_DIR/images/
@@ -130,6 +145,9 @@ case "$1" in
         ;;
     libdrm)
         do_libdrm
+        ;;
+    linux)
+        do_linux
         ;;
     build)
         do_compile

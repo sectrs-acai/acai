@@ -53,7 +53,7 @@
 
 // XXX: Increase this if needed
 // hard coded value in boot process of fvp
-#define ESCAPE_PAGE_SIZE (1 * PAGE_SIZE)
+#define ESCAPE_PAGE_SIZE (3000 * PAGE_SIZE)
 
 #ifndef DOING_UNIT_TESTS
 
@@ -421,7 +421,7 @@ ssize_t copy_from_target(ctx_struct ctx,
                   unsigned long from, unsigned long size, void* dest) {
     int ret;
     int mem_fd = ctx->target_mem_fd;
-#if 0
+#if 1
     print_progress("reading.. %lx+%lx to %lx\n", from, size, dest);
 #endif
 
@@ -435,7 +435,7 @@ ssize_t copy_to_target(ctx_struct ctx,
                          void* source, unsigned long size, unsigned long dest) {
     int ret;
     int mem_fd = ctx->target_mem_fd;
-#if 0
+#if 1
     print_progress("writing.. %lx+%lx to %lx\n", (unsigned long) source, size, dest);
 #endif
 
@@ -567,6 +567,16 @@ static void *create_escape_page(void)
                 - 1,
                 0);
 }
+
+int __attribute__((weak)) do_init()  {
+    print_ok("calling weak do_init\n");
+    return 0;
+}
+int __attribute__((weak)) do_exit()  {
+    print_ok("calling weak do_exit\n");
+    return 0;
+}
+
 
 static long map_memory_from_file(struct ctx_struct *ctx, int pid)
 {
@@ -710,6 +720,7 @@ static void unmap_fvp_memory(struct ctx_struct *ctx)
     print_ok("fh_unmmap_region ok\n");
     free_addr_map(ctx);
     close(ctx->target_mem_fd);
+    do_exit();
 }
 
 static void _unmap_fvp_memory(void *ctx)
@@ -899,6 +910,10 @@ int main(int argc, char *argv[])
 
     if (has_faulthook)
     {
+        ret = do_init();
+        if (ret != 0) {
+            goto clean_up;
+        }
         unsigned long vaddr_target = ctx.escape_vaddr;
         pthread_t *th = run_thread((fh_listener_fn) _on_fault, &ctx);
         ret = fh_enable_trace(

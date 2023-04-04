@@ -41,6 +41,9 @@ unsigned long get_addr_map_vaddr(
         ctx_struct ctx,
         unsigned long pfn);
 
+int do_init();
+int do_exit();
+
 int on_fault(unsigned long addr,
              unsigned long len,
              pid_t target_pid,

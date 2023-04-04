@@ -19,6 +19,7 @@ define GDEV_GUEST_BUILD_CMDS
 	rm -rf $(@D)/cuda/build-cuda
 	mkdir -p $(@D)/cuda/build-cuda
 	cd $(@D)/cuda/build-cuda && ../configure --disable-runtime
+    cd $(@D)/cuda/build-cuda && ../../common/autogen.sh "nouveau"
 	$(MAKE) $(TARGET_CONFIGURE_OPTS) -C $(@D)/cuda/build-cuda
 	cd $(@D)/cuda/build-cuda && ln -s --relative libucuda.so.1.0.0 libucuda.so || true
 	cd $(@D)/cuda/build-cuda && ln -s --relative libucuda.so.1.0.0 libucuda.so.1 || true
