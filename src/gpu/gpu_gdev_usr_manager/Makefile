@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: all clean gpu_usr_manager
+.PHONY: all clean gpu_gdev_usr_manager
 
 CFLAGS += -ggdb3 -O2 -Wno-unused-function -Wno-unused-result -Wno-unused-function -Wno-format
 INC += -I./fpga_escape_libhook/../fh_host -I./fpga_escape_libhook/ -I./../gdev-guest/mod_stub/gdev/fh_kernel -I./include

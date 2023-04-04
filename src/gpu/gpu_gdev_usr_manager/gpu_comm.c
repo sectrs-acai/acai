@@ -6,11 +6,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <stddef.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/ioctl.h>
 #include <stdint.h>
-#include <assert.h>
 #include "gdev_api.h"
 #include "fh_def.h"
 #include "usr_manager.h"
@@ -22,25 +18,27 @@
     print_progress("ret: %d, errno: %d\n", _r, _r< 0 ? errno: 0) ; \
     if (_r < 0)perror("");                              \
     a->common.flags = 0;                              \
-    a->common.fd = _r; \
     a->common.ret = _r; \
     a->common.err_no = _r < 0 ? errno:0
 
 #define set_ret_and_err_no_direct(a, _r) \
-    if (_r < 0) {print_progress("ret: %d\n %s", _r, strerror(_r) ); }; \
-    a->common.fd = _r; \
+    if (_r < 0) {print_progress("ret: %d\n %s\n", _r, strerror(_r) ); }; \
     a->common.ret = _r; \
     a->common.err_no = _r
 
+#define gdev_handles_max 2048
+Ghandle gdev_handles[gdev_handles_max];
+int gdev_handle_i = 0;
+
 static inline void hex_dump(
-        const void *data,
-        size_t size
+    const void *data,
+    size_t size
 )
 {
     char ascii[17];
     size_t i, j;
     ascii[16] = '\0';
-    for (i = 0; i < size; ++ i) {
+    for (i = 0; i < size; ++i) {
         printf("%02X ", ((unsigned char *) data)[i]);
         if (((unsigned char *) data)[i] >= ' ' && ((unsigned char *) data)[i] <= '~') {
             ascii[i % 16] = ((unsigned char *) data)[i];
@@ -56,7 +54,7 @@ static inline void hex_dump(
                 if ((i + 1) % 16 <= 8) {
                     printf(" ");
                 }
-                for (j = (i + 1) % 16; j < 16; ++ j) {
+                for (j = (i + 1) % 16; j < 16; ++j) {
                     printf("   ");
                 }
                 printf("|  %s \n", ascii);
@@ -65,40 +63,8 @@ static inline void hex_dump(
     }
 }
 
-
-static inline const char *fh_action_to_str(int action)
+int do_init()
 {
-    switch (action) {
-        default: {
-        }
-    }
-}
-
-
-int generic_ioctl(struct faultdata_struct *fault)
-{
-    struct fh_action_ioctl *a = (struct fh_action_ioctl *) fault->data;
-    int ret = 0;
-    void *ioctl_data = malloc(MAX(a->arg_insize, a->arg_outsize));
-    if (ioctl_data == NULL) {
-        print_err("malloc OOM\n");
-        return - ENOMEM;
-    }
-    memcpy(ioctl_data, a->arg, a->arg_insize);
-    ret = ioctl(a->common.fd, a->cmd, ioctl_data);
-    if (ret < 0 || IOCTL_DEBUG) {
-        print_progress("in: \n");
-        hex_dump(a->arg, a->arg_insize);
-        print_progress("out: \n");
-        hex_dump(ioctl_data, a->arg_outsize);
-    }
-    memcpy(a->arg, ioctl_data, a->arg_outsize);
-    free(ioctl_data);
-    set_ret_and_err_no(a, ret);
-    return 0;
-}
-
-int do_init()  {
     int ret = 0;
     ret = fh_fixup_init();
     if (ret < 0) {
@@ -107,16 +73,12 @@ int do_init()  {
     }
     return 0;
 }
-int do_exit()  {
+int do_exit()
+{
     print_ok("calling strong do_exit\n");
     fh_fixup_cleanup();
     return 0;
 }
-
-
-#define gdev_handles_max 512
-Ghandle gdev_handles[gdev_handles_max];
-int gdev_handle_i = 0;
 
 static Ghandle get_gdev_handle(int index)
 {
@@ -144,10 +106,10 @@ static ssize_t do_copy_to_from_target(ctx_struct ctx,
 
     char *from_device_dma_buf = malloc(nbytes_tot);
     if (from_device_dma_buf == NULL) {
-        return - ENOMEM;
+        return -ENOMEM;
     }
 
-    for (i = 0; i < pfn_num; i ++) {
+    for (i = 0; i < pfn_num; i++) {
         nbytes_per_page = MIN(nbytes_tot - nbytes_copied, 4096);
         vaddr_fvp = get_addr_map_vaddr(ctx, pfn_buf[i]);
 
@@ -163,12 +125,11 @@ static ssize_t do_copy_to_from_target(ctx_struct ctx,
                                    from_device_dma_buf + nbytes_copied);
         }
 
-
         if (ret < nbytes_per_page) {
             print_err("only copied: %ld bytes instead of %ld\n",
                       ret,
                       nbytes_per_page);
-            ret = - ENOMEM;
+            ret = -ENOMEM;
             goto mem_cleanup;
         }
         if (ret < 0) {
@@ -178,7 +139,7 @@ static ssize_t do_copy_to_from_target(ctx_struct ctx,
 
         nbytes_copied += nbytes_per_page;
     }
-    if (! to_target) {
+    if (!to_target) {
         /* from target */
         *ret_from_device_dma_buf = from_device_dma_buf;
     }
@@ -212,7 +173,6 @@ static ssize_t do_copy_to_target(ctx_struct ctx,
     return do_copy_to_from_target(ctx, /* to device */ 1,
                                   nbytes_tot, pfn_buf, pfn_num, dma_buf, NULL);
 }
-
 
 static ssize_t do_ioctl_gmemcpy_to_dev(ctx_struct ctx,
                                        Ghandle handle,
@@ -257,7 +217,7 @@ static ssize_t do_ioctl_gmemcpy_from_dev(ctx_struct ctx,
 
     char *dma_buf = malloc(nbytes_tot);
     if (dma_buf == NULL) {
-        ret = - ENOMEM;
+        ret = -ENOMEM;
         return ret;
     }
     ret = gmemcpy_from_device(handle, dma_buf, dma_src_addr, nbytes_tot);
@@ -285,8 +245,8 @@ static ssize_t do_ioctl_launch(ctx_struct ctx,
     struct gdev_kernel *kernel = malloc(sizeof(struct gdev_kernel));
     const unsigned long param_buf_size = a->glaunch.kernel_param_size;
     uint32_t *param_buf = malloc(param_buf_size);
-    if (! kernel || ! param_buf) {
-        ret = - ENOMEM;
+    if (!kernel || !param_buf) {
+        ret = -ENOMEM;
         return ret;
     }
     memcpy(kernel, &a->glaunch.kernel, sizeof(struct gdev_kernel));
@@ -301,16 +261,34 @@ static ssize_t do_ioctl_launch(ctx_struct ctx,
     return ret;
 }
 
+struct gmalloc_dma_data {
+    Ghandle handle;
+    unsigned long addr;
+    fh_fixup_map_ctx_t *map_ctx;
+};
+struct gmalloc_dma_data array[100] = {0};
+int gmalloc_dma_data_i = 0;
+
 static int do_ioctl(ctx_struct ctx, pid_t target_pid, struct fh_gdev_ioctl *a)
 {
     ssize_t ret = 0;
     Ghandle handle = get_gdev_handle(a->common.fd);
     if (handle == NULL) {
-        return - EINVAL;
+        print_err("invalid handle: %d\n", a->common.fd);
+        return -EINVAL;
     }
     switch (a->gdev_command) {
         case GDEV_IOCTL_GTUNE: {
             ret = gtune(handle, a->gtune.req.type, a->gtune.req.value);
+            HERE;
+            if (ret < 0) {
+                /*
+                 * XXX: gtune fails when called across benchmark executions
+                 * We ignore errors as they do not seem to interfere with execution
+                 */
+                print_err("gtune returns: %d. We ignore error.\n", ret);
+                ret = 0;
+            }
             debug_gdev_ioctl_tune(a->gtune.req);
             break;
         }
@@ -331,57 +309,16 @@ static int do_ioctl(ctx_struct ctx, pid_t target_pid, struct fh_gdev_ioctl *a)
             ret = 0;
             break;
         }
-        case GDEV_IOCTL_GMALLOC_DMA: {
-            void* addr = (void*)
-                    gmalloc_dma(handle, a->gmalloc_dma.req.size);
-
-            a->gmalloc_dma.req.addr = 0;
-
-            for(int i = 0; i < a->gmalloc_dma.req.size; i += 4096) {
-                volatile char * a = (volatile char * ) addr;
-                printf("deref: %lx\n", a);
-                *a;
-            }
-
-            const unsigned long buf_pfn_num = (unsigned long) a->gmalloc_dma.buf_pfn_num;
-            const unsigned long buf_size = sizeof(unsigned long) * buf_pfn_num;
-
-            if (a->gmalloc_dma.req.size > buf_pfn_num * 4096) {
-                print_err("invalid dma req size and buf pfn num: %lx, %lx\n",
-                          a->gmalloc_dma.req.size, buf_pfn_num);
-                ret = -EINVAL;
-                break;
-            }
-
-            unsigned long *buf_addr = malloc(buf_size);
-            if (buf_addr == NULL) {
-                ret = -ENOMEM;
-                break;
-            }
-            memcpy(buf_addr, &a->gmalloc_dma.buf_pfn, buf_size);
-            for(int i = 0; i < buf_pfn_num; i ++) {
-                unsigned long pfn = buf_addr[i];
-                unsigned long fvp_addr = get_addr_map_vaddr(ctx, pfn);
-                buf_addr[i] = fvp_addr;
-                print_progress("pfn %lx -> addr %lx\n", pfn, fvp_addr);
-            }
-            fh_fixup_map_ctx_t *map_ctx;
-
-            for(int i = 0; i < buf_pfn_num; i ++){
-                print_progress("pid: %d, this %lx -> target %lx\n", target_pid, addr + i * 4096, buf_addr[i]);
-            }
-            #if 0
-            ret = fh_fixup_map(addr, buf_pfn_num, target_pid, (void **) buf_addr, &map_ctx);
-            free(buf_addr);
-            #endif
-
-            if (ret < 0) {
-                print_err("fh_fixup_map failed with %d, addr: %lx, %lx, %lx, %lx\n",
-                          addr, buf_pfn_num, target_pid, buf_addr);
-                break;
-            }
-            // todo free buf addr
-            a->gmalloc_dma.req.addr = (unsigned long ) addr;
+        case GDEV_IOCTL_GVIRTGET: {
+            /*
+             * TODO: store vaddr of userspace manager
+             * somewhere to use for free
+             */
+            void *addr = (void *) a->gvirtget.req.addr;
+            print_progress("addr: %lx\n", addr);
+            size_t phy_addr = gvirtget(handle, addr);
+            a->gvirtget.req.phys = phy_addr;
+            print_progress("phy: %lx\n", phy_addr);
             ret = 0;
             break;
         }
@@ -407,9 +344,99 @@ static int do_ioctl(ctx_struct ctx, pid_t target_pid, struct fh_gdev_ioctl *a)
             ret = gbarrier(handle);
             break;
         }
+#if 0
+            /*
+             * we currently do not provde mmap functionality
+             * -- rodina does not need it
+             **/
+            case GDEV_IOCTL_GMALLOC_DMA: {
+                void* addr = (void*)
+                        gmalloc_dma(handle, a->gmalloc_dma.req.size);
+
+                a->gmalloc_dma.req.addr = 0;
+
+                for(int i = 0; i < a->gmalloc_dma.req.size; i += 4096) {
+                    volatile char * a = (volatile char * ) addr;
+                    printf("deref: %lx\n", a);
+                    *a;
+                }
+
+                const unsigned long buf_pfn_num = (unsigned long) a->gmalloc_dma.buf_pfn_num;
+                const unsigned long buf_size = sizeof(unsigned long) * buf_pfn_num;
+
+                if (a->gmalloc_dma.req.size > buf_pfn_num * 4096) {
+                    print_err("invalid dma req size and buf pfn num: %lx, %lx\n",
+                              a->gmalloc_dma.req.size, buf_pfn_num);
+                    ret = -EINVAL;
+                    break;
+                }
+
+                unsigned long *buf_addr = malloc(buf_size);
+                if (buf_addr == NULL) {
+                    ret = -ENOMEM;
+                    break;
+                }
+                memcpy(buf_addr, &a->gmalloc_dma.buf_pfn, buf_size);
+                for(int i = 0; i < buf_pfn_num; i ++) {
+                    unsigned long pfn = buf_addr[i];
+                    unsigned long fvp_addr = get_addr_map_vaddr(ctx, pfn);
+                    buf_addr[i] = fvp_addr;
+                    print_progress("pfn %lx -> addr %lx\n", pfn, fvp_addr);
+                }
+                fh_fixup_map_ctx_t *map_ctx;
+
+                for(int i = 0; i < buf_pfn_num; i ++){
+                    print_progress("pid: %d, this %lx -> target %lx\n", target_pid, addr + i * 4096, buf_addr[i]);
+                }
+#if 1
+                ret = fh_fixup_map(addr, buf_pfn_num, target_pid, (void **) buf_addr, &map_ctx);
+                struct gmalloc_dma_data * d =  &array[gmalloc_dma_data_i++];
+                d->addr = (unsigned long)addr;
+                d->handle = handle;
+                d->map_ctx = map_ctx;
+#endif
+
+                if (ret < 0) {
+                    print_err("fh_fixup_map failed with %d, addr: %lx, %lx, %lx, %lx\n",
+                              addr, buf_pfn_num, target_pid, buf_addr);
+                    break;
+                }
+                // todo free buf addr
+                a->gmalloc_dma.req.addr = (unsigned long ) addr;
+                ret = 0;
+                break;
+            }
+            case GDEV_IOCTL_GFREE_DMA: {
+                /*
+                 * todo store vaddr of userspace manager somewhere to use for free
+                 */
+                void *addr = (void *) a->gfree_dma.req.addr;
+                print_progress("addr: %lx\n", addr);
+#if 0
+                for(int i = 0; i < gmalloc_dma_data_i; i ++) {
+                    if (array[i].handle == handle && array[i].addr == (unsigned long)addr) {
+                        printf("freeing fixup unmap\n");
+                        ret = fh_fixup_unmap(array[i].map_ctx);
+                        if (ret < 0) {
+                            print_err("fh_fixup_unmap returned with %d\n", ret);
+                        }
+                        break;
+                    }
+                }
+#endif
+#if 1
+                // size_t size = gfree_dma(handle, addr);
+                // a->gfree_dma.req.size = size;
+                a->gfree_dma.req.size = 0x1337;
+#else
+#endif
+                ret = 0;
+                break;
+            }
+#endif
         default: {
             print_err("not supported gdev_ioctl: %ld\n", a->gdev_command);
-            ret = - EINVAL;
+            ret = -EINVAL;
         }
     }
     return ret;
@@ -433,16 +460,18 @@ int on_fault(unsigned long addr,
     }
     switch (fault->action) {
         case FH_ACTION_SETUP: {
+            struct fh_action_setup *a = (struct fh_action_setup *) fault->data;
             print_ok("FH_ACTION_SETUP\n");
-            for (int i = 0; i < gdev_handles_max; i ++) {
+            for (int i = 0; i < gdev_handles_max; i++) {
                 gdev_handles[i] = NULL;
             }
             gdev_handle_i = 0;
+            a->buffer_limit = get_mapped_escape_buffer_size(ctx);
             break;
         }
         case FH_ACTION_TEARDOWN: {
             print_ok("FH_ACTION_TEARDOWN\n");
-            for (int i = 0; i < gdev_handles_max; i ++) {
+            for (int i = 0; i < gdev_handles_max; i++) {
                 if (gdev_handles[i] != NULL) {
                     gclose(gdev_handles[i]);
                     gdev_handles[i] = NULL;
@@ -455,18 +484,24 @@ int on_fault(unsigned long addr,
         }
         case FH_ACTION_OPEN_DEVICE: {
             int ret = 0;
+            int handle = -1;
             print_ok("FH_ACTION_OPEN_DEVICE\n");
             struct fh_action_open *a = (struct fh_action_open *) fault->data;
-            print_ok("open %s %d\n", a->device, a->flags);
             Ghandle h = gopen(0);
             if (h == NULL) {
-                ret = - EINVAL;
+                ret = -EINVAL;
             } else {
                 a->common.fd = gdev_handle_i;
                 gdev_handles[gdev_handle_i] = h;
-                gdev_handle_i ++;
+                handle = gdev_handle_i;
+                gdev_handle_i++;
                 ret = 0;
             }
+            print_ok("open %s (f: %x), handle=%d, ret=%d\n",
+                     a->device,
+                     a->flags,
+                     handle,
+                     ret);
             set_ret_and_err_no_direct(a, ret);
             break;
         }
@@ -476,7 +511,7 @@ int on_fault(unsigned long addr,
             struct fh_action_close *a = (struct fh_action_close *) fault->data;
             Ghandle handle = get_gdev_handle(a->common.fd);
             if (handle == NULL) {
-                set_ret_and_err_no_direct(a, - EINVAL);
+                set_ret_and_err_no_direct(a, -EINVAL);
                 break;
             }
             ret = gclose(handle);
@@ -490,6 +525,9 @@ int on_fault(unsigned long addr,
 
             ssize_t ret = do_ioctl(ctx, pid, a);
             set_ret_and_err_no_direct(a, ret);
+            print_ok("FH_ACTION_IOCTL: %s returns %d\n",
+                     debug_ioctl_cmd_name(a->gdev_command),
+                     ret);
             break;
         }
         default: {
