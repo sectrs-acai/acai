@@ -54,3 +54,6 @@ buildconf/shrinkwrap/kvmtool.yaml.tmp
 /ext/dtc/
 /src/gpu/nouveau_stub/out
 /doc/fvp_escape_guest/
+/src/gpu/fh_fixup/example2
+/src/gpu/fh_fixup/mod/back/
+/src/gpu/fh_fixup/mod/fh_fixup_mod_bak2.c

@@ -1,0 +1,4 @@
+config BR2_PACKAGE_GDEV_GUEST
+	bool "gdev_guest"
+	help
+      Gdev Guest build
