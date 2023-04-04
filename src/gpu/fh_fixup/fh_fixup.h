@@ -11,11 +11,7 @@ fh_fixup_fn void fh_fixup_cleanup();
 
 
 struct fh_fixup_map_ctx {
-    void **src_pages;
-    void **target_pages;
-    unsigned long num_pages;
-    pid_t target_pid;
-    unsigned long handle;
+    struct fh_fixup_map_t *req;
 };
 
 typedef struct fh_fixup_map_ctx fh_fixup_map_ctx_t;
@@ -23,7 +19,7 @@ typedef struct fh_fixup_map_ctx fh_fixup_map_ctx_t;
  * map a list of src_pages of size num_pages in current address space
  * into address space of target_pid at locations target_pages
  */
-fh_fixup_fn int fh_fixup_map(void **src_pages,
+fh_fixup_fn int fh_fixup_map(void *src_base,
                             unsigned long num_pages,
                             pid_t target_pid,
                             void** target_pages,

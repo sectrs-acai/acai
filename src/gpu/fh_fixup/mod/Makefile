@@ -8,7 +8,7 @@ LINUX_DIR	:= /lib/modules/$(shell uname -r)/build
 endif
 PWD	:= $(shell pwd)
 endif
-
+EXTRA_CFLAGS = -Wno-unused-function  -Wno-declaration-after-statement -Wno-format
 all:
 	$(MAKE) -C $(LINUX_DIR) M=$(PWD) ENABLE_WARN_DEPRECATED=1 modules
 clean:

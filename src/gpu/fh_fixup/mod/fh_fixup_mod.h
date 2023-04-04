@@ -1,7 +1,7 @@
 #ifndef GPU_FH_FIXUP_MOD_FH_FIXUPMOD_H_
 #define GPU_FH_FIXUP_MOD_FH_FIXUPMOD_H_
 
-#define FH_FIXUP_DEVICE_NAME "fh_fixup"
+#define FH_FIXUP_DEVICE_NAME "fh_fixup2"
 #define FH_FIXUP_DEVICE_PATH "/dev/" FH_FIXUP_DEVICE_NAME
 
 #define FH_FIXUP_IOCTL_MAGIC_NUMBER (long)0x7d19
@@ -13,7 +13,7 @@
   _IOR(FH_FIXUP_IOCTL_MAGIC_NUMBER, 2, size_t)
 
 typedef struct {
-    void ** src_pages;
+    void *src_base_addr;
     size_t pages_num;
     pid_t target_pid;
     void** target_pages;

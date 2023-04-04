@@ -1,5 +1,7 @@
-all: example fh_fixup_mod fh_fixup.o header
+all: example fh_fixup_mod fh_fixup.o header example2
 CCFLAGS += -Wno-unused-variable
+EXTRA_CFLAGS = -Wno-unused-function  -Wno-declaration-after-statement -Wno-format
+
 header: mod/fh_fixup_mod.c mod/fh_fixup_mod.h fh_fixup.c fh_fixup.h
 	echo "#pragma once" > fh_fixup_header.h
 	cat mod/fh_fixup_mod.h fh_fixup.h fh_fixup.c | \
@@ -10,6 +12,9 @@ fh_fixup_mod: mod/fh_fixup_mod.c
 
 example: example.c header
 	$(CC) -Wall -Wextra example.c -g -o example
+
+example2: example_2.c header
+	$(CC) -Wall -Wextra example_2.c -g -o $@
 
 clean:
 	cd mod && $(MAKE) clean
