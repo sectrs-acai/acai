@@ -63,6 +63,15 @@ struct ACTION_MODIFIER fh_action_common
     ssize_t ret;
 };
 
+struct ACTION_MODIFIER fh_action_setup
+{
+    struct fh_action_common common;
+    unsigned long buffer_limit;
+    unsigned long pfn_num;
+    unsigned long pfn[0];
+};
+
+
 struct ACTION_MODIFIER fh_action_open
 {
     struct fh_action_common common;
@@ -118,7 +127,15 @@ struct fh_gdev_ioctl {
         } gfree;
         struct fh_ioctl_gmalloc_dma {
             struct gdev_ioctl_mem req;
+            unsigned long buf_pfn_num;
+            unsigned long *buf_pfn; // addr[0] memory following this struct is pages
         } gmalloc_dma;
+        struct fh_ioctl_gfree_dma {
+            struct gdev_ioctl_mem req;
+        } gfree_dma;
+        struct fh_ioctl_gvirtget {
+            struct gdev_ioctl_phys req;
+        } gvirtget;
     };
 };
 

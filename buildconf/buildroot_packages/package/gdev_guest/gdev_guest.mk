@@ -21,18 +21,18 @@ define GDEV_GUEST_BUILD_CMDS
 	cd $(@D)/cuda/build-cuda && ../configure --disable-runtime
     cd $(@D)/cuda/build-cuda && ../../common/autogen.sh "nouveau"
 	$(MAKE) $(TARGET_CONFIGURE_OPTS) -C $(@D)/cuda/build-cuda
-	cd $(@D)/cuda/build-cuda && ln -s --relative libucuda.so.1.0.0 libucuda.so || true
-	cd $(@D)/cuda/build-cuda && ln -s --relative libucuda.so.1.0.0 libucuda.so.1 || true
+	#cd $(@D)/cuda/build-cuda && ln -s --relative libucuda.so.1.0.0 libucuda.so || true
+	#cd $(@D)/cuda/build-cuda && ln -s --relative libucuda.so.1.0.0 libucuda.so.1 || true
 endef
 
 define GDEV_GUEST_INSTALL_TARGET_CMDS
 	$(MAKE) $(TARGET_CONFIGURE_OPTS) GDEVDIR="$(TARGET_DIR)/usr/local/gdev" -C $(@D)/lib/kernel install
-	$(INSTALL) -D -m 0655 $(@D)/cuda/build-cuda/libucu* "$(TARGET_DIR)/usr/local/gdev/lib64"
+	$(MAKE) $(TARGET_CONFIGURE_OPTS) GDEVDIR="$(TARGET_DIR)/usr/local/gdev" -C $(@D)/cuda/build-cuda install
 endef
 
 define GDEV_GUEST_INSTALL_STAGING_CMDS
 	$(MAKE) $(TARGET_CONFIGURE_OPTS) GDEVDIR="$(STAGING_DIR)/usr/local/gdev" -C $(@D)/lib/kernel install
-	$(INSTALL) -D -m 0655 $(@D)/cuda/build-cuda/libucu* "$(STAGING_DIR)/usr/local/gdev/lib64/"
+	$(MAKE) $(TARGET_CONFIGURE_OPTS) GDEVDIR="$(STAGING_DIR)/usr/local/gdev" -C $(@D)/cuda/build-cuda install
 endef
 
 

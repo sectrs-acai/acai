@@ -9,7 +9,6 @@ src/linux-cca-guest/
 *.temp*
 temp
 *temp*
-*build*
 assets/fvp/build
 **/.git/
 src/linux-guest

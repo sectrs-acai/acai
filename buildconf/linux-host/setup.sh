@@ -38,8 +38,9 @@ function do_compile {
     cd $BUILDROOT_DIR
     env -u LD_LIBRARY_PATH \
         time make BR2_EXTERNAL=$BR2_EXTERNAL BR2_JLEVEL=$BR2_JLEVEL  O=$BUILDROOT_OUTPUT_DIR \
+         linux-rebuild \
          all
-    # linux-rebuild host-pteditor-rebuild
+# linux-rebuild host-pteditor-rebuild
 }
 
 

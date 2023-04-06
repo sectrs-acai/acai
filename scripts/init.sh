@@ -7,4 +7,5 @@ git submodule update --init --recursive
 source $(git rev-parse --show-toplevel)/env.sh
 
 $ASSETS_DIR/toolchain-arm/download-toolchain.sh
+$ASSETS_DIR/toolchain-x86/download-toolchain.sh
 $ASSETS_DIR/fvp/download-fvp.sh
