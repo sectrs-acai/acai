@@ -40,3 +40,9 @@
 [submodule "src/gdev"]
 	path = src/gpu/gdev-guest
 	url = git@gitlab.inf.ethz.ch:PRV-SHINDE/projects/proj-2022/rmm/gdev.git
+[submodule "src/gpu/gdev-host"]
+	path = src/gpu/gdev-host
+	url = git@gitlab.inf.ethz.ch:PRV-SHINDE/projects/proj-2022/rmm/gdev.git
+[submodule "src/gpu/rodina-cudadrv"]
+	path = src/gpu/rodina-cudadrv
+	url = git@gitlab.inf.ethz.ch:PRV-SHINDE/projects/proj-2022/rmm/trusted-peripherals-rodina.git
