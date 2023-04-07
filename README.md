@@ -15,10 +15,6 @@ If git fails with `error: Server does not allow request for
 
 ## build aarch64 ns guest
 ```sh
-# kernel based on lts 5.10
-./buildconf/linux-guest/setup.sh init
-./buildconf/linux-guest/setup.sh build
-
 # kernel based on kvm/cca patches
 ./buildconf/linux-cca-guest/setup.sh init
 ./buildconf/linux-cca-guest/setup.sh build
@@ -26,8 +22,6 @@ If git fails with `error: Server does not allow request for
 
 ## run
 ```sh
-./buildconf/linux-guest/setup.sh run         # run on qemu (no tfa stack. lts 5.10)
-./buildconf/linux-guest/setup.sh run_fvp     # run on fvp (full stack, lts 5.10)
 ./buildconf/linux-host/setup.sh run          # run on qemu
 ./buildconf/linux-cca-guest/setup.sh run_fvp # run on fvp (cca, full stack)
 ```
@@ -40,14 +34,6 @@ If git fails with `error: Server does not allow request for
 ```sh
 # ensure to run /buildconf/linux-host/setup.sh init/build first
 source ./scripts/env-x86.sh
-cd /your/source/directory
-make
-```
-
-### build with buildroot aarch64 toolchain (lts 5.10 kernel headers)
-```sh
-# ensure to run /buildconf/linux-guest/setup.sh init/build first
-source ./scripts/aarch64-5-10.sh
 cd /your/source/directory
 make
 ```
