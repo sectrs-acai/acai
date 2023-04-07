@@ -57,3 +57,6 @@ buildconf/shrinkwrap/kvmtool.yaml.tmp
 /src/gpu/fh_fixup/example2
 /src/gpu/fh_fixup/mod/back/
 /src/gpu/fh_fixup/mod/fh_fixup_mod_bak2.c
+/src/gpu_driver/fh_fixup/mod/back/
+/src/gpu_driver/fh_fixup/mod/fh_fixup_mod_bak2.c
+/src/gpu_driver/fh_fixup/example2
