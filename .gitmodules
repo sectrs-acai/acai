@@ -38,11 +38,11 @@
 	path = src/gpu/libdrm-guest
 	url = git@gitlab.inf.ethz.ch:PRV-SHINDE/projects/proj-2022/rmm/libdrm.git
 [submodule "src/gdev"]
-	path = src/gpu/gdev-guest
+	path = src/gpu_driver/gdev-guest
 	url = git@gitlab.inf.ethz.ch:PRV-SHINDE/projects/proj-2022/rmm/gdev.git
 [submodule "src/gpu/gdev-host"]
-	path = src/gpu/gdev-host
+	path = src/gpu_driver/gdev-host
 	url = git@gitlab.inf.ethz.ch:PRV-SHINDE/projects/proj-2022/rmm/gdev.git
 [submodule "src/gpu/rodina-cudadrv"]
-	path = src/gpu/rodinia-bench
+	path = src/gpu_driver/rodinia-bench
 	url = git@gitlab.inf.ethz.ch:PRV-SHINDE/projects/proj-2022/rmm/trusted-peripherals-rodina.git
