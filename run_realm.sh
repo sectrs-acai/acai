@@ -7,5 +7,5 @@ set -x
 # --dump-dtb /tmp/lkvm.dtb
 # --debug
 
-nice -20 ./$root/lkvm run --realm  --disable-sve -c 8 -m 1000 \
+nice -20 ./$root/lkvm run --realm  --disable-sve -c 4 -m 600 \
     -k $root/Image-cca -i $root/rootfs.realm.cpio --9p "/,host0" -p "fvp_escape_loop fvp_escape_on ip=off"
