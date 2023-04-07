@@ -31,8 +31,11 @@
 [submodule "src/tfa-tests"]
 	path = src/tfa-tests
 	url = git@gitlab.inf.ethz.ch:PRV-SHINDE/projects/proj-2022/rmm/tfa-tests-rmm.git
-[submodule "src/kvmtool-cca"]
-	path = src/kvmtool-cca
+[submodule "src/kvmtool/dtc"]
+	path = src/kvmtool/dtc
+	url = git://git.kernel.org/pub/scm/utils/dtc/dtc.git
+[submodule "src/kvmtool/kvmtool-cca"]
+	path = src/kvmtool/kvmtool
 	url = git@gitlab.inf.ethz.ch:PRV-SHINDE/projects/proj-2022/rmm/kvmtool-cca.git
 [submodule "src/libdrm-guest"]
 	path = src/gpu/libdrm-guest

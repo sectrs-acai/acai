@@ -18,7 +18,7 @@ SHRINKWRAP_EXE=$SHRINKWRAP_DIR/shrinkwrap/shrinkwrap
 OVERLAY_ORIG=./3world-overlay.yaml
 OVERLAY=${OVERLAY_ORIG}.tmp
 
-OVERLAY_KVMTOOL_ORIG=./kvmtool.yaml
+OVERLAY_KVMTOOL_ORIG=./kvmtool-overlay.yaml
 OVERLAY_KVMTOOL=${OVERLAY_KVMTOOL_ORIG}.tmp
 
 
@@ -77,8 +77,9 @@ function do_kvmtool {
 
     set -x
     cd $SCRIPT_DIR
-    $SHRINKWRAP_EXE build ${OVERLAY_KVMTOOL}
-    cp $HOME/.shrinkwrap/package/kvmtool.yaml/lkvm $ASSETS_DIR/snapshots
+    $SHRINKWRAP_EXE build kvmtool-base.yaml  --overlay ${OVERLAY_KVMTOOL}
+    cp $HOME/.shrinkwrap/package/kvmtool-base/lkvm $ASSETS_DIR/snapshots
+    ls -al $ASSETS_DIR/snapshots
     set +x
 }
 
