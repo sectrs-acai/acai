@@ -44,5 +44,5 @@
 	path = src/gpu/gdev-host
 	url = git@gitlab.inf.ethz.ch:PRV-SHINDE/projects/proj-2022/rmm/gdev.git
 [submodule "src/gpu/rodina-cudadrv"]
-	path = src/gpu/rodina-cudadrv
+	path = src/gpu/rodinia-bench
 	url = git@gitlab.inf.ethz.ch:PRV-SHINDE/projects/proj-2022/rmm/trusted-peripherals-rodina.git
