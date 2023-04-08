@@ -1,3 +1,2 @@
 # normally placed in buildroot dir
 LINUX_OVERRIDE_SRCDIR="../../src/linux-cca-guest"
-LIBDRM_OVERRIDE_SRCDIR="../../src/gpu/libdrm-guest"

@@ -5,7 +5,7 @@
 #
 ################################################################################
 GDEV_GUEST_VERSION = 1.0
-GDEV_GUEST_SITE = $(BR2_EXTERNAL_ARMCCA_PATH)/../../src/gpu/gdev-guest
+GDEV_GUEST_SITE = $(BR2_EXTERNAL_ARMCCA_PATH)/../../src/gpu_driver/gdev-guest
 GDEV_GUEST_SITE_METHOD = local
 GDEV_GUEST_INSTALL_STAGING = YES
 GDEV_GUEST_INSTALL_TARGET = YES
@@ -21,8 +21,6 @@ define GDEV_GUEST_BUILD_CMDS
 	cd $(@D)/cuda/build-cuda && ../configure --disable-runtime
     cd $(@D)/cuda/build-cuda && ../../common/autogen.sh "nouveau"
 	$(MAKE) $(TARGET_CONFIGURE_OPTS) -C $(@D)/cuda/build-cuda
-	#cd $(@D)/cuda/build-cuda && ln -s --relative libucuda.so.1.0.0 libucuda.so || true
-	#cd $(@D)/cuda/build-cuda && ln -s --relative libucuda.so.1.0.0 libucuda.so.1 || true
 endef
 
 define GDEV_GUEST_INSTALL_TARGET_CMDS

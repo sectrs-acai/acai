@@ -5,7 +5,7 @@
 ################################################################################
 
 GDEV_HOST_VERSION = 1.0
-GDEV_HOST_SITE = $(BR2_EXTERNAL_ARMCCA_PATH)/../../src/gpu/gdev-host
+GDEV_HOST_SITE = $(BR2_EXTERNAL_ARMCCA_PATH)/../../src/gpu_driver/gdev-host
 GDEV_HOST_SITE_METHOD = local
 GDEV_HOST_INSTALL_STAGING = YES
 GDEV_HOST_INSTALL_TARGET = YES
