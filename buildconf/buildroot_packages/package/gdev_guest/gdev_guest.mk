@@ -13,6 +13,7 @@ GDEV_GUEST_DEPENDENCIES = libdrm
 
 define GDEV_GUEST_BUILD_CMDS
 	# gdev
+	$(MAKE) $(TARGET_CONFIGURE_OPTS)  -C $(@D)/lib/kernel clean
 	$(MAKE) $(TARGET_CONFIGURE_OPTS)  -C $(@D)/lib/kernel all
 
 	# cuda
