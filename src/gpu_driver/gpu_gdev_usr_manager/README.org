@@ -1,0 +1,5 @@
+* gpu-gdev-usr-manager
+
+** build
+- ensure to have a faulthook capable kernel.
+- install buildroot x86 toolchain

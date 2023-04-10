@@ -103,9 +103,7 @@ case "$1" in
         ;;
     build)
         do_compile
-        do_run
         ;;
-
     build_debian)
         do_compile
         do_run_debian

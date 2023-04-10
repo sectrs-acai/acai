@@ -42,4 +42,6 @@ p9_folder=$remote_home
 preload=$remote_home/assets/fvp/bin/libhook-libc-2.31.so
 
 # ssh $host sudo pkill FVP
-ssh -X $host $remote_home/scripts/run_fvp.sh $bl1 $fip $image $rootfs $p9_folder $preload "ssh"
+ssh -X $host $remote_home/scripts/run_fvp.sh --bl1=$bl1 \
+    --fip=$fip --kernel=$image --rootfs=$rootfs --p9=$p9_folder --hook=$preload --ssh \
+    --benchmark

@@ -8,6 +8,7 @@ export EXT_PTEDIT_DIR=$ROOT_DIR/ext/pteditor
 
 # src
 export SRC_DIR=$ROOT_DIR/src
+export RAMDISK_DIR=/tmp/armcca-ramdisk
 
 # buildroot output
 export OUTPUT_DIR=$ROOT_DIR/output
