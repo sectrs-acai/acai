@@ -94,7 +94,7 @@ function do_run {
     local asset_pre=$ASSETS_DIR/snapshots
     local bl1=$asset_pre/bl1.bin
     local fip=$asset_pre/fip.bin
-    local image=$asset_pre/Image
+    local image=$asset_pre/Image-cca
     # local rootfs=$ASSETS_DIR/busybox-buildroot-lkvm-rootfs.ext2
 
     # compiled with shrinkwrap
@@ -110,7 +110,13 @@ function do_run {
     local rootfs_prebuild=$ASSETS_DIR/busybox-buildroot-lkvm-rootfs.ext2
     local rootfs=$rootfs_prebuild
 
-    $SCRIPTS_DIR/run_fvp.sh $bl1 $fip $image $rootfs $p9_folder $preload
+    $SCRIPTS_DIR/run_fvp.sh \
+        --bl1=$bl1 \
+        --fip=$fip \
+        --kernel=$image \
+        --rootfs=$rootfs \
+        --p9=$p9_folder \
+        --hook=$preload
 }
 
 # "${@:2}"

@@ -80,6 +80,7 @@ function do_libdrm {
     cp -rf $BUILDROOT_OUTPUT_DIR/build/libdrm-custom/build/lib*.so* $ASSETS_DIR/snapshots/lib64/
     ls -al $ASSETS_DIR/snapshots/lib64/
 }
+
 # XXX: this does not work with qemu without cca patches
 function do_run {
     cd $BUILDROOT_OUTPUT_DIR
@@ -102,16 +103,20 @@ function do_run_fvp {
     # local fip=$shrinkwrap/fip.bin
 
     # XXX: For tfa prebuilt off assets
-    local bl1=$ASSETS_DIR/tfa/tfa-unmod-realm-ready/2gb-memcap-unmod-bl1.bin
-    local fip=$ASSETS_DIR/tfa/tfa-unmod-realm-ready/2gb-memcap-unmod-fip.bin
-    #local bl1=$ASSETS_DIR/tfa/bl1.bin
-    #local fip=$ASSETS_DIR/tfa/fip.bin
+    local bl1=$ASSETS_DIR/snapshots/bl1.bin
+    local fip=$ASSETS_DIR/snapshots/fip.bin
 
     local image=./images/Image
     local rootfs=./images/rootfs.ext4
     local p9_folder=$ROOT_DIR
 
-    $SCRIPTS_DIR/run_fvp.sh $bl1 $fip $image $rootfs $p9_folder $preload
+    $SCRIPTS_DIR/run_fvp.sh \
+        --bl1=$bl1 \
+        --fip=$fip \
+        --kernel=$image \
+        --rootfs=$rootfs \
+        --p9=$p9_folder \
+        --hook=$preload
 }
 
 function do_compilationdb {

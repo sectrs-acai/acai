@@ -47,31 +47,31 @@ function do_compile {
         linux-rebuild all
 }
 
-
 function do_run {
-    # source $SCRIPTS_DIR/env-aarch64.sh
+    cd $BUILDROOT_OUTPUT_DIR
 
     # -s -M virt -cpu cortex-a53 -nographic -smp 2 \
-    cd $BUILDROOT_OUTPUT_DIR
+
+    # XXX: This is currently not used and hence outdated, change if qemu approach needed
     exec qemu-system-aarch64 \
         -s -M virt -m 2G -cpu cortex-a53 -nographic -smp 2 \
         -kernel ./images/Image -append "rootwait root=/dev/vda console=ttyAMA0 nokaslr" \
         -netdev user,id=eth0 -device virtio-net-device,netdev=eth0 \
         -drive file=./images/rootfs.ext4,if=none,format=raw,id=hd0 -device virtio-blk-device,drive=hd0 \
         -virtfs local,path=$SHARE_DIR,mount_tag=host0,security_model=none,id=host0
-    #-s  \
-        }
+}
 
 function do_run_fvp {
     cd $BUILDROOT_OUTPUT_DIR
 
     local pre=$ASSETS_DIR/tfa
+    local snapshots=$ASSETS_DIR/snapshots
     local preload=$ASSETS_DIR/fvp/bin/libhook-libc-2.31.so
     local shrinkwrap=$HOME/.shrinkwrap/package/cca-3world
 
     # use static assets
-    local bl1=$pre/tfa-unmod-realm-ready/bl1.bin
-    local fip=$pre/tfa-unmod-realm-ready/fip.bin
+    local bl1=$snapshots/bl1.bin
+    local fip=$snapshots/fip.bin
 
     # local bl1=$shrinkwrap/bl1.bin
     # local fip=$shrinkwrap/fip.bin
@@ -80,7 +80,13 @@ function do_run_fvp {
     local rootfs=./images/rootfs.ext4
     local p9_folder=$ROOT_DIR
 
-    $SCRIPTS_DIR/run_fvp.sh $bl1 $fip $image $rootfs $p9_folder $preload
+    $SCRIPTS_DIR/run_fvp.sh \
+        --bl1=$bl1 \
+        --fip=$fip \
+        --kernel=$image \
+        --rootfs=$rootfs \
+        --p9=$p9_folder \
+        --hook=$preload
 }
 
 function do_compilationdb {

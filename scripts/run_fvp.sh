@@ -3,7 +3,7 @@ SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 set -euo pipefail
 
 source $SCRIPT_DIR/../env.sh
-FVP=$(which FVP_Base_RevC-2xAEMvA)
+FVP=$ASSETS_DIR/fvp/bin/FVP_Base_RevC-2xAEMvA
 
 function run_fvp {
   set -x
@@ -115,73 +115,22 @@ function run_fvp {
     -C bp.pl011_uart1.out_file=uart1.log \
     -C bp.pl011_uart2.out_file=uart2.log $plugins
 
-
   echo $?
   echo "return code"
 
 }
 
-function generate_plugin_cmds0 {
-  mkdir -p $RAMDISK_DIR
-
-  local timestamp=$(date +"%Y-%m-%d_%H-%M-%S")
-  local trace_plugin=$(which GenericTrace.so)
-
-  #TRACE_SRCS="INST,HLT,SEMIHOSTING_CALL,SYSCALL,MODE_CHANGE,EXCEPTION"
-  #TRACE_SRCS="FVP_Base_RevC_2xAEMvA.cluster0.cpu3.INST,FVP_Base_RevC_2xAEMvA.cluster0.cpu3.HLT,FVP_Base_RevC_2xAEMvA.cluster0.cpu3.SEMIHOSTING_CALL,FVP_Base_RevC_2xAEMvA.cluster0.cpu3.SYSCALL,FVP_Base_RevC_2xAEMvA.cluster0.cpu3.MODE_CHANGE,FVP_Base_RevC_2xAEMvA.cluster0.cpu3.MODE_CHANGE.EXCEPTION"
-
-  # local trace_src="FVP_Base_RevC_2xAEMvA.cluster0.cpu3.INST=0x41C08"
-  # local trace_src="INST=0x80000"
-
-
-
-#cluster0.cpu0.INST: N 0x0000000000000000 0xd50324df 0x04 EL3h AArch64 0x0000000000000000 0x00 RT 0x0000000000000000 0x00 RT 0x00 0x02 0x00 0\
-#x0000000000000001 0x0000000000002710 0x0000000000002710 0x00 "BTI      JC"
-#cluster0.cpu0.INST: N 0x0000000000000004 0xd2810600 0x04 EL3h AArch64 0x0000000000000004 0x00 RT 0x0000000000000004 0x00 RT 0x00 0x02 0x00 0\
-#x0000000000000002 0x0000000000004e20 0x0000000000004e20 0x00 "MOV      x0,#0x830"
-
-  local trace_src="INST"
-  local trace_file="$RAMDISK_DIR/trace-${timestamp}.txt"
-  local more="-C TRACE.GenericTrace.hide-fieldnames=1 -C TRACE.GenericTrace.print-timestamp=0 -C TRACE.GenericTrace.shorten-paths=1"
-  local trace_cmds="-C TRACE.GenericTrace.trace-file=$trace_file -C TRACE.GenericTrace.trace-sources=$trace_src $more"
-
-  local toggle_plugin=$(which ToggleMTIPlugin.so)
-  local toggle_cmds="-C TRACE.ToggleMTIPlugin.use_hlt=1 -C TRACE.ToggleMTIPlugin.hlt_imm16=0x1337 -C TRACE.ToggleMTIPlugin.disable_mti_from_start=0"
-  local plugin_cmds="--plugin=$trace_plugin $trace_cmds --plugin=$toggle_plugin $toggle_cmds"
-
-  echo $plugin_cmds
-}
-
-
 function generate_plugin_cmds {
-  mkdir -p $RAMDISK_DIR
+  local plugin_dir=$ASSETS_DIR/fvp/benchmarking
+  local trace_plugin=$plugin_dir/GenericTrace.so
+  local toggle_plugin=$plugin_dir/ToggleMTIPlugin.so
 
-  local timestamp=$(date +"%Y-%m-%d_%H-%M-%S")
-  local trace_plugin=$(which GenericTrace.so)
+  # local trace_src="FVP_Base_RevC_2xAEMvA.cluster0.cpu3.INST"
+  local trace_src="INST"
+  local trace_cmds="-C TRACE.GenericTrace.trace-sources=$trace_src"
+  local toggle_cmds="-C TRACE.ToggleMTIPlugin.use_hlt=1 -C TRACE.ToggleMTIPlugin.hlt_imm16=0x1337 -C TRACE.ToggleMTIPlugin.disable_mti_from_start=1"
 
-  #TRACE_SRCS="INST,HLT,SEMIHOSTING_CALL,SYSCALL,MODE_CHANGE,EXCEPTION"
-  #TRACE_SRCS="FVP_Base_RevC_2xAEMvA.cluster0.cpu3.INST,FVP_Base_RevC_2xAEMvA.cluster0.cpu3.HLT,FVP_Base_RevC_2xAEMvA.cluster0.cpu3.SEMIHOSTING_CALL,FVP_Base_RevC_2xAEMvA.cluster0.cpu3.SYSCALL,FVP_Base_RevC_2xAEMvA.cluster0.cpu3.MODE_CHANGE,FVP_Base_RevC_2xAEMvA.cluster0.cpu3.MODE_CHANGE.EXCEPTION"
-
-  # local trace_src="FVP_Base_RevC_2xAEMvA.cluster0.cpu3.INST=0x41C08"
-  # local trace_src="INST=0x80000"
-
-
-
-#cluster0.cpu0.INST: N 0x0000000000000000 0xd50324df 0x04 EL3h AArch64 0x0000000000000000 0x00 RT 0x0000000000000000 0x00 RT 0x00 0x02 0x00 0\
-#x0000000000000001 0x0000000000002710 0x0000000000002710 0x00 "BTI      JC"
-#cluster0.cpu0.INST: N 0x0000000000000004 0xd2810600 0x04 EL3h AArch64 0x0000000000000004 0x00 RT 0x0000000000000004 0x00 RT 0x00 0x02 0x00 0\
-#x0000000000000002 0x0000000000004e20 0x0000000000004e20 0x00 "MOV      x0,#0x830"
-
-  local trace_src="MODE_CHANGE"
-  local trace_file=""
-  local more="-C TRACE.GenericTrace.hide-fieldnames=0 -C TRACE.GenericTrace.print-timestamp=0 -C TRACE.GenericTrace.shorten-paths=0"
-  local trace_cmds="-C TRACE.GenericTrace.trace-sources=$trace_src $more"
-
-  local toggle_plugin=$(which ToggleMTIPlugin.so)
-  local toggle_cmds="-C TRACE.ToggleMTIPlugin.use_hlt=1 -C TRACE.ToggleMTIPlugin.hlt_imm16=0x1337 -C TRACE.ToggleMTIPlugin.disable_mti_from_start=0"
-  local plugin_cmds="--plugin=$trace_plugin $trace_cmds --plugin=$toggle_plugin $toggle_cmds"
-
-  echo $plugin_cmds
+  echo "--plugin=$trace_plugin $trace_cmds --plugin=$toggle_plugin $toggle_cmds"
 }
 
 function usage {
@@ -205,7 +154,7 @@ rootfs=""
 p9=""
 hook=""
 ssh=0
-bechmark=0
+benchmark=1
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -240,6 +189,10 @@ while [ $# -gt 0 ]; do
     --benchmark*)
       benchmark=1
       echo "using benchmarking hooks"
+      ;;
+    --no-benchmark*)
+      benchmark=0
+      echo "using no benchmarking hooks"
       ;;
   esac
   shift
