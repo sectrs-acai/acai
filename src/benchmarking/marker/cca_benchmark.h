@@ -29,7 +29,7 @@
 
 #include <signal.h>
 #include <ucontext.h>
-static void __cca_sighandler(int signo, siginfo_t si, void *data) {
+static void __cca_sighandler(int signo, siginfo_t *si, void *data) {
   ucontext_t *uc = (ucontext_t *)data;
   uc->uc_mcontext.pc += 4;
 }

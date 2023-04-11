@@ -5,15 +5,14 @@
 int main() {
   CCA_BENCHMARK_INIT;
 
-
   CCA_START_BENCHMARK;
   CCA_BENCHMARK_MARKER(0x234);
   CCA_BENCHMARK_MARKER(0x1);
   CCA_BENCHMARK_MARKER(0x1);
   CCA_BENCHMARK_MARKER(0x1);
   CCA_BENCHMARK_MARKER(0x1);
-  printf("some instructions\n");
-  CCA_STOP_BENCHMARK;
   printf("done\n");
+  CCA_STOP_BENCHMARK;
+
   return 0;
 }
