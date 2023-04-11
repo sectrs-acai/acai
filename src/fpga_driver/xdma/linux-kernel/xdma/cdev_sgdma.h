@@ -21,7 +21,6 @@
 #define _XDMA_IOCALLS_POSIX_H_
 
 #include <linux/ioctl.h>
-#include <stdbool.h>
 #include <linux/types.h>
 
 #define IOCTL_XDMA_PERF_V1 (1)

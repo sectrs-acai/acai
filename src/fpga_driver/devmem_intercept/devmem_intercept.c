@@ -51,7 +51,7 @@ static inline int devmem_delegate_mem_device(phys_addr_t addr)
         ret = rsi_trigger_testengine(addr,addr,31);
         if (ret != 0)
         {
-            pr_info("rsi_trigger_testengine failed for IPA:%lx and SID: %lx\n", addr, 31);
+            pr_info("rsi_trigger_testengine failed for IPA:%lx and SID: %lx | ret %lx\n", addr, 31, ret);
         }
     }
     return ret;
