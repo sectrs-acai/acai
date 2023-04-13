@@ -16,7 +16,12 @@
 #include "gdev_ioctl_debug.h"
 #include "fh_fixup_header.h"
 #include "gpu_bench.h"
-#define IOCTL_DEBUG 1
+
+/*
+ * set to 1 to increase trace
+ */
+#define GPU_TRACE_PRINT 0
+#define TRACE_PRINT(fmt, ...) if (GPU_TRACE_PRINT) {print_ok(fmt, ##__VA_ARGS__);}
 
 #define set_ret_and_err_no(a, _r) \
     print_progress("ret: %d, errno: %d\n", _r, _r< 0 ? errno: 0) ; \
@@ -312,7 +317,9 @@ inline static ssize_t gpu__ioctl_tune(ctx_struct ctx,
         ret = 0;
     }
     #endif
-    debug_gdev_ioctl_tune(a->gtune.req);
+    if (GPU_TRACE_PRINT) {
+        debug_gdev_ioctl_tune(a->gtune.req);
+    }
     return ret;
 }
 
@@ -326,7 +333,9 @@ inline static ssize_t gpu__ioctl_query(ctx_struct ctx,
     ret = gquery(handle, a->gquery.req.type, &a->gquery.req.result);
     BENCH_STOP(BENCH_DEVICE_IOCTL_QUERY);
 
-    debug_gdev_ioctl_query(a->gquery.req);
+    if (GPU_TRACE_PRINT) {
+        debug_gdev_ioctl_query(a->gquery.req);
+    }
     return ret;
 }
 
@@ -335,13 +344,15 @@ inline static ssize_t gpu__ioctl_memalloc(ctx_struct ctx,
                                           struct fh_gdev_ioctl *a)
 {
     ssize_t ret = 0;
-    a->gmalloc.req.addr = gmalloc(handle, a->gmalloc.req.size);
 
     BENCH_START();
-    debug_gdev_ioctl_mem(a->gmalloc.req);
+    a->gmalloc.req.addr = gmalloc(handle, a->gmalloc.req.size);
     BENCH_STOP(BENCH_DEVICE_IOCTL_MEMALLOC);
 
     ret = 0;
+    if (GPU_TRACE_PRINT) {
+        debug_gdev_ioctl_mem(a->gmalloc.req);
+    }
     return ret;
 }
 
@@ -355,7 +366,9 @@ inline static ssize_t gpu__ioctl_free(ctx_struct ctx,
     a->gmalloc.req.size = gfree(handle, a->gfree.req.addr);
     BENCH_STOP(BENCH_DEVICE_IOCTL_FREE);
 
-    debug_gdev_ioctl_mem(a->gfree.req);
+    if (GPU_TRACE_PRINT) {
+        debug_gdev_ioctl_mem(a->gfree.req);
+    }
     ret = 0;
     return ret;
 }
@@ -367,14 +380,15 @@ inline static ssize_t gpu__ioctl_virtget(ctx_struct ctx,
     ssize_t ret = 0;
     void *addr = (void *) a->gvirtget.req.addr;
 
-    print_progress("addr: %lx\n", addr);
+    TRACE_PRINT("addr: %lx\n", addr);
 
     BENCH_START();
     size_t phy_addr = gvirtget(handle, addr);
     BENCH_STOP(BENCH_DEVICE_IOCTL_VIRTGET);
 
     a->gvirtget.req.phys = phy_addr;
-    print_progress("phy: %lx\n", phy_addr);
+    TRACE_PRINT("phy: %lx\n", phy_addr);
+
     return ret;
 }
 
@@ -409,7 +423,7 @@ inline static ssize_t gpu__ioctl_malloc_dma(ctx_struct ctx,
 
     for (int i = 0; i < a->gmalloc_dma.req.size; i += 4096) {
         volatile char *a = (volatile char *) addr;
-        printf("deref: %lx\n", a);
+        TRACE_PRINT("deref: %lx\n", a);
         *a;
     }
 
@@ -433,15 +447,15 @@ inline static ssize_t gpu__ioctl_malloc_dma(ctx_struct ctx,
         unsigned long pfn = buf_addr[i];
         unsigned long fvp_addr = get_addr_map_vaddr(ctx, pfn);
         buf_addr[i] = fvp_addr;
-        print_progress("pfn %lx -> addr %lx\n", pfn, fvp_addr);
+        TRACE_PRINT("pfn %lx -> addr %lx\n", pfn, fvp_addr);
     }
     fh_fixup_map_ctx_t *map_ctx;
 
     for (int i = 0; i < buf_pfn_num; i++) {
-        print_progress("pid: %d, this %lx -> target %lx\n",
-                       target_pid,
-                       addr + i * 4096,
-                       buf_addr[i]);
+        TRACE_PRINT("pid: %d, this %lx -> target %lx\n",
+                    target_pid,
+                    addr + i * 4096,
+                    buf_addr[i]);
     }
 
 #if 1
@@ -489,7 +503,7 @@ inline static ssize_t gpu__ioctl_free_dma(ctx_struct ctx,
      * todo store vaddr of userspace manager somewhere to use for free
      */
     void *addr = (void *) a->gfree_dma.req.addr;
-    print_progress("addr: %lx\n", addr);
+    TRACE_PRINT("addr: %lx\n", addr);
 
 #if 0
     for(int i = 0; i < gmalloc_dma_data_i; i ++) {
@@ -554,6 +568,110 @@ static ssize_t gpu_ioctl(ctx_struct ctx,
     }
 }
 
+inline static void fault__setup(
+    ctx_struct ctx,
+    struct faultdata_struct *fault,
+    pid_t target_pid)
+{
+    ssize_t ret = 0;
+    struct fh_action_setup *a = (struct fh_action_setup *) fault->data;
+
+    for (int i = 0; i < gdev_handles_max; i++) {
+        gdev_handles[i] = NULL;
+    }
+    gdev_handle_i = 0;
+    a->buffer_limit = get_mapped_escape_buffer_size(ctx);
+
+    set_ret_and_err_no_direct(a, ret);
+}
+
+inline static void fault__teardown(
+    ctx_struct ctx,
+    struct faultdata_struct *fault,
+    pid_t target_pid)
+{
+    for (int i = 0; i < gdev_handles_max; i++) {
+        if (gdev_handles[i] != NULL) {
+            gclose(gdev_handles[i]);
+            gdev_handles[i] = NULL;
+        }
+        gdev_handle_i = 0;
+    }
+}
+
+inline static void fault__open_dev(
+    ctx_struct ctx,
+    struct faultdata_struct *fault,
+    pid_t target_pid)
+{
+    ssize_t ret = 0;
+    int handle = -1;
+
+    struct fh_action_open *a = (struct fh_action_open *) fault->data;
+
+    bench__init();
+
+    BENCH_START();
+    Ghandle h = gopen(0);
+    BENCH_STOP(BENCH_DEVICE_OPEN);
+
+    if (h == NULL) {
+        ret = -EINVAL;
+    } else {
+        a->common.fd = gdev_handle_i;
+        gdev_handles[gdev_handle_i] = h;
+        handle = gdev_handle_i;
+        gdev_handle_i++;
+        ret = 0;
+    }
+    TRACE_PRINT("open %s (f: %x), handle=%d, ret=%d\n",
+                a->device,
+                a->flags,
+                handle,
+                ret);
+    set_ret_and_err_no_direct(a, ret);
+}
+
+inline static void fault__close_dev(
+    ctx_struct ctx,
+    struct faultdata_struct *fault,
+    pid_t target_pid)
+{
+    int ret = 0;
+    struct fh_action_close *a = (struct fh_action_close *) fault->data;
+
+    Ghandle handle = util__get_gdev_handle(a->common.fd);
+
+    if (handle == NULL) {
+        set_ret_and_err_no_direct(a, -EINVAL);
+        return;
+    }
+
+    BENCH_START();
+    ret = gclose(handle);
+    BENCH_STOP(BENCH_DEVICE_CLOSE);
+
+    bench__results(NULL);
+    gdev_handles[a->common.fd] = NULL;
+    set_ret_and_err_no_direct(a, ret);
+}
+
+inline static void fault__ioctl(
+    ctx_struct ctx,
+    struct faultdata_struct *fault,
+    pid_t pid)
+{
+    struct fh_gdev_ioctl *a = (struct fh_gdev_ioctl *) fault->data;
+    print_ok("FH_ACTION_IOCTL: %s\n", debug_ioctl_cmd_name(a->gdev_command));
+
+    ssize_t ret = gpu_ioctl(ctx, pid, a);
+
+    set_ret_and_err_no_direct(a, ret);
+    TRACE_PRINT("FH_ACTION_IOCTL: %s returns %d\n",
+                debug_ioctl_cmd_name(a->gdev_command),
+                ret);
+}
+
 int on_fault(unsigned long addr,
              unsigned long len,
              pid_t pid,
@@ -562,97 +680,40 @@ int on_fault(unsigned long addr,
 {
     struct faultdata_struct *fault = (struct faultdata_struct *) addr;
     if (fault->turn != FH_TURN_HOST) {
-        /* XXX: fault was caused unintentionally */
+        /*
+         * XXX: fault was caused unintentionally
+         */
         #if 0
         print_err("turn is not FH_TURN_HOST\n");
         #endif
         return 0;
     }
-
     switch (fault->action) {
         case FH_ACTION_SETUP: {
-            struct fh_action_setup *a = (struct fh_action_setup *) fault->data;
             print_ok("FH_ACTION_SETUP\n");
-            for (int i = 0; i < gdev_handles_max; i++) {
-                gdev_handles[i] = NULL;
-            }
-            gdev_handle_i = 0;
-            a->buffer_limit = get_mapped_escape_buffer_size(ctx);
+            fault__setup(ctx, fault, pid);
             break;
         }
         case FH_ACTION_TEARDOWN: {
             print_ok("FH_ACTION_TEARDOWN\n");
-            for (int i = 0; i < gdev_handles_max; i++) {
-                if (gdev_handles[i] != NULL) {
-                    gclose(gdev_handles[i]);
-                    gdev_handles[i] = NULL;
-                }
-                gdev_handle_i = 0;
-            }
-        }
-        case FH_ACTION_PING: {
+            fault__teardown(ctx, fault, pid);
             break;
         }
         case FH_ACTION_OPEN_DEVICE: {
-            int ret = 0;
-            int handle = -1;
             print_ok("FH_ACTION_OPEN_DEVICE\n");
-            struct fh_action_open *a = (struct fh_action_open *) fault->data;
-
-            bench__init();
-
-            BENCH_START();
-            Ghandle h = gopen(0);
-            BENCH_STOP(BENCH_DEVICE_OPEN);
-
-            if (h == NULL) {
-                ret = -EINVAL;
-            } else {
-                a->common.fd = gdev_handle_i;
-                gdev_handles[gdev_handle_i] = h;
-                handle = gdev_handle_i;
-                gdev_handle_i++;
-                ret = 0;
-            }
-            print_ok("open %s (f: %x), handle=%d, ret=%d\n",
-                     a->device,
-                     a->flags,
-                     handle,
-                     ret);
-            set_ret_and_err_no_direct(a, ret);
+            fault__open_dev(ctx, fault, pid);
             break;
         }
         case FH_ACTION_CLOSE_DEVICE: {
-            int ret = 0;
             print_ok("FH_ACTION_CLOSE_DEVICE\n");
-            struct fh_action_close *a = (struct fh_action_close *) fault->data;
-
-            Ghandle handle = util__get_gdev_handle(a->common.fd);
-
-            if (handle == NULL) {
-                set_ret_and_err_no_direct(a, -EINVAL);
-                break;
-            }
-
-            BENCH_START();
-            ret = gclose(handle);
-            BENCH_STOP(BENCH_DEVICE_CLOSE);
-
-            bench__results(NULL);
-            gdev_handles[a->common.fd] = NULL;
-            set_ret_and_err_no_direct(a, ret);
+            fault__close_dev(ctx, fault, pid);
             break;
         }
         case FH_ACTION_IOCTL: {
-            struct fh_gdev_ioctl *a = (struct fh_gdev_ioctl *) fault->data;
-            print_ok("FH_ACTION_IOCTL: %s\n", debug_ioctl_cmd_name(a->gdev_command));
-
-            ssize_t ret = gpu_ioctl(ctx, pid, a);
-
-            set_ret_and_err_no_direct(a, ret);
-            print_ok("FH_ACTION_IOCTL: %s returns %d\n",
-                     debug_ioctl_cmd_name(a->gdev_command),
-                     ret);
+            fault__ioctl(ctx, fault, pid);
+            break;
+        }
+        case FH_ACTION_PING: {
             break;
         }
         default: {
