@@ -19,6 +19,13 @@ set -x
 LD_LIBRARY_PATH="$STAGING_DIR/usr/lib/:$LD_LIBRARY_PATH"
 LD_LIBRARY_PATH="$STAGING_DIR/usr/local/gdev/lib64/:$LD_LIBRARY_PATH"
 
+
+
+cat /proc/$pid_target/cmdline
+
+
 sudo LD_LIBRARY_PATH="$LD_LIBRARY_PATH" nice -20 ./gpu_gdev_usr_manager $pid_target
+
+
 
 
