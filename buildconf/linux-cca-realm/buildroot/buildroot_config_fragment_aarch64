@@ -11,7 +11,7 @@ BR2_TOOLCHAIN_EXTERNAL_CUSTOM=y
 BR2_TOOLCHAIN_EXTERNAL_PREINSTALLED=y
 BR2_TOOLCHAIN_EXTERNAL_PATH="../../assets/toolchain-arm/aarch64-none-linux-gnu"
 BR2_ROOTFS_POST_IMAGE_SCRIPT="../../buildconf/linux-cca-realm/buildroot/post_build.sh"
-BR2_ROOTFS_OVERLAY="../../buildconf/linux-cca-realm/buildroot/rootfs_overlay"
+BR2_ROOTFS_OVERLAY="../../buildconf/linux-cca-realm/buildroot/rootfs_overlay ../../buildconf/buildroot_packages/rootfs_copy_enccuda.sh"
 
 BR2_PACKAGE_HAS_TOOLCHAIN_EXTERNAL=y
 BR2_PACKAGE_PROVIDES_TOOLCHAIN_EXTERNAL="toolchain-external-custom"
@@ -177,3 +177,13 @@ BR2_SHARED_STATIC_LIBS=y
 BR2_TOOLCHAIN_EXTERNAL_CXX=y
 
 BR2_PACKAGE_GDEV_GUEST=y
+
+
+# enc cude needs libglib2
+BR2_PACKAGE_LIBFFI=y
+BR2_PACKAGE_LIBGLIB2=y
+BR2_PACKAGE_PCRE=y
+BR2_PACKAGE_PCRE_16=n
+BR2_PACKAGE_PCRE_32=n
+BR2_PACKAGE_PCRE_UCP=y
+BR2_PACKAGE_PCRE_UTF=y

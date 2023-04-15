@@ -49,3 +49,6 @@
 [submodule "src/gpu/rodina-cudadrv"]
 	path = src/gpu_driver/rodinia-bench
 	url = git@gitlab.inf.ethz.ch:PRV-SHINDE/projects/proj-2022/rmm/trusted-peripherals-rodina.git
+[submodule "src/encrypted-cuda"]
+	path = src/encrypted-cuda
+	url = git@gitlab.inf.ethz.ch:PRV-SHINDE/projects/proj-2022/rmm/encrypted-cuda.git

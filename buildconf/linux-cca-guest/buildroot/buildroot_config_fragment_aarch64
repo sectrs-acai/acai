@@ -9,11 +9,14 @@ BR2_PACKAGE_HOST_LINUX_HEADERS_CUSTOM_5_10=y
 
 BR2_PACKAGE_OVERRIDE_FILE="../../buildconf/linux-cca-guest/buildroot/buildroot_override"
 BR2_ROOTFS_OVERLAY="../../buildconf/linux-cca-guest/buildroot/rootfs_overlay"
-BR2_ROOTFS_POST_BUILD_SCRIPT="../../buildconf/linux-cca-guest/buildroot/rootfs_script.sh"
+
+# several scripts can be passed by space
+BR2_ROOTFS_POST_BUILD_SCRIPT="../../buildconf/linux-cca-guest/buildroot/rootfs_script.sh ../../buildconf/buildroot_packages/rootfs_copy_enccuda.sh"
 
 BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE="../../buildconf/linux-cca-guest/buildroot/kernel_config"
 BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES="../../buildconf/linux-cca-guest/buildroot/kernel_config_fragment"
 
+# currently not used
 # BR2_ROOTFS_POST_IMAGE_SCRIPT="../../buildconf/linux-cca-guest/buildroot/post_build.sh"
 
 # important set external to y!
@@ -269,3 +272,13 @@ BR2_SHARED_STATIC_LIBS=y
 BR2_TOOLCHAIN_EXTERNAL_CXX=y
 
 BR2_PACKAGE_GDEV_GUEST=y
+
+
+# enc cude needs libglib2
+BR2_PACKAGE_LIBFFI=y
+BR2_PACKAGE_LIBGLIB2=y
+BR2_PACKAGE_PCRE=y
+BR2_PACKAGE_PCRE_16=n
+BR2_PACKAGE_PCRE_32=n
+BR2_PACKAGE_PCRE_UCP=y
+BR2_PACKAGE_PCRE_UTF=y
