@@ -8,8 +8,12 @@
 
 /* set when running in realm world */
 static int realm = 0;
-
 module_param(realm, int, 0);
+
+static int debug = 0;
+module_param(debug, int, 0);
+
+#define debug_print(fmt, ...) if(debug) pr_info(fmt, ##__VA_ARGS__)
 
 /*
  * hook for:
@@ -37,7 +41,7 @@ static inline int devmem_delegate_mem_device(phys_addr_t addr)
         ret = rsi_set_addr_dev_mem(addr, 1 /* delegate */);
         if (ret != 0)
         {
-            pr_info("rsi_set_addr_dev_mem delegate failed for %lx\n", addr);
+            debug_print("rsi_set_addr_dev_mem delegate failed for %lx\n", addr);
         }
     }
     return ret;
@@ -52,7 +56,7 @@ static inline int devmem_undelegate_mem_device(phys_addr_t addr)
         ret = rsi_set_addr_dev_mem(addr, 0 /* undelegate */);
         if (ret != 0)
         {
-            pr_info("rsi_set_addr_dev_mem undelegate failed for %lx\n", addr);
+            debug_print("rsi_set_addr_dev_mem undelegate failed for %lx\n", addr);
         }
     }
     return ret;
@@ -74,7 +78,7 @@ static int pre_remap_pfn_range(struct kprobe *p, struct pt_regs *regs)
     unsigned long size = regs->regs[3];
     unsigned long pgprot = regs->regs[4];
 
-    pr_info("pre_remap_pfn_range vma: %lx, addr %lx pfn %lx size %lx, pgprot %lx\n",
+    debug_print("pre_remap_pfn_range vma: %lx, addr %lx pfn %lx size %lx, pgprot %lx\n",
             vma, addr, pfn, size, pgprot);
 
     if (is_dev_mem(pfn << PAGE_SHIFT, size))
@@ -92,7 +96,7 @@ static void post_remap_pfn_range(struct kprobe *p, struct pt_regs *regs,
     unsigned long x0 = regs->regs[0];
     unsigned long x1 = regs->regs[1];
     #if 0
-    pr_info("post_remap_pfn_range: x0: %lx, x1: %lx\n", x0, x1);
+    debug_print("post_remap_pfn_range: x0: %lx, x1: %lx\n", x0, x1);
     #endif
 }
 
@@ -107,13 +111,13 @@ static int pre_dma_map_sg_attrs(struct kprobe *p, struct pt_regs *regs)
     enum dma_data_direction dir = (enum dma_data_direction) regs->regs[3];
     unsigned long attrs = regs->regs[4];
 
-    pr_info("pre_dma_map_sg_attrs dev %lx, sg %lx, nents %lx, dir: %lx, attr %lx\n",
+    debug_print("pre_dma_map_sg_attrs dev %lx, sg %lx, nents %lx, dir: %lx, attr %lx\n",
             dev, sg, nents, dir, attrs);
 
     for (i = 0; i < nents; i ++, sg = sg_next(sg))
     {
         #if 0
-        pr_info("%d, 0x%p, pg 0x%p,%u+%u, dma 0x%llx,%u.\n",
+        debug_print("%d, 0x%p, pg 0x%p,%u+%u, dma 0x%llx,%u.\n",
                 i,
                 sg,
                 sg_page(sg), sg->offset, sg->length, sg_dma_address(sg),
@@ -133,7 +137,7 @@ static void post_dma_map_sg_attrs(struct kprobe *p, struct pt_regs *regs,
     unsigned long x0 = regs->regs[0];
     unsigned long x1 = regs->regs[1];
     #if 0
-    pr_info("post_dma_map_sg_attrs: x0: %lx, x1: %lx\n", x0, x1);
+    debug_print("post_dma_map_sg_attrs: x0: %lx, x1: %lx\n", x0, x1);
     #endif
     // TODO(bean): Undelegate if call failed
 }
@@ -148,7 +152,7 @@ static int pre_dma_unmap_sg_attrs(struct kprobe *p, struct pt_regs *regs)
     enum dma_data_direction dir = (enum dma_data_direction) regs->regs[3];
     unsigned long attrs = regs->regs[4];
 
-    pr_info("pre_dma_unmap_sg_attrs dev %lx, sg %lx, nents %lx, dir: %lx, attr %lx\n",
+    debug_print("pre_dma_unmap_sg_attrs dev %lx, sg %lx, nents %lx, dir: %lx, attr %lx\n",
             dev, sg, nents, dir, attrs);
 
     for (i = 0; i < nents; i ++, sg = sg_next(sg))
