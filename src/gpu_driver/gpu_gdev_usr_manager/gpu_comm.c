@@ -10,6 +10,7 @@
 #include <errno.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <sys/stat.h>
 #include "gdev_api.h"
 #include "fh_def.h"
 #include "usr_manager.h"
@@ -632,12 +633,35 @@ inline static void fault__open_dev(
     set_ret_and_err_no_direct(a, ret);
 }
 
+#define TRACE_FILE_DIR "/tmp/armcca_gpu/"
+inline static FILE *__get_bench_file()
+{
+    char filename[64];
+    struct tm *timenow;
+    FILE *f;
+    time_t now = time(NULL);
+    struct stat st = {0};
+    timenow = localtime(&now);
+
+    strftime(filename, sizeof(filename), TRACE_FILE_DIR "gpu_trace_%Y-%m-%d_%H-%M-%S.txt", timenow);
+    print_ok("opening trace file %s\n", filename);
+
+    if (stat(TRACE_FILE_DIR, &st) == -1) {
+        print_ok("creating dir %s\n", TRACE_FILE_DIR);
+        mkdir(TRACE_FILE_DIR, 0777);
+    }
+
+    f = fopen(filename, "w");
+    return f;
+}
+
 inline static void fault__close_dev(
     ctx_struct ctx,
     struct faultdata_struct *fault,
     pid_t target_pid)
 {
     int ret = 0;
+    FILE *trace_file = NULL;
     struct fh_action_close *a = (struct fh_action_close *) fault->data;
 
     Ghandle handle = util__get_gdev_handle(a->common.fd);
@@ -651,7 +675,17 @@ inline static void fault__close_dev(
     ret = gclose(handle);
     BENCH_STOP(BENCH_DEVICE_CLOSE);
 
-    bench__results(NULL);
+    /*
+     * writing benchmark results
+     */
+    trace_file = __get_bench_file();
+    if (trace_file == NULL) {
+        print_err("trace file is NULL!\n");
+    }
+    bench__results(trace_file);
+    if (trace_file != NULL) {
+        fclose(trace_file);
+    }
     gdev_handles[a->common.fd] = NULL;
     set_ret_and_err_no_direct(a, ret);
 }
