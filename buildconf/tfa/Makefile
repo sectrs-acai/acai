@@ -9,7 +9,7 @@ SRC_ROOT=$(PROJ_ROOT)/src
 SHELL := /bin/bash
 
 MAKE_BIN=make
-LOG_LEVEL=10
+LOG_LEVEL=40
 jobs=$(shell nproc)
 CFLAGS=-Wno-error
 DEBUG?=0

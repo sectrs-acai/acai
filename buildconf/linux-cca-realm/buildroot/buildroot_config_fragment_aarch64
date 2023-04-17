@@ -10,8 +10,8 @@ BR2_TOOLCHAIN_BUILDROOT=n
 BR2_TOOLCHAIN_EXTERNAL_CUSTOM=y
 BR2_TOOLCHAIN_EXTERNAL_PREINSTALLED=y
 BR2_TOOLCHAIN_EXTERNAL_PATH="../../assets/toolchain-arm/aarch64-none-linux-gnu"
-BR2_ROOTFS_POST_IMAGE_SCRIPT="../../buildconf/linux-cca-realm/buildroot/post_build.sh"
-BR2_ROOTFS_OVERLAY="../../buildconf/linux-cca-realm/buildroot/rootfs_overlay ../../buildconf/buildroot_packages/rootfs_copy_enccuda.sh"
+BR2_ROOTFS_POST_IMAGE_SCRIPT="../../buildconf/linux-cca-realm/buildroot/post_build.sh ../../buildconf/buildroot_packages/rootfs_copy_enccuda.sh"
+BR2_ROOTFS_OVERLAY="../../buildconf/linux-cca-realm/buildroot/rootfs_overlay"
 
 BR2_PACKAGE_HAS_TOOLCHAIN_EXTERNAL=y
 BR2_PACKAGE_PROVIDES_TOOLCHAIN_EXTERNAL="toolchain-external-custom"

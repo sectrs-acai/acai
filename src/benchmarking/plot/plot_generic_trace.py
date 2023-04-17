@@ -1,4 +1,5 @@
 import glob
+import pathlib
 from typing import TypedDict
 
 import numpy as np
@@ -34,44 +35,41 @@ class Benchmark:
         return len(self.traces)
 
     def get_ip_count(self):
-        # <core> = mean of core
         core_map = {}
         for trace in self.traces:
             for ip_count in trace.t10_ip_count:
                 core = ip_count['core']
+                count = ip_count['count']
 
-                core_count = core_map.get(core, 0)
-                core_count += ip_count['count']
-                core_map[core] = core_count
+                if not core_map.get(core):
+                    core_map[core] = []
 
-        # mean
-        # XXX: Do we want mean over number of trace files
-        # or number of entries per core?
-        # currently: number of trace files (=n)
+                core_map[core].append(count)
+
         for key in core_map.keys():
-            core_map[key] /= self.get_n()
+            core_map[key] = np.mean(core_map[key])
 
         return core_map
 
     def get_ip_marker(self):
         marker_map = {}
 
-    def get_event_marker(self):
-        event_map: dict[str, dict[int, int]] = {}  # [marker] = [core]=count
+    def print_marker_values(self):
         for t in self.traces:
+            events = {}
             for event in t.t20_event_marker:
-                event_name = event['event']
                 core = event['core']
+                name = event['event']
                 count = event['count']
 
-                event_entry = event_map.get(event_name, {
+                if name not in events:
+                    events[name] = 0
 
-                })  # [core] = count
-                event_entry[core] = event_entry.get(core, 0) + count
-                event_map[event_name] = event_entry
+                events[name] += count
 
-        return event_map
-
+            print(t.key)
+            for k in events.keys():
+                print(f'\t{k}={events[k]}')
 
 class GenericTrace:
     t10_ip_count: [T10IpCount]
@@ -146,8 +144,11 @@ def parse_generic_trace(file):
                     marker = str(row[2])
                     count = get_count_from_str(row[3])
 
+                    # remove assembly from value
+                    marker_value = marker.lower().replace(' ', '').replace('movxzr,#', '')
+
                     t20_event_marker.append({
-                        'event': marker,
+                        'event': marker_value,
                         'core': core,
                         'count': count
                     })
@@ -205,11 +206,22 @@ def parse_generic_trace(file):
         return trace
 
 
+def _get_files(folder, suffix):
+    res = []
+    for subdir, dirs, files in os.walk(folder):
+        for file in files:
+            f = os.path.join(subdir, file)
+            if f.endswith(suffix):
+                res.append(f)
+    return res
+
 def parse_set(name, folder_dir, file_ext=".txt"):
     if not os.path.exists(folder_dir):
         raise Exception(f"not found: {folder_dir}")
 
-    files = glob.glob(glob.escape(folder_dir) + "/**/*" + file_ext)
+    # files = glob.glob(glob.escape(folder_dir) + "/**/*" + file_ext)
+    files = _get_files(folder_dir, file_ext)
+    print(files)
 
     traces = []
     for f in files:
@@ -220,8 +232,8 @@ def parse_set(name, folder_dir, file_ext=".txt"):
 
 
 if __name__ == '__main__':
-    bench = parse_set('test', script_dir + '/data')
+    bench = parse_set('test', script_dir + '/data/test/')
 
     print(bench.get_n())
     print(bench.get_ip_count())
-    print(bench.get_event_marker())
+    bench.print_marker_values()

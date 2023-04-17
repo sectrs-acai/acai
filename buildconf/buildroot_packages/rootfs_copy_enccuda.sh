@@ -4,7 +4,7 @@
 # copy static lib enc cuda assets from assets dir
 #
 
-set -x
+set +x
 
 BUILDROOT_DIR=$(pwd)
 
