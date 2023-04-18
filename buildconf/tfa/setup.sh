@@ -34,12 +34,10 @@ function do_run_linux {
     local fip=$asset_pre/fip.bin
 
     # asset output
-    local image=$ASSETS_DIR/snapshots/Image-cca
-    local rootfs=$ASSETS_DIR/snapshots/rootfs-ns.ext2
 
     # buildroot output
-    #local image=$OUTPUT_LINUX_CCA_GUEST_DIR/images/Image
-    #local rootfs=$OUTPUT_LINUX_CCA_GUEST_DIR/images/rootfs.ext4
+    local image=$OUTPUT_LINUX_CCA_GUEST_DIR/images/Image
+    local rootfs=$OUTPUT_LINUX_CCA_GUEST_DIR/images/rootfs.ext4
 
     $SCRIPTS_DIR/run_fvp.sh \
         --bl1=$bl1 \
