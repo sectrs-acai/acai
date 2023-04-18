@@ -6,13 +6,18 @@ source $CUR_DIR/../../../scripts/env-x86.sh
 
 pid_target=$(pgrep -f -n "$name" | head -1)
 
-while [ -z "$pid_target" ]
-do
-  echo "$name not found. please start it"
-  sleep 5
-  pid_target=$(pgrep -f "$name" | head -1)
-done
-
+if (( $# > 0))
+then
+  echo "using pid from argument"
+  pid_target=$1
+else
+  while [ -z "$pid_target" ]
+  do
+    echo "$name not found. please start it"
+    sleep 5
+    pid_target=$(pgrep -f "$name" | head -1)
+  done
+fi
 set -x
 
 #LD_LIBRARY_PATH="$STAGING_DIR/lib/:$LD_LIBRARY_PATH"

@@ -19,7 +19,7 @@ function run_fvp {
 
   # XXX: libhook is in fvp bin directory along with fvp binary
   # XXX: We need sudo so we can pin fvp memory
-  sudo LD_PRELOAD=$preload $FVP \
+  sudo LD_PRELOAD=$preload nice -n -20 $FVP \
     --data cluster0.cpu0=${image}@0x84000000 \
     --stat \
     -C bp.dram_metadata.is_enabled=1 \
