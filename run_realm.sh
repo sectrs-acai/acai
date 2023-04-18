@@ -13,5 +13,5 @@ set -x
 # XXX: core 3 is reserved for tracing
 core=0x4
 
-nice -n -20 taskset $core ./$root/lkvm run --realm  --disable-sve -c 1 -m 600 \
+nice -n -20 taskset $core ./$root/lkvm run --realm  --disable-sve -c 1 -m 300 \
     -k $root/Image-cca -i $root/rootfs.realm.cpio --9p "/,host0" -p "fvp_escape_loop fvp_escape_on ip=off"
