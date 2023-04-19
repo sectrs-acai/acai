@@ -13,6 +13,10 @@ module_param(realm, int, 0);
 static int debug = 0;
 module_param(debug, int, 0);
 
+/* whether to verify devmem delegate with smmu test engine */
+static int testengine = 0;
+module_param(testengine, int, 0);
+
 #define debug_print(fmt, ...) if(debug) pr_info(fmt, ##__VA_ARGS__)
 
 /*
@@ -32,7 +36,6 @@ struct kprobe dma_map_sg_attrs_probe;
 /* for dma_unmap_sg_attrs(d, s, n, r, 0) */
 struct kprobe dma_unmap_sg_attrs_probe;
 
-
 static inline int devmem_delegate_mem_device(phys_addr_t addr)
 {
     int ret = 0;
@@ -43,15 +46,17 @@ static inline int devmem_delegate_mem_device(phys_addr_t addr)
         {
             debug_print("rsi_set_addr_dev_mem delegate failed for %lx\n", addr);
         }
-        ret = rsi_trigger_testengine(addr,addr,31);
-        if (ret != 0)
-        {
-            pr_info("rsi_trigger_testengine failed for IPA:%lx and SID: %lx\n", addr, 31);
-        }
-        ret = rsi_trigger_testengine(addr,addr,31);
-        if (ret != 0)
-        {
-            pr_info("rsi_trigger_testengine failed for IPA:%lx and SID: %lx | ret %lx\n", addr, 31, ret);
+        if (testengine) {
+            ret = rsi_trigger_testengine(addr,addr,31);
+            if (ret != 0)
+            {
+                pr_info("rsi_trigger_testengine failed for IPA:%lx and SID: %lx\n", addr, 31);
+            }
+            ret = rsi_trigger_testengine(addr,addr,31);
+            if (ret != 0)
+            {
+                pr_info("rsi_trigger_testengine failed for IPA:%lx and SID: %lx | ret %lx\n", addr, 31, ret);
+            }
         }
     }
     return ret;
@@ -154,7 +159,6 @@ static void post_dma_map_sg_attrs(struct kprobe *p, struct pt_regs *regs,
 
 static int pre_dma_unmap_sg_attrs(struct kprobe *p, struct pt_regs *regs)
 {
-    int ret;
     unsigned long i, j;
     struct device *dev = (struct device *) regs->regs[0];
     struct scatterlist *sg = (struct scatterlist *) regs->regs[1];
@@ -228,6 +232,7 @@ static int devmem_init(void)
     int ret;
     pr_info("monitor intercept init");
     pr_info("realm=%d\n", realm);
+    pr_info("testengine verify=%d\n", testengine);
 
     ret = devmem_register_kprobes();
     if (ret < 0)
