@@ -183,9 +183,11 @@ static inline int devmem_delegate_mem_range_sgl(
             next = base + base_nents * PAGE_SIZE;
         } while(sg != NULL && page_to_phys(sg_page(sg)) == next);
 
+        #if 0
         if (base_nents > 1) {
             pr_info("base %lx entr: %ld\n", base, base_nents);
         }
+        #endif
         devmem_delegate_mem_range_device(base, base_nents);
     }
     return 0;
