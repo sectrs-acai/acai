@@ -5,7 +5,10 @@
 SHELL := /bin/bash
 .PHONY: all clean gpu_gdev_usr_manager
 
-CFLAGS += -ggdb3 -O2 -Wno-unused-function -Wno-unused-result -Wno-unused-function -Wno-format
+#
+# XXX: We do O0 on purpose so that compiler does not intferere with benchmark code
+#
+CFLAGS += -ggdb3 -O0 -Wno-unused-function -Wno-unused-result -Wno-unused-function -Wno-format
 INC += -I./fpga_escape_libhook/../fh_host -I./fpga_escape_libhook/ -I./../gdev-guest/mod/gdev/ -I./include
 USR_MNGR_BASE := ./fpga_escape_libhook/usr_manager.c
 
@@ -14,7 +17,7 @@ USR_MNGR_BASE := ./fpga_escape_libhook/usr_manager.c
 # because libdrm has no static lib support
 #
 # XXX: STAGIND_DIR is provided by buildroot
-LIBS += -lpthread -lgdev -L$(STAGING_DIR)/usr/local/gdev/lib64
+LIBS += -lpthread -lgdev -L$(STAGING_DIR)/usr/local/gdev/lib64 -lscanmem
 
 all: gpu_gdev_usr_manager
 

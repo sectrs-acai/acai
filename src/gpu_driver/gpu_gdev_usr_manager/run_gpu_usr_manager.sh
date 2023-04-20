@@ -29,8 +29,5 @@ LD_LIBRARY_PATH="$STAGING_DIR/usr/local/gdev/lib64/:$LD_LIBRARY_PATH"
 cat /proc/$pid_target/cmdline
 
 
-sudo LD_LIBRARY_PATH="$LD_LIBRARY_PATH" nice -20 ./gpu_gdev_usr_manager $pid_target
-
-
-
-
+# XXX: we pin manager to a single core
+sudo LD_LIBRARY_PATH="$LD_LIBRARY_PATH" nice -20 taskset -c 3 ./gpu_gdev_usr_manager $pid_target
