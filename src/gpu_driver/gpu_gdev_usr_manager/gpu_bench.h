@@ -1,7 +1,6 @@
 #ifndef GPU_BENCH_H_
 #define GPU_BENCH_H_
 
-#include "tsc_x86.h"
 #include <stdio.h>
 
 #define BENCH_DEVICE_OPEN 0x1
@@ -18,7 +17,8 @@
 #define BENCH_DEVICE_IOCTL_BARRIER 0xC
 #define _BENCH_SIZE_ 0xF
 
-#define bench_time_t myInt64
+
+#define bench_time_t unsigned long long
 
 static const char *bench_str(int type)
 {
@@ -40,7 +40,7 @@ static const char *bench_str(int type)
 }
 
 void bench__init(void);
-myInt64 bench__start();
+bench_time_t bench__start();
 void bench__stop(bench_time_t start, int type);
 void bench__results(FILE *fp);
 

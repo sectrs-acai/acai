@@ -2,13 +2,14 @@
  * benchmark primitives to benchmark x86 fraction of experiment
  */
 #include "gpu_bench.h"
-#include "tsc_x86.h"
+// #include "tsc_x86.h"
+#include "rtdscp_x86.h"
 #include <stdio.h>
 
 static bench_time_t bench_times[_BENCH_SIZE_];
 static unsigned long bench_count[_BENCH_SIZE_];
 
-inline int util__validate_event(int event)
+static inline int util__validate_event(int event)
 {
     if (event < 0 || event >= _BENCH_SIZE_) {
         printf("ERROR: event: %d is outside of bench size: %d\n", event, _BENCH_SIZE_);
@@ -47,7 +48,7 @@ void bench__results(FILE *fp)
     #define PRINT(fmt, ...) \
     fprintf(stderr, fmt, ##__VA_ARGS__); \
     if (fp != NULL) {fprintf(fp, fmt, ##__VA_ARGS__);}
-    myInt64 total = 0;
+    bench_time_t total = 0;
 
     PRINT("# T110 Times\n");
     PRINT("# T110; type; name; number-of-calls; timing (rdtsc ticks)\n");
