@@ -12,7 +12,7 @@ MAKE_BIN=make
 LOG_LEVEL=10
 jobs=$(shell nproc)
 CFLAGS=-Wno-error
-DEBUG=1
+DEBUG?=0
 
 BUILD_CONFIG=release
 ifeq ($(DEBUG), 1)

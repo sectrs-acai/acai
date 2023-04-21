@@ -26,6 +26,33 @@ class T15IpMarker(TypedDict):
     count: int
 
 
+def marker_translate(marker):
+    if marker is not str:
+        marker = str(marker)
+
+    if marker == '0x1011': return 'init stop'
+    if marker == '0x1012': return 'memalloc'
+    if marker == '0x1013': return 'memalloc stop'
+    if marker == '0x1014': return 'exec'
+    if marker == '0x1015': return 'exec stop'
+    if marker == '0x1016': return 'close'
+    if marker == '0x1017': return 'close sotp'
+    if marker == '0x1018': return 'h to d'
+    if marker == '0x1019': return 'h to d stop'
+    if marker == '0x101A': return 'd to h'
+    if marker == '0x101B': return 'd to h stop'
+
+    if marker == '0x01': return 'start bench'
+    if marker == '0x02': return 'stop bench'
+    if marker == '0x100': return 'dma read # pages'
+    if marker == '0x101': return 'dma write # pages'
+    if marker == '0x102': return 'mmap # pages'
+    if marker == '0x103': return 'dma # page alloc'
+    if marker == '0x104': return 'rsi call devmem delegate 1 page per call'
+
+    return marker
+
+
 class Benchmark:
     def __init__(self, traces, name=''):
         self.traces = traces
@@ -37,19 +64,91 @@ class Benchmark:
     def get_ip_count(self):
         core_map = {}
         for trace in self.traces:
+            total = 0
             for ip_count in trace.t10_ip_count:
-                core = ip_count['core']
+                core = 'instr-core-' + str(ip_count['core'])
                 count = ip_count['count']
 
                 if not core_map.get(core):
                     core_map[core] = []
 
                 core_map[core].append(count)
+                total += count
 
         for key in core_map.keys():
             core_map[key] = np.mean(core_map[key])
 
-        return core_map
+        # total of means of all cores
+        total = 0
+        for k in core_map.keys():
+            total += core_map[k]
+
+        core_map['instr-total'] = total
+        return {self.name:
+                    dict(sorted(core_map.items()))
+                }
+
+    def get_world_switches(self):
+        core_map = {}
+        total = {}
+        for trace in self.traces:
+            for ip_count in trace.t50_world_switch:
+                core = ip_count['core']
+                count = ip_count['count']
+                cmd = ip_count['cmd']
+                key = cmd + '-core-' + str(core)
+
+                if not core_map.get(key):
+                    core_map[key] = []
+                if not total.get(cmd):
+                    total[cmd] = []
+
+                core_map[key].append(count)
+                total[cmd].append(count)
+
+        for key in core_map.keys():
+            core_map[key] = np.mean(core_map[key])
+        for key in total.keys():
+            total[key] = np.mean(total[key])
+
+        res = {
+        }
+        res.update(total)
+        res.update(core_map)
+
+        return {self.name:
+                    dict(sorted(res.items()))
+                }
+
+    def get_exception_mode(self):
+        total = {}
+        for trace in self.traces:
+            # 'mode': mode,
+            # 'world': world,
+            # 'core': core,
+            # 'count': count
+            for ip_count in trace.t40_mode_switch:
+                core = ip_count['core']
+                count = ip_count['count']
+                world = ip_count['world'].strip()
+                mode = ip_count['mode'].strip()
+
+                total_key = world + '-' + mode
+
+                if not total.get(total_key):
+                    total[total_key] = []
+
+                total[total_key].append(count)
+
+        for key in total.keys():
+            total[key] = np.mean(total[key])
+
+        res = {}
+        res.update(total)
+
+        return {self.name:
+                    dict(sorted(res.items()))
+                }
 
     def get_ip_marker(self):
         marker_map = {}
@@ -70,6 +169,7 @@ class Benchmark:
             print(t.key)
             for k in events.keys():
                 print(f'\t{k}={events[k]}')
+
 
 class GenericTrace:
     t10_ip_count: [T10IpCount]
@@ -215,6 +315,7 @@ def _get_files(folder, suffix):
                 res.append(f)
     return res
 
+
 def parse_set(name, folder_dir, file_ext=".txt"):
     if not os.path.exists(folder_dir):
         raise Exception(f"not found: {folder_dir}")
@@ -231,9 +332,33 @@ def parse_set(name, folder_dir, file_ext=".txt"):
     return b
 
 
-if __name__ == '__main__':
-    bench = parse_set('test', script_dir + '/data/test/')
+def parse_single(name, path):
+    t = parse_generic_trace(path)
+    traces = [t]
+    b = Benchmark(traces, name)
+    return b
 
-    print(bench.get_n())
-    print(bench.get_ip_count())
-    bench.print_marker_values()
+
+if __name__ == '__main__':
+    enc = '/home/b/2.5bay/mthesis-unsync/projects/trusted-periph/assets/benchmarking/23-04-18_enccuda/'
+    ns = '/home/b/2.5bay/mthesis-unsync/projects/trusted-periph/assets/benchmarking/23-04-19_ns/ns/arm_cca_trace/'
+    devmem = '/home/b/2.5bay/mthesis-unsync/projects/trusted-periph/assets/benchmarking/devmem/arm_cca_trace/'
+
+    print(parse_single('srad1 cpu/ns', ns + 'trace-19-04-2023_11-55-38_ns_srad1.txt').get_ip_count())
+    print(parse_single('srad1 cpu/enc',enc + 'trace-19-04-2023_09-02-50_srad1_enc.txt').get_ip_count())
+    print(parse_single('srad1 cpu/devmem',
+                       devmem + 'trace-19-04-2023_17-27-52_devmem_srad1.txt').get_ip_count())
+
+    print(parse_single('backprop cpu/ns', ns + 'trace-19-04-2023_11-58-23_ns_backprop.txt').get_ip_count())
+    print(parse_single('backprop cpu/enc', enc + 'trace-19-04-2023_02-46-50.backprop_enc.txt').get_ip_count())
+    print(parse_single('backprop cpu/devmem', devmem + 'trace-19-04-2023_17-50-21_devmem_backprop.txt').get_ip_count())
+
+
+
+    print(parse_single('bfs cpu/ns', ns + 'trace-19-04-2023_11-59-16_ns_bfs.txt').get_ip_count())
+    print(parse_single('bfs cpu/enc', enc + 'trace-19-04-2023_02-52-21.bfs_enc.txt').get_ip_count())
+    print(parse_single('bfs cpu/devmem', devmem + 'trace-19-04-2023_17-52-54_devmem_bfs.txt').get_ip_count())
+
+
+
+

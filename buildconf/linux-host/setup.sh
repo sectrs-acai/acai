@@ -39,6 +39,7 @@ function do_compile {
     env -u LD_LIBRARY_PATH \
         time make BR2_EXTERNAL=$BR2_EXTERNAL BR2_JLEVEL=$BR2_JLEVEL  O=$BUILDROOT_OUTPUT_DIR \
          linux-rebuild \
+         gdev_host-rebuild \
          all
 # linux-rebuild host-pteditor-rebuild
 }

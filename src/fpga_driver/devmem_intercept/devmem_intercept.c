@@ -367,7 +367,7 @@ static int devmem_init(void)
     pr_info("debug=%d\n", debug);
 
     #if defined(__x86_64__) || defined(_M_X64)
-    #elseq
+    #else
     {
         register uint64_t x0 __asm__ ("x0");
         __asm__ ("mrs x0, CurrentEL;" : : : "%x0");

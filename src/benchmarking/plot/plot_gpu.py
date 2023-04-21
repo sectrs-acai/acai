@@ -23,6 +23,38 @@ class Benchmark:
     def get_n(self):
         return len(self.traces)
 
+
+    def get_cycle_count(self):
+        cycles = []
+        cycle_map = {}
+        count_map = {}
+        for t in self.traces:
+            cycles.append(t.total_cycles)
+
+            for trace in t.t110_exec:
+                tsc_key = 'rdtsc-' + trace.name
+                num_key = 'num-' + trace.name
+                if trace.name not in cycle_map:
+                    cycle_map[tsc_key] = []
+                cycle_map[tsc_key].append(trace.cycles)
+
+                if trace.name not in count_map:
+                    count_map[num_key] = []
+                count_map[num_key].append(trace.exec_num)
+
+        for k in cycle_map:
+            cycle_map[k] = np.mean(cycle_map[k])
+
+        for k in count_map:
+            count_map[k] = np.mean(count_map[k])
+
+        res = {'rdtsc-total': np.mean(cycles)}
+        res.update(cycle_map)
+        res.update(count_map)
+
+        return res
+
+
     def get_exec_total_cycles(self):
         cycles = []
         for t in self.traces:
@@ -154,6 +186,12 @@ def parse_set(name, folder_dir, file_ext=".txt"):
     b = Benchmark(traces, name)
     return b
 
+def parse_file(name, file):
+    traces = []
+    traces.append(parse_gpu_trace(file))
+    b = Benchmark(traces, name)
+    return b
+
 
 def plot_sample():
     import matplotlib.pyplot as plt
@@ -176,4 +214,5 @@ def plot_sample():
     plt.show()
 
 if __name__ == '__main__':
-    plot_sample()
+    b = parse_file('test', '/home/b/2.5bay/mthesis-unsync/projects/trusted-periph/src/benchmarking/plot/data/sample/gpu_trace_2023-04-17_14-11-14.txt')
+    print(b.get_cycle_count())

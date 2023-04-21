@@ -4,7 +4,7 @@
 
 int main() {
   CCA_BENCHMARK_INIT;
-
+/*
   CCA_BENCHMARK_START;
   CCA_MARKER(0x100);
   CCA_MARKER(0x110);
@@ -14,6 +14,7 @@ int main() {
   CCA_MARKER_RODINIA_INIT;
   printf("done\n");
   CCA_MARKER_RODINIA_CLOSE;
+  */
   CCA_BENCHMARK_STOP;
 
   return 0;

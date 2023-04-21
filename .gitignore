@@ -63,3 +63,4 @@ buildconf/shrinkwrap/kvmtool.yaml.tmp
 /src/kvmtool-cca
 src/gpu
 /src/gpu_driver/gpu_gdev_usr_manager/gpu_gdev_usr_manager
+/src/fpga_driver/xdma/linux-kernel/tools/test_chrdev
