@@ -10,4 +10,4 @@ do
 done
 
 
-sudo ./fpga_libhook_manager $pid_target
+sudo ./fpga_usr_manager $pid_target

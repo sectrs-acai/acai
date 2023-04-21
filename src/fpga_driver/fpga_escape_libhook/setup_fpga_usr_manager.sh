@@ -14,4 +14,4 @@ sudo ./load_driver.sh 4
 
 
 cd $CUR_DIR
-sudo ./run_fpga_libhook_manager.sh
+sudo ./run_fpga_usr_manager.sh
