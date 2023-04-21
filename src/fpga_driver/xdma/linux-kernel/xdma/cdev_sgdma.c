@@ -34,6 +34,7 @@
 #include "xdma_cdev.h"
 #include "cdev_sgdma.h"
 #include "xdma_thread.h"
+#include "fpga_escape_libhook/fpga_usr_manager.h"
 
 /* Module Parameters */
 unsigned int h2c_timeout = 10;
@@ -269,8 +270,6 @@ static void char_sgdma_unmap_user_buf(struct xdma_io_cb *cb, bool write)
 	kfree(cb->pages);
 	cb->pages = NULL;
 }
-
-#include "fpga_escape_libhook/fpga_manager.h"
 
 static int map_remote_pages_to_sgl(struct xdma_io_cb *cb,
                                         struct fh_host_ioctl_dma *dma,

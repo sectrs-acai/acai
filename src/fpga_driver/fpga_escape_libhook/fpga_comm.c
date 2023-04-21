@@ -14,9 +14,12 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
+#include <sys/stat.h>
 
+#include "usr_manager.h"
 #include "fpga_usr_manager.h"
 #include "../xdma/linux-kernel/xdma/cdev_ctrl.h"
+#include "bench/fpga_bench.h"
 
 #define HERE printf("%s/%s: %d\n", __FILE__, __FUNCTION__, __LINE__)
 #define MIN(a, b) (((a)<(b))?(a):(b))
@@ -35,6 +38,8 @@
 #define print_ok(...) log_helper(TAG_OK " " __VA_ARGS__, "")
 #define print_err(...) log_helper(TAG_FAIL " " __VA_ARGS__, "")
 
+#define BENCH_START() bench_time_t _bench_start = bench__start()
+#define BENCH_STOP(type) bench__stop(_bench_start, type)
 
 #define set_ret_and_err_no(a, _r) \
     a->common.fd = _r; \
@@ -50,6 +55,29 @@ static char *action_transfer_data_ptr = NULL;
 static unsigned long action_transfer_data_size = 0;
 static unsigned long action_transfer_data_info_ctx = 0;
 static unsigned long action_transfer_data_chunk = 0;
+
+#define TRACE_FILE_DIR "/tmp/armcca_fpga/"
+inline static FILE *__get_bench_file()
+{
+    char filename[64];
+    struct tm *timenow;
+    FILE *f;
+    time_t now = time(NULL);
+    struct stat st = {0};
+    timenow = localtime(&now);
+
+    strftime(filename, sizeof(filename), TRACE_FILE_DIR "fpga_trace_%Y-%m-%d_%H-%M-%S.txt",
+             timenow);
+    print_ok("opening trace file %s\n", filename);
+
+    if (stat(TRACE_FILE_DIR, &st) == -1) {
+        print_ok("creating dir %s\n", TRACE_FILE_DIR);
+        mkdir(TRACE_FILE_DIR, 0777);
+    }
+
+    f = fopen(filename, "w");
+    return f;
+}
 
 int do_action_transfer_escape_data_free(ctx_struct ctx) {
     free(action_transfer_data_ptr);
@@ -196,10 +224,12 @@ static int do_dma(struct faultdata_struct *fault,
     chunks = (struct page_chunk *) action_transfer_data_ptr;
     chunk_size = action_transfer_data_size;
 
+    #if 0
     for (int i = 0; i < a->pages_nr; i ++) {
         chunk = chunks + i;
-        // print_ok("%lx, %lx, %lx\n", chunk->addr, chunk->nbytes, chunk->offset);
+        print_ok("%lx, %lx, %lx\n", chunk->addr, chunk->nbytes, chunk->offset);
     }
+    #endif
 
     print_progress("transfering %d pages\n", a->pages_nr);
     for (int i = 0; i < a->pages_nr; i ++)
@@ -233,7 +263,11 @@ static int do_dma(struct faultdata_struct *fault,
             .len = a->len,
             .chunks = chunks
     };
+
+    BENCH_START();
     ret = ioctl(a->common.fd, FH_HOST_IOCTL_DMA, &dma);
+    BENCH_STOP(BENCH_FPGA_DMA);
+
     if (ret < 0)
     {
         perror("FH_ACTION_DMA failed\n");
@@ -335,15 +369,37 @@ int on_fault(unsigned long addr,
         case FH_ACTION_OPEN_DEVICE:
         {
             struct action_openclose_device *a = (struct action_openclose_device *) fault->data;
+            bench__init();
+
+            BENCH_START();
             int fd = open(a->device, a->flags);
+            BENCH_STOP(BENCH_FPGA_OPEN);
+
             a->common.fd = fd;
             set_ret_and_err_no(a, fd);
             break;
         }
         case FH_ACTION_CLOSE_DEVICE:
         {
+            FILE *trace_file = NULL;
             struct action_openclose_device *a = (struct action_openclose_device *) fault->data;
+
+            BENCH_START();
             int ret = close(a->common.fd);
+            BENCH_STOP(BENCH_FPGA_CLOSE);
+
+            /*
+             * writing benchmark results
+             */
+            trace_file = __get_bench_file();
+            if (trace_file == NULL) {
+                print_err("trace file is NULL!\n");
+            }
+            bench__results(trace_file);
+            if (trace_file != NULL) {
+                fclose(trace_file);
+            }
+
             set_ret_and_err_no(a, ret);
             break;
         }
@@ -373,7 +429,11 @@ int on_fault(unsigned long addr,
                     .addr = addrs,
                     .addr_size = a->pfn_size
             };
+
+            BENCH_START();
             ret = ioctl(a->common.fd, XDMA_IOCMMAP, &ioc);
+            BENCH_STOP(BENCH_FPGA_MMAP);
+
             if (ret < 0)
             {
                 perror("XDMA_IOCMMAP failed\n");
@@ -403,7 +463,11 @@ int on_fault(unsigned long addr,
                     .addr = addrs,
                     .addr_size = a->pfn_size
             };
+
+            BENCH_START();
             ret = ioctl(a->common.fd, XDMA_IOCUNMMAP, &ioc);
+            BENCH_STOP(BENCH_FPGA_UNMMAP);
+            
             if (ret < 0)
             {
                 perror("XDMA_IOCUNMMAP failed\n");

@@ -20,7 +20,7 @@
 #define pr_fmt(fmt)     KBUILD_MODNAME ":%s: " fmt, __func__
 
 #include "xdma_cdev.h"
-
+#include <stdbool.h>
 static struct class *g_xdma_class;
 
 struct kmem_cache *cdev_cache;

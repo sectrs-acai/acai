@@ -421,7 +421,7 @@ ssize_t copy_from_target(ctx_struct ctx,
                   unsigned long from, unsigned long size, void* dest) {
     int ret;
     int mem_fd = ctx->target_mem_fd;
-#if 1
+#if 0
     print_progress("reading.. %lx+%lx to %lx\n", from, size, dest);
 #endif
 
@@ -435,7 +435,7 @@ ssize_t copy_to_target(ctx_struct ctx,
                          void* source, unsigned long size, unsigned long dest) {
     int ret;
     int mem_fd = ctx->target_mem_fd;
-#if 1
+#if 0
     print_progress("writing.. %lx+%lx to %lx\n", (unsigned long) source, size, dest);
 #endif
 

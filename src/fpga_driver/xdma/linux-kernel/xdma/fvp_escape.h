@@ -2,7 +2,7 @@
 #define FVP_ESCAPE_H_
 #include <stdbool.h>
 #include <linux/types.h>
-#include "fpga_escape_libhook/fpga_manager.h"
+#include "fpga_escape_libhook/fpga_usr_manager.h"
 
 int fvp_escape_init(void);
 

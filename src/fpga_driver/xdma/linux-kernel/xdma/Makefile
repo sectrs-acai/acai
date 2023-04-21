@@ -31,6 +31,8 @@ ifneq ($(config_bar_num),)
 endif
 #EXTRA_CFLAGS += -DINTERNAL_TESTING
 
+ccflags-y := -Wno-format -Wno-declaration-after-statement
+
 ifneq ($(KERNELRELEASE),)
 	$(TARGET_MODULE)-objs := libxdma.o xdma_cdev.o cdev_ctrl.o cdev_events.o cdev_sgdma.o cdev_xvc.o cdev_bypass.o xdma_mod.o xdma_thread.o fvp_escape.o
 	obj-m := $(TARGET_MODULE).o
@@ -39,7 +41,7 @@ else
 	BUILDSYSTEM_DIR:=$(LINUX_DIR)
 	PWD:=$(shell pwd)
 all :
-	$(MAKE) -C $(BUILDSYSTEM_DIR) M=$(PWD) modules
+	$(MAKE) -C $(BUILDSYSTEM_DIR)  M=$(PWD) modules
 
 clean:
 	$(MAKE) -C $(BUILDSYSTEM_DIR) M=$(PWD) clean

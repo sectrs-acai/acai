@@ -1,8 +1,6 @@
 #ifndef TRUSTED_PERIPH_FPGA_MANAGER_H
 #define TRUSTED_PERIPH_FPGA_MANAGER_H
 
-#include "usr_manager.h"
-
 #define FAULTDATA_MAGIC 0xAABBCCDDEEFF9984
 
 
