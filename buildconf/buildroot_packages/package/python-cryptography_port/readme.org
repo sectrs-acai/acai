@@ -1,0 +1,3 @@
+This is the original python-cryptography package but updated with its latest
+version. We rename its name to avoid name collision and updating buildroot
+(currently we dont have a fork of it hosted).
