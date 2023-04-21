@@ -25,6 +25,7 @@ void bench__init(void)
         bench_times[i] = 0;
         bench_count[i] = 0;
     }
+
 }
 
 inline bench_time_t bench__start(void)

@@ -16,7 +16,7 @@
 #include "usr_manager.h"
 #include "gdev_ioctl_debug.h"
 #include "fh_fixup_header.h"
-#include "gpu_bench.h"
+#include "bench/gpu_bench.h"
 
 /*
  * set to 1 to increase trace

@@ -24,7 +24,7 @@ all: gpu_gdev_usr_manager
 update_headers:
 	cp -rf ./gdev-guest/headers/* include/
 
-gpu_gdev_usr_manager: $(USR_MNGR_BASE) gpu_comm.c gpu_bench.c
+gpu_gdev_usr_manager: $(USR_MNGR_BASE) gpu_comm.c bench/gpu_bench.c
 	cp -rf ./gdev-guest/headers/* include/ || true
 	$(CC) $(CFLAGS) $(INC) -o $@ $^ $(LIBS)
 
