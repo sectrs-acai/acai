@@ -18,17 +18,8 @@
 #include <fcntl.h>
 #include <ctype.h>
 
-#include<sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/mman.h>
-
-#define WR_VALUE_32 _IOW('a', 'a', uint32_t *)
-#define WR_VALUE_16 _IOW('a', 'b', uint16_t *)
-#define WR_VALUE_8 _IOW('a', 'c', uint8_t *)
-
-#define RD_VALUE_32 _IOWR('a', 'd', uint32_t *)
-#define RD_VALUE_16 _IOWR('a', 'e', uint16_t *)
-#define RD_VALUE_8 _IOWR('a', 'f', uint8_t *)
 
 /* ltoh: little endian to host */
 /* htol: host to little endian */
@@ -44,22 +35,14 @@
 #define htols(x)     __bswap_16(x)
 #endif
 
-struct ioctl_argument {
-    uint64_t offset;
-    uint64_t data;
-};
-
-
-
 int main(int argc, char **argv)
 {
-	int fd,fd_ioctl;
+	int fd;
 	int err = 0;
 	void *map;
 	uint32_t read_result, writeval;
 	off_t target;
 	off_t pgsz, target_aligned, offset;
-	struct ioctl_argument call_data;
 	/* access width */
 	char access_width = 'w';
 	char *device;
@@ -105,12 +88,7 @@ int main(int argc, char **argv)
 		access_width = 'w';
 	}
 
-	printf("\nOpening Driver\n");
-    fd_ioctl = open("/dev/etx_device", O_RDWR);
-    if(fd_ioctl < 0) {
-        printf("Cannot open device file...\n");
-        return 0;
-    }
+
 
 
 	if ((fd = open(argv[1], O_RDWR | O_SYNC)) == -1) {
@@ -140,18 +118,12 @@ int main(int argc, char **argv)
 		switch (access_width) {
 		case 'b':
 			read_result = *((uint8_t *) map);
-			call_data.data = 0;
-        	call_data.offset = offset;
-			ioctl(fd_ioctl, RD_VALUE_8, &call_data);
 			printf
 			    ("Read 8-bits value at address 0x%lx (%p): 0x%02x\n",
 			     target, map, (unsigned int)read_result);
 			break;
 		case 'h':
 			read_result = *((uint16_t *) map);
-			call_data.data = 0;
-        	call_data.offset = offset;
-			ioctl(fd_ioctl, RD_VALUE_16, &call_data);
 			/* swap 16-bit endianess if host is not little-endian */
 			read_result = ltohs(read_result);
 			printf
@@ -160,9 +132,6 @@ int main(int argc, char **argv)
 			break;
 		case 'w':
 			read_result = *((uint32_t *) map);
-			call_data.data = 0;
-        	call_data.offset = offset;
-			ioctl(fd_ioctl, RD_VALUE_32, &call_data);
 			/* swap 32-bit endianess if host is not little-endian */
 			read_result = ltohl(read_result);
 			printf
@@ -184,9 +153,6 @@ int main(int argc, char **argv)
 		case 'b':
 			printf("Write 8-bits value 0x%02x to 0x%lx (0x%p)\n",
 			       (unsigned int)writeval, target, map);
-			call_data.data = writeval;
-        	call_data.offset = offset;
-        	ioctl(fd, WR_VALUE_8, &call_data); 
 			*((uint8_t *) map) = writeval;
 			break;
 		case 'h':
@@ -194,9 +160,6 @@ int main(int argc, char **argv)
 			       (unsigned int)writeval, target, map);
 			/* swap 16-bit endianess if host is not little-endian */
 			writeval = htols(writeval);
-			call_data.data = writeval;
-        	call_data.offset = offset;
-        	ioctl(fd, WR_VALUE_16, &call_data); 
 			*((uint16_t *) map) = writeval;
 			break;
 		case 'w':
@@ -204,9 +167,6 @@ int main(int argc, char **argv)
 			       (unsigned int)writeval, target, map);
 			/* swap 32-bit endianess if host is not little-endian */
 			writeval = htoll(writeval);
-			call_data.data = writeval;
-        	call_data.offset = offset;
-        	ioctl(fd, WR_VALUE_32, &call_data); 
 			*((uint32_t *) map) = writeval;
 			break;
 		default:
