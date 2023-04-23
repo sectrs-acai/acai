@@ -10,4 +10,4 @@ do
 done
 
 
-sudo ./fpga_usr_manager $pid_target
+sudo nice -20 taskset -c 3 ./fpga_usr_manager $pid_target
