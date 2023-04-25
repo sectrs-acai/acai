@@ -2,7 +2,9 @@
 /*
  * if GPU__GDEV_BUS_ENC is set,
  * we use wrapper functions which do gpu encryption
- * on x86 side. If unset we forward call to gdev.
+ * on x86 side. This should account for a bus-encryption style
+ * encryption approach, as an alternative to pure software encryption
+ * within the FVP. If unset we forward call to gdev.
  */
 #ifdef GPU__GDEV_BUS_ENC
 #define gpu__gmalloc enc__gmalloc
@@ -20,7 +22,8 @@ uint64_t enc__gfree_dma(Ghandle h, void *buf);
 int enc__gmemcpy_to_device(Ghandle h, uint64_t dst_addr, const void *src_buf, uint64_t size);
 int enc__gmemcpy_from_device(Ghandle h, void *dst_buf, uint64_t src_addr, uint64_t size);
 int enc__glaunch(Ghandle h, struct gdev_kernel *kernel, uint32_t *id);
-
+Ghandle enc__gopen(int minor);
+int enc__gclose(Ghandle h);
 
 #else
 #define gpu__gmalloc gmalloc

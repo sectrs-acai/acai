@@ -1,6 +1,16 @@
 #include "gdev_api.h"
 #include "gpu_enc.h"
 
+inline Ghandle enc__gopen(int minor)
+{
+    return gopen(minor);
+}
+
+inline int enc__gclose(Ghandle h)
+{
+    return gclose(h);
+}
+
 inline uint64_t enc__gmalloc(Ghandle h, uint64_t size)
 {
     return gmalloc(h, size);
