@@ -17,6 +17,7 @@
 #include "gdev_ioctl_debug.h"
 #include "fh_fixup_header.h"
 #include "bench/gpu_bench.h"
+#include "gpu_enc.h"
 
 /*
  * set to 1 to increase trace
@@ -213,7 +214,7 @@ inline static ssize_t gpu__ioctl_gmemcpy_to_dev(ctx_struct ctx,
     }
 
     BENCH_START();
-    ret = gmemcpy_to_device(handle, dma_dst_addr, target_buf, nbytes_tot);
+    ret = gpu__gmemcpy_to_device(handle, dma_dst_addr, target_buf, nbytes_tot);
     BENCH_STOP(BENCH_DEVICE_IOCTL_HOST_TO_DEV);
 
     if (ret < 0) {
@@ -246,7 +247,7 @@ inline static ssize_t gpu__ioctl_gmemcpy_from_dev(ctx_struct ctx,
     }
 
     BENCH_START();
-    ret = gmemcpy_from_device(handle, dma_buf, dma_src_addr, nbytes_tot);
+    ret = gpu__gmemcpy_from_device(handle, dma_buf, dma_src_addr, nbytes_tot);
     BENCH_STOP(BENCH_DEVICE_IOCTL_DEV_TO_HOST);
 
     if (ret < 0) {
@@ -289,7 +290,7 @@ inline static ssize_t gpu__ioctl_launch(ctx_struct ctx,
     kernel->name = (char *) name;
 
     BENCH_START();
-    ret = glaunch(handle, kernel, &a->glaunch.id);
+    ret = gpu__glaunch(handle, kernel, &a->glaunch.id);
     BENCH_STOP(BENCH_DEVICE_IOCTL_LAUNCH);
 
     print_progress("glaunch id: %d\n", a->glaunch.id);
@@ -305,7 +306,7 @@ inline static ssize_t gpu__ioctl_tune(ctx_struct ctx,
     ssize_t ret = 0;
 
     BENCH_START();
-    ret = gtune(handle, a->gtune.req.type, a->gtune.req.value);
+    ret = gpu__gtune(handle, a->gtune.req.type, a->gtune.req.value);
     BENCH_STOP(BENCH_DEVICE_IOCTL_TUNE);
 
     #if 0
@@ -331,7 +332,7 @@ inline static ssize_t gpu__ioctl_query(ctx_struct ctx,
     ssize_t ret;
 
     BENCH_START();
-    ret = gquery(handle, a->gquery.req.type, &a->gquery.req.result);
+    ret = gpu__gquery(handle, a->gquery.req.type, &a->gquery.req.result);
     BENCH_STOP(BENCH_DEVICE_IOCTL_QUERY);
 
     if (GPU_TRACE_PRINT) {
@@ -347,7 +348,7 @@ inline static ssize_t gpu__ioctl_memalloc(ctx_struct ctx,
     ssize_t ret = 0;
 
     BENCH_START();
-    a->gmalloc.req.addr = gmalloc(handle, a->gmalloc.req.size);
+    a->gmalloc.req.addr = gpu__gmalloc(handle, a->gmalloc.req.size);
     BENCH_STOP(BENCH_DEVICE_IOCTL_MEMALLOC);
 
     ret = 0;
@@ -364,7 +365,7 @@ inline static ssize_t gpu__ioctl_free(ctx_struct ctx,
     ssize_t ret = 0;
 
     BENCH_START();
-    a->gmalloc.req.size = gfree(handle, a->gfree.req.addr);
+    a->gmalloc.req.size = gpu__gfree(handle, a->gfree.req.addr);
     BENCH_STOP(BENCH_DEVICE_IOCTL_FREE);
 
     if (GPU_TRACE_PRINT) {
@@ -384,7 +385,7 @@ inline static ssize_t gpu__ioctl_virtget(ctx_struct ctx,
     TRACE_PRINT("addr: %lx\n", addr);
 
     BENCH_START();
-    size_t phy_addr = gvirtget(handle, addr);
+    size_t phy_addr = gpu__gvirtget(handle, addr);
     BENCH_STOP(BENCH_DEVICE_IOCTL_VIRTGET);
 
     a->gvirtget.req.phys = phy_addr;
@@ -402,7 +403,7 @@ inline static ssize_t gpu__ioctl_sync(ctx_struct ctx,
     const uint32_t id = a->gsync.id;
 
     BENCH_START();
-    ret = gsync(handle, id, timeout);
+    ret = gpu__gsync(handle, id, timeout);
     BENCH_STOP(BENCH_DEVICE_IOCTL_SYNC);
 
     return ret;
@@ -418,7 +419,7 @@ inline static ssize_t gpu__ioctl_malloc_dma(ctx_struct ctx,
                                             pid_t target_pid)
 {
     ssize_t ret = 0;
-    void *addr = (void *) gmalloc_dma(handle, a->gmalloc_dma.req.size);
+    void *addr = (void *) gpu__gmalloc_dma(handle, a->gmalloc_dma.req.size);
 
     a->gmalloc_dma.req.addr = 0;
 
@@ -485,7 +486,7 @@ inline static ssize_t gpu__ioctl_barrier(ctx_struct ctx,
 {
     ssize_t ret = 0;
     BENCH_START();
-    ret = gbarrier(handle);
+    ret = gpu__gbarrier(handle);
     BENCH_STOP(BENCH_DEVICE_IOCTL_BARRIER);
     return ret;
 }
@@ -520,7 +521,7 @@ inline static ssize_t gpu__ioctl_free_dma(ctx_struct ctx,
 #endif
 
 #if 1
-    // size_t size = gfree_dma(handle, addr);
+    // size_t size = gpu__gfree_dma(handle, addr);
     // a->gfree_dma.req.size = size;
     a->gfree_dma.req.size = 0x1337;
 #else
@@ -613,7 +614,7 @@ inline static void fault__open_dev(
     bench__init();
 
     BENCH_START();
-    Ghandle h = gopen(0);
+    Ghandle h = gpu__gopen(0);
     BENCH_STOP(BENCH_DEVICE_OPEN);
 
     if (h == NULL) {
@@ -672,7 +673,7 @@ inline static void fault__close_dev(
     }
 
     BENCH_START();
-    ret = gclose(handle);
+    ret = gpu__gclose(handle);
     BENCH_STOP(BENCH_DEVICE_CLOSE);
 
     /*

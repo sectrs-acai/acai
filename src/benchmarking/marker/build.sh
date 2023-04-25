@@ -3,4 +3,4 @@
 HERE=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $HERE/../../../scripts/env-aarch64.sh
 
-aarch64-none-linux-gnu-gcc start_tracing.c -o start_tracing.o
+aarch64-none-linux-gnu-gcc reset_tracing.c -o reset_tracing
