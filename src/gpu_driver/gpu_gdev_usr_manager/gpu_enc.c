@@ -28,7 +28,11 @@
 #define GPU_BLOCK_SIZE (uint64_t)(256 * 16)
 #define GPU_BLOCK_MASK (GPU_BLOCK_SIZE - 1)
 
-static unsigned char h_key[33], h_IV[33];
+/*
+ * XXX: static key and static IV!
+ */
+static unsigned char h_key[33] = "0123456789abcdeF0123456789abcdeF";
+static unsigned char h_IV[33] = "12345678876543211234567887654321";
 
 // key: device mem pointer
 static GHashTable *enc__hash_alloc = NULL;
@@ -322,8 +326,6 @@ inline int enc__gmemcpy_from_device(Ghandle h, void *dst_buf, uint64_t src_addr,
         ERROR_PRINT("aes256_ctr_decrypt failed for dst_addr %lx, size: %lx\n", src_addr, size);
         return -1;
     }
-
-
     return gmemcpy_from_device(h, dst_buf, src_addr, size);
 }
 

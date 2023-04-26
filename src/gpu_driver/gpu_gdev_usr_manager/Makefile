@@ -8,16 +8,16 @@ SHELL := /bin/bash
 #
 # XXX: We do O0 on purpose so that compiler does not intferere with benchmark code
 #
-CFLAGS += -ggdb3 -O0 -Wno-unused-function -Wno-unused-result -Wno-unused-function -Wno-format
-INC += -I./fpga_escape_libhook/../fh_host -I./fpga_escape_libhook/ -I./../gdev-guest/mod/gdev/ -I./include $(shell pkg-config --cflags --libs glib-2.0)
+CFLAGS += -ggdb3 -O2 -Wno-unused-function -Wno-unused-result -Wno-unused-function -Wno-format
+INC += -I./fpga_escape_libhook/../fh_host -I./fpga_escape_libhook/ -I./../gdev-guest/mod/gdev/ -I./include
 USR_MNGR_BASE := ./fpga_escape_libhook/usr_manager.c
 
 #
 # unlike fpga manager we cant compile this statically
 # because libdrm has no static lib support
 #
-# XXX: STAGIND_DIR is provided by buildroot
-LIBS += -lpthread -lgdev -L$(STAGING_DIR)/usr/local/gdev/lib64 -lscanmem
+# XXX: STAGING_DIR is provided by buildroot
+LIBS += -lpthread -lgdev -L$(STAGING_DIR)/usr/local/gdev/lib64 -lscanmem -lcrypto -lglib-2.0 $(shell pkg-config --cflags --libs glib-2.0)
 
 all: gpu_gdev_usr_manager
 
