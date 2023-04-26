@@ -9,7 +9,7 @@ SHELL := /bin/bash
 # XXX: We do O0 on purpose so that compiler does not intferere with benchmark code
 #
 CFLAGS += -ggdb3 -O0 -Wno-unused-function -Wno-unused-result -Wno-unused-function -Wno-format
-INC += -I./fpga_escape_libhook/../fh_host -I./fpga_escape_libhook/ -I./../gdev-guest/mod/gdev/ -I./include
+INC += -I./fpga_escape_libhook/../fh_host -I./fpga_escape_libhook/ -I./../gdev-guest/mod/gdev/ -I./include $(shell pkg-config --cflags --libs glib-2.0)
 USR_MNGR_BASE := ./fpga_escape_libhook/usr_manager.c
 
 #
@@ -20,6 +20,13 @@ USR_MNGR_BASE := ./fpga_escape_libhook/usr_manager.c
 LIBS += -lpthread -lgdev -L$(STAGING_DIR)/usr/local/gdev/lib64 -lscanmem
 
 all: gpu_gdev_usr_manager
+
+ENCRYPT=1
+
+ifdef ENCRYPT
+CFLAGS += -DGPU__GDEV_BUS_ENC
+$(warning Compiling with encryption on x86-style approach)
+endif
 
 update_headers:
 	cp -rf ./gdev-guest/headers/* include/
