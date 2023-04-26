@@ -8,7 +8,7 @@ SHELL := /bin/bash
 #
 # XXX: We do O0 on purpose so that compiler does not intferere with benchmark code
 #
-CFLAGS += -ggdb3 -O2 -Wno-unused-function -Wno-unused-result -Wno-unused-function -Wno-format
+CFLAGS += -ggdb3 -O0 -Wno-unused-function -Wno-unused-result -Wno-unused-function -Wno-format
 INC += -I./fpga_escape_libhook/../fh_host -I./fpga_escape_libhook/ -I./../gdev-guest/mod/gdev/ -I./include
 USR_MNGR_BASE := ./fpga_escape_libhook/usr_manager.c
 
@@ -16,22 +16,15 @@ USR_MNGR_BASE := ./fpga_escape_libhook/usr_manager.c
 # unlike fpga manager we cant compile this statically
 # because libdrm has no static lib support
 #
-# XXX: STAGING_DIR is provided by buildroot
-LIBS += -lpthread -lgdev -L$(STAGING_DIR)/usr/local/gdev/lib64 -lscanmem -lcrypto -lglib-2.0 $(shell pkg-config --cflags --libs glib-2.0)
+# XXX: STAGIND_DIR is provided by buildroot
+LIBS += -lpthread -lgdev -L$(STAGING_DIR)/usr/local/gdev/lib64 -lscanmem
 
 all: gpu_gdev_usr_manager
-
-ENCRYPT=1
-
-ifdef ENCRYPT
-CFLAGS += -DGPU__GDEV_BUS_ENC
-$(warning Compiling with encryption on x86-style approach)
-endif
 
 update_headers:
 	cp -rf ./gdev-guest/headers/* include/
 
-gpu_gdev_usr_manager: $(USR_MNGR_BASE) gpu_comm.c bench/gpu_bench.c gpu_enc.c
+gpu_gdev_usr_manager: $(USR_MNGR_BASE) gpu_comm.c bench/gpu_bench.c
 	cp -rf ./gdev-guest/headers/* include/ || true
 	$(CC) $(CFLAGS) $(INC) -o $@ $^ $(LIBS)
 
