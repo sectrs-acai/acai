@@ -6,7 +6,7 @@ host=armcca@192.33.93.245
 target=/home/armcca/trusted-peripherals/src/gpu_driver/
 ignore="$script_dir/.sync-ignore"
 
-cd $ROOT_DIR/src/gpu_driver/rodinia-bench
+cd $sync_dir
 set -x
 
 echo $sync_dir

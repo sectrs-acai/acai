@@ -15,6 +15,24 @@ from os.path import isfile, join
 script_dir = os.path.dirname(os.path.realpath(__file__))
 
 
+# # T110 Times
+# # T110; type; name; number-of-calls; timing (rdtsc ticks)
+# T110; 0; unknown; 0; 0
+# T110; 1; BENCH_DEVICE_OPEN; 1; 15345448
+# T110; 2; BENCH_DEVICE_CLOSE; 1; 110757096
+# T110; 3; BENCH_DEVICE_IOCTL_QUERY; 4; 22908
+# T110; 4; BENCH_DEVICE_IOCTL_MEMALLOC; 5; 1326616
+# T110; 5; BENCH_DEVICE_IOCTL_FREE; 5; 729288
+# T110; 6; BENCH_DEVICE_IOCTL_VIRTGET; 0; 0
+# T110; 7; BENCH_DEVICE_IOCTL_SYNC; 198; 152722
+# T110; 8; BENCH_DEVICE_IOCTL_TUNE; 1; 614502
+# T110; 9; BENCH_DEVICE_IOCTL_HOST_TO_DEV; 4; 1855684
+# T110; 10; BENCH_DEVICE_IOCTL_DEV_TO_HOST; 3; 2505660
+# T110; 11; BENCH_DEVICE_IOCTL_LAUNCH; 198; 34874302
+# T110; 12; BENCH_DEVICE_IOCTL_BARRIER; 5; 540444
+# T110; 13; unknown; 0; 0
+# T110; 14; unknown; 0; 0
+# T111; total rdtsc ticks; 168724670
 class Benchmark:
     def __init__(self, traces, name=''):
         self.traces: [GpuTrace] = traces
