@@ -11,6 +11,7 @@
 #include <openssl/err.h>
 #include <glib.h>
 #include <memory.h>
+#include <assert.h>
 #include "gdev_api.h"
 #include "gpu_enc.h"
 #include "cuda.h"
@@ -31,6 +32,9 @@ static unsigned char h_key[33], h_IV[33];
 
 // key: device mem pointer
 static GHashTable *enc__hash_alloc = NULL;
+
+const size_t KERNEL_ENC_SIZE = (ROUND_UP(0x2000, GPU_BLOCK_SIZE));
+struct dev_buf_with_bb *enc__kernel_bb;
 
 struct dev_buf_with_bb {
     unsigned long dev_ptr;  // device buffer
@@ -62,7 +66,7 @@ static int enc__bb_free(Ghandle handle,
     if (ret_res) {
         *ret_res = res;
     }
-    return res;
+    return 0;
 }
 
 int enc__bb_alloc(Ghandle handle,
@@ -189,16 +193,30 @@ static int aes256_ctr_decrypt(
 inline Ghandle enc__gopen(int minor)
 {
     Ghandle ret = gopen(minor);
+    unsigned long addr;
     enc__hash_alloc = g_hash_table_new(g_direct_hash, g_direct_equal);
     if (enc__hash_alloc == NULL) {
         ERROR_PRINT("g_hash_table_new failed for enc__hash_alloc\n");
+    }
+    addr = enc__gmalloc(ret, KERNEL_ENC_SIZE);
+    if (addr == 0) {
+        ERROR_PRINT("enc__gmalloc failed for KERNEL_ENC_SIZE\n");
+        return NULL;
+    }
+    enc__kernel_bb = g_hash_table_lookup(enc__hash_alloc, (const void *) addr);
+    if (enc__kernel_bb == NULL) {
+        ERROR_PRINT("g_hash_table_lookup failed for kernel_enc_bb\n");
+        return NULL;
     }
     return ret;
 }
 
 inline int enc__gclose(Ghandle h)
 {
-    int ret = gclose(h);
+    int ret = 0;
+
+    enc__gfree(h, enc__kernel_bb->dev_ptr);
+    ret = gclose(h);
     if (enc__hash_alloc != NULL) {
         g_hash_table_destroy(enc__hash_alloc);
     }
@@ -209,6 +227,7 @@ inline uint64_t enc__gmalloc(Ghandle h, uint64_t size)
 {
     int ret;
     struct dev_buf_with_bb *data;
+
     ret = enc__bb_alloc(h, size, &data);
     if (ret != 0) {
         ERROR_PRINT("enc__bb_alloc failed for req size %lx\n", size);
@@ -225,7 +244,7 @@ inline uint64_t enc__gfree(Ghandle h, uint64_t addr)
     struct dev_buf_with_bb *data = g_hash_table_lookup(enc__hash_alloc, (const void *) addr);
     if (data == NULL) {
         ERROR_PRINT("g_hash_table_lookup failed for addr %lx\n", addr);
-        return gfree(h, addr);
+        return -1;
     }
 
     ret = enc__bb_free(h, data, &res);
@@ -247,17 +266,90 @@ inline uint64_t enc__gfree_dma(Ghandle h, void *buf)
     return gfree_dma(h, buf);
 }
 
-inline int enc__gmemcpy_to_device(Ghandle h, uint64_t dst_addr, const void *src_buf, uint64_t size)
+inline int enc__gmemcpy_to_device(Ghandle h,
+                                  uint64_t dst_addr,
+                                  const void *src_buf,
+                                  uint64_t size)
 {
+    int ret = 0;
+    int clen;
+    // const unsigned int bb_bufsize = ROUND_UP(size, GPU_BLOCK_SIZE);
+    struct dev_buf_with_bb *data = g_hash_table_lookup(enc__hash_alloc, (const void *) dst_addr);
+    if (data == NULL) {
+        ERROR_PRINT("enc__gmemcpy_to_device: g_hash_table_lookup failed for addr %lx\n", dst_addr);
+        return -1;
+    }
+    ret = aes256_ctr_encrypt(
+        data->host_bb, // c
+        &clen,
+        src_buf,  // m
+        size,
+        h_IV,
+        h_key);
+    if (ret != EXIT_SUCCESS)  {
+        ERROR_PRINT("aes256_ctr_encrypt failed for dst_addr %lx, size: %lx\n", dst_addr, size);
+        return -1;
+    }
+
+    /* TODO launch decrypt kernel */
+
     return gmemcpy_to_device(h, dst_addr, src_buf, size);
 }
 
 inline int enc__gmemcpy_from_device(Ghandle h, void *dst_buf, uint64_t src_addr, uint64_t size)
 {
+    int ret = 0;
+    int mlen;
+    const unsigned int bb_bufsize = ROUND_UP(size, GPU_BLOCK_SIZE);
+    struct dev_buf_with_bb *data = g_hash_table_lookup(enc__hash_alloc, (const void *) src_addr);
+    if (data == NULL) {
+        ERROR_PRINT("enc__gmemcpy_from_device: g_hash_table_lookup failed for addr %lx\n",
+                    src_addr );
+        return -1;
+    }
+
+    /* TODO launch enc kernel */
+
+    ret = aes256_ctr_decrypt(
+        dst_buf,
+        &mlen,
+        data->host_bb,
+        size,
+        h_IV,
+        h_key
+    );
+    if (ret != EXIT_SUCCESS) {
+        ERROR_PRINT("aes256_ctr_decrypt failed for dst_addr %lx, size: %lx\n", src_addr, size);
+        return -1;
+    }
+
+
     return gmemcpy_from_device(h, dst_buf, src_addr, size);
 }
 
 inline int enc__glaunch(Ghandle h, struct gdev_kernel *kernel, uint32_t *id)
 {
+    assert(enc__kernel_bb != NULL);
+    int ret = 0;
+    int clen;
+    if (kernel->param_size > KERNEL_ENC_SIZE) {
+        ERROR_PRINT("statically allocated size to encrypt kernel param is not large enough: %lx\n",
+                    kernel->param_size);
+        return -1;
+    }
+    ret = aes256_ctr_encrypt(
+        enc__kernel_bb->host_bb, // c
+        &clen,
+        (const unsigned char *) kernel->param_buf,  // m
+        kernel->param_size,
+        h_IV,
+        h_key);
+    if (ret != EXIT_SUCCESS)  {
+        ERROR_PRINT("aes256_ctr_encrypt failed encrypting kernel params\n");
+        return -1;
+    }
+
+    /* TODO launch decrypt kernel */
+
     return glaunch(h, kernel, id);
 }

@@ -7,6 +7,8 @@
  * within the FVP. If unset we forward call to gdev.
  */
 #ifdef GPU__GDEV_BUS_ENC
+#define gpu__gopen enc__gopen
+#define gpu__gclose enc__gclose
 #define gpu__gmalloc enc__gmalloc
 #define gpu__gfree enc__gfree
 #define gpu__gmalloc_dma enc__gmalloc_dma
@@ -26,6 +28,8 @@ Ghandle enc__gopen(int minor);
 int enc__gclose(Ghandle h);
 
 #else
+#define gpu__gopen gopen
+#define gpu__gclose gclose
 #define gpu__gmalloc gmalloc
 #define gpu__gfree gfree
 #define gpu__gmalloc_dma gmalloc_dma
@@ -35,9 +39,6 @@ int enc__gclose(Ghandle h);
 #define gpu__glaunch glaunch
 #endif
 
-
-#define gpu__gopen gopen
-#define gpu__gclose gclose
 #define gpu__gunmap gunmap
 #define gpu__gmemcpy_to_device_async gmemcpy_to_device_async
 #define gpu__gmemcpy_user_to_device gmemcpy_user_to_device
