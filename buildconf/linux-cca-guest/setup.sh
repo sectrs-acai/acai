@@ -121,6 +121,28 @@ function do_run_fvp {
         --hook=$preload
 }
 
+function do_run_fvp_snapshot {
+    local preload=$ASSETS_DIR/fvp/bin/libhook-libc-2.31.so
+
+    local dir=$ASSETS_DIR/snapshots/
+    local bl1=$dir/bl1.bin
+    local fip=$dir/fip.bin
+    local image=$dir/Image-cca
+    local rootfs=$dir/rootfs-ns.ext2
+    local p9_folder=$ROOT_DIR
+
+    # allow root to access X11
+    xhost local:$USER
+
+    $SCRIPTS_DIR/run_fvp.sh \
+        --bl1=$bl1 \
+        --fip=$fip \
+        --kernel=$image \
+        --rootfs=$rootfs \
+        --p9=$p9_folder \
+        --hook=$preload
+}
+
 function do_compilationdb {
     local buildroot_kernel=$BUILDROOT_OUTPUT_DIR/build/linux-custom
     local src_kernel=$SRC_LINUX
@@ -165,6 +187,9 @@ case "$1" in
         ;;
     run_fvp)
         do_run_fvp
+        ;;
+    run_fvp_snapshot)
+        do_run_fvp_snapshot
         ;;
     compilationdb)
         do_compilationdb
