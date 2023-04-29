@@ -68,6 +68,9 @@ static inline int devmem_delegate_mem_range_device(phys_addr_t addr, unsigned lo
                 }
             }
         }
+    }else{
+        // map the pages here with the smmu driver code.
+        ret = _map_pages_from_sid(31, addr, addr, num_granules);
     }
     return ret;
 }
