@@ -22,6 +22,7 @@
 
 #include <linux/ioctl.h>
 #include <linux/types.h>
+#include <stdbool.h>
 
 #define IOCTL_XDMA_PERF_V1 (1)
 #define XDMA_ADDRMODE_MEMORY (0)

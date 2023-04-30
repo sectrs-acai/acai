@@ -68,3 +68,7 @@ src/gpu
 /bench.so
 /sync/
 /src/benchmarking/plot/data/
+/dmesg
+/src/fpga_driver/xdma/linux-kernel/tools/dma_from_device
+/src/fpga_driver/xdma/linux-kernel/tools/dma_to_device
+/src/fpga_driver/xdma/linux-kernel/tools/performance
