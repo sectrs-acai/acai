@@ -44,7 +44,7 @@ static inline int devmem_delegate_mem_range_device(phys_addr_t addr, unsigned lo
     int ret = 0;
     unsigned long i, testengine_addr;
 
-    if (likely(realm))
+    if (realm)
     {
         ret = rsi_set_addr_range_dev_mem(addr, 1 /* delegate */, num_granules);
         if (ret != 0)
