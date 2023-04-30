@@ -13,6 +13,7 @@
 #include <linux/types.h>
 #include <linux/highmem.h>
 #include <asm/rsi_cmds.h>
+#include "cca_benchmark.h"
 
 ulong param_escape_page = 0;
 ulong param_escape_size = 0;
@@ -49,7 +50,7 @@ static int setup_lookup(void)
 
     if (! unlikely(kallsyms_lookup_name))
     {
-        pr_alert("Could not retrieve kallsyms_lookup_name address\n");
+        xdma_error("Could not retrieve kallsyms_lookup_name address\n");
         return - ENXIO;
     }
     #endif
@@ -58,20 +59,20 @@ static int setup_lookup(void)
     _soft_offline_page = (void *) kallsyms_lookup_name("soft_offline_page");
     if (_soft_offline_page == NULL)
     {
-        pr_info("lookup failed soft_offline_page\n");
+        xdma_error("lookup failed soft_offline_page\n");
         return - ENXIO;
     }
     _take_page_off_buddy = (void *) kallsyms_lookup_name("take_page_off_buddy");
     if (_take_page_off_buddy == NULL)
     {
-        pr_info("lookup failed _take_page_off_buddy\n");
+        xdma_error("lookup failed _take_page_off_buddy\n");
         return - ENXIO;
     }
 
     _is_free_buddy_page = (void *) kallsyms_lookup_name("is_free_buddy_page");
     if (_is_free_buddy_page == NULL)
     {
-        pr_info("lookup failed _is_free_buddy_page\n");
+        xdma_error("lookup failed _is_free_buddy_page\n");
         return - ENXIO;
     }
     #endif
@@ -82,6 +83,7 @@ static int setup_lookup(void)
 int fh_char_open(struct inode *inode, struct file *file)
 {
     int ret;
+    CCA_MARKER_DRIVER_FOP;
     struct faulthook_priv_data *info = kmalloc(sizeof(struct faulthook_priv_data), GFP_KERNEL);
     if (info == NULL)
     {
@@ -98,7 +100,7 @@ int fh_char_open(struct inode *inode, struct file *file)
     ret = fh_do_faulthook(FH_ACTION_OPEN_DEVICE);
     if (ret < 0)
     {
-        pr_info("fh_do_faulthook(FH_ACTION_OPEN_DEVICE) failed\n");
+        xdma_error("fh_do_faulthook(FH_ACTION_OPEN_DEVICE) failed\n");
         goto clean_up;
     }
     if (a->common.ret < 0)
@@ -122,6 +124,7 @@ int fh_char_open(struct inode *inode, struct file *file)
 int fh_char_close(struct inode *inode, struct file *file)
 {
     int ret;
+    CCA_MARKER_DRIVER_FOP;
     fd_data_lock();
     struct faulthook_priv_data *info = file->private_data;
     struct action_openclose_device *a = (struct action_openclose_device *) &fd_data->data;
@@ -153,7 +156,7 @@ static int fh_verify_mapping(void)
     struct zone *zone;
     unsigned long flags = 0;
 
-    pr_info("fvp_escape mapping fixup FH_ACTION_GET_EMPTY_MAPPINGS\n");
+    xdma_trace("fvp_escape mapping fixup FH_ACTION_GET_EMPTY_MAPPINGS\n");
     fd_data_lock();
     struct action_empty_mappings *a = (struct action_empty_mappings *) &fd_data->data;
     a->last_pfn = 0;
@@ -193,7 +196,7 @@ static int fh_verify_mapping(void)
                         ret = _soft_offline_page(pfn, 0);
                         if (ret != 0)
                         {
-                            pr_info("_soft_offline_page failed for %lx: %d\n", pfn, ret);
+                            xdma_error("_soft_offline_page failed for %lx: %d\n", pfn, ret);
                         }
                         pages_offline ++;
                     } else
@@ -206,7 +209,7 @@ static int fh_verify_mapping(void)
             }
         }
     } while (a->last_pfn != 0);
-    pr_info("pages put soft offline=%d, pages busy=%d, pages no mapping=%d\n",
+    xdma_info("pages put soft offline=%d, pages busy=%d, pages no mapping=%d\n",
             pages_offline, pages_busy, pages_no_mapping);
 
     clean_up:
@@ -218,8 +221,8 @@ int faulthook_init(void)
 {
     if (param_escape_page > 0)
     {
-        pr_info("Overwriting fvp_escape_page=%lx\n", param_escape_page);
-        pr_info("Overwriting fvp_escape_size=%lx\n", param_escape_size);
+        xdma_info("Overwriting fvp_escape_page=%lx\n", param_escape_page);
+        xdma_info("Overwriting fvp_escape_size=%lx\n", param_escape_size);
         fvp_escape_page = (unsigned long *) param_escape_page;
         fvp_escape_size = param_escape_size;
     } else
@@ -227,7 +230,7 @@ int faulthook_init(void)
         memset(&fd_ctx, 0, sizeof(struct faultdata_driver_struct));
         memset(fvp_escape_page, 0, fvp_escape_size);
     }
-    pr_info("faulthook page: %lx+%lx, pfn=%lx, phyaddr=%lx \n",
+    xdma_info("faulthook page: %lx+%lx, pfn=%lx, phyaddr=%lx \n",
             (unsigned long) fvp_escape_page, fvp_escape_size,
             page_to_pfn(virt_to_page(fvp_escape_page)),
             virt_to_phys(fvp_escape_page)
@@ -237,7 +240,7 @@ int faulthook_init(void)
         unsigned long pfn = page_to_pfn(virt_to_page(fvp_escape_page));
         struct page *epage = pfn_to_page(pfn);
         unsigned long *p = kmap(epage);
-        pr_info("%lx=%lx\n", p, *p);
+        xdma_info("%lx=%lx\n", p, *p);
     }
 
     fd_data_lock();
@@ -251,7 +254,7 @@ int faulthook_init(void)
         fh_verify_mapping();
     } else
     {
-        pr_info("Skipping mapping verify\n");
+        xdma_info("Skipping mapping verify\n");
     }
 
     return 0;
@@ -274,7 +277,7 @@ int fh_do_faulthook(int action)
     fd_data->nonce = nonce; /* escape to other world */
     if (fd_data->turn != FH_TURN_GUEST)
     {
-        pr_err("Host did not reply to request. Nonce: 0x%lx. Is host listening?", nonce);
+        xdma_error("Host did not reply to request. Nonce: 0x%lx. Is host listening?", nonce);
         return - ENXIO;
     }
     return 0;
@@ -299,6 +302,7 @@ ssize_t fh_char_ctrl_read(struct file *fp,
 {
     long ret = 0;
     struct faulthook_priv_data *info = fp->private_data;
+    CCA_MARKER_DRIVER_FOP;
 
     fd_data_lock();
     struct action_read *a = (struct action_read *) &fd_data->data;
@@ -310,15 +314,13 @@ ssize_t fh_char_ctrl_read(struct file *fp,
     ret = a->common.ret;
     if (ret < 0)
     {
-        pr_info("faulthook failed\n");
+        xdma_error("faulthook failed\n");
         goto clean_up;
     }
-    pr_info("Got %lx bytes from host read\n", a->buffer_size);
-
     ret = copy_to_user(buf, a->buffer, a->buffer_size);
     if (ret < 0)
     {
-        pr_info("copy_to_user failed\n");
+        xdma_error("copy_to_user failed\n");
         goto clean_up;
     }
     *pos = a->count;
@@ -332,10 +334,9 @@ ssize_t fh_char_ctrl_read(struct file *fp,
 ssize_t fh_char_ctrl_write(struct file *file, const char __user *buf,
                            size_t count, loff_t *pos)
 {
-
-    NOT_SUPPORTED;
     struct faulthook_priv_data *info = file->private_data;
     long ret = 0;
+    CCA_MARKER_DRIVER_FOP;
 
     fd_data_lock();
     struct action_write *a = (struct action_write *) &fd_data->data;
@@ -346,7 +347,7 @@ ssize_t fh_char_ctrl_write(struct file *file, const char __user *buf,
     ret = copy_to_user(a->buffer, buf, a->count);
     if (ret)
     {
-        pr_info("copy to user failed\n");
+        xdma_error("copy to user failed\n");
         goto clean_up;
     }
     fh_do_faulthook(FH_ACTION_WRITE);
@@ -354,10 +355,10 @@ ssize_t fh_char_ctrl_write(struct file *file, const char __user *buf,
     ret = a->common.ret;
     if (ret < 0)
     {
-        pr_info("faulthook failed\n");
+        xdma_error("faulthook failed\n");
         goto clean_up;
     }
-    pr_info("wrote %lx bytes from host write\n", a->buffer_size);
+    xdma_trace("wrote %lx bytes from host write\n", a->buffer_size);
 
     *pos += a->count;
     ret = a->buffer_size;
@@ -375,6 +376,7 @@ long fh_char_ctrl_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
     escape->arg = arg;
 
     NOT_SUPPORTED;
+    CCA_MARKER_DRIVER_FOP;
     return 0;
 }
 
@@ -407,12 +409,12 @@ static void vm_close(struct vm_area_struct *vma)
     ret = fh_do_faulthook(FH_ACTION_UNMAP);
     if (ret < 0)
     {
-        pr_info("host not online");
+        xdma_error("host not online");
         goto clean_up;
     }
     if (escape->common.ret < 0)
     {
-        pr_info("escape failed: %ld\n", escape->common.ret);
+        xdma_error("escape failed: %ld\n", escape->common.ret);
         goto clean_up;
     }
 
@@ -452,6 +454,7 @@ int fh_bridge_mmap(struct file *file, struct vm_area_struct *vma)
     struct faulthook_priv_data *fh_info = file->private_data;
     struct mmap_info *mmap_info = NULL;
     struct action_mmap_device *escape = (struct action_mmap_device *) &fd_data->data;
+    CCA_MARKER_DRIVER_FOP;
 
     mmap_info = kmalloc(GFP_KERNEL, sizeof(struct mmap_info));
     if (mmap_info == NULL)
@@ -464,7 +467,7 @@ int fh_bridge_mmap(struct file *file, struct vm_area_struct *vma)
     if (size <= 0)
     {
         ret = - EINVAL;
-        pr_info("Invalid size: %ld\n", size);
+        xdma_error("Invalid size: %ld\n", size);
         goto err_cleanup;
     }
 
@@ -489,6 +492,7 @@ int fh_bridge_mmap(struct file *file, struct vm_area_struct *vma)
     escape->vm_flags = vma->vm_flags;
     escape->vm_page_prot = (unsigned long) vma->vm_page_prot.pgprot;
     escape->pfn_size = size >> PAGE_SHIFT;
+    CCA_MARKER_MMAP_PAGE(escape->pfn_size);
 
     /*
      * XXX: This assumes contiguous escape buffer.
@@ -504,25 +508,24 @@ int fh_bridge_mmap(struct file *file, struct vm_area_struct *vma)
     ret = fh_do_faulthook(FH_ACTION_MMAP);
     if (ret < 0)
     {
-        pr_info("host not online");
+        xdma_error("host not online");
         goto err_cleanup_rsi;
     }
     if (escape->common.ret < 0)
     {
-        pr_info("escape failed");
+        xdma_error("escape failed");
         ret = escape->common.err_no;
         goto err_cleanup_rsi;
     }
     ret = remap_pfn_range(vma, vma->vm_start, pfn_start, size, vma->vm_page_prot);
     if (ret)
     {
-        pr_info("remap_pfn_range failed");
+        xdma_error("remap_pfn_range failed");
         goto err_cleanup_rsi;
     }
-    #if 0
-    pr_info("map kernel 0x%px to user 0x%lx, size: 0x%lx\n",
+
+    xdma_trace("map kernel 0x%px to user 0x%lx, size: 0x%lx\n",
              mmap_info->data, vma->vm_start, size);
-    #endif
 
     vma->vm_private_data = mmap_info;
 
@@ -633,10 +636,10 @@ int fh_pin_pages(const char __user *buf, size_t count,
 
     if (pages_nr == 0)
     {
-        pr_info("pages_nr invalid\n");
+        xdma_error("pages_nr invalid\n");
         return - EINVAL;
     }
-    pr_info("pinning %ld pages \n", pages_nr);
+    xdma_trace("pinning %ld pages \n", pages_nr);
     pin_pages_alloc_size = sizeof(struct pin_pages_struct *)
             + pages_nr * sizeof(struct page_chunk);
 
@@ -644,7 +647,7 @@ int fh_pin_pages(const char __user *buf, size_t count,
     pin_pages = vmalloc(pin_pages_alloc_size);
     if (! pin_pages)
     {
-        pr_err("pin_pages OOM: \n");
+        xdma_error("pin_pages OOM: \n");
         rv = - ENOMEM;
         goto err_out;
     }
@@ -652,7 +655,7 @@ int fh_pin_pages(const char __user *buf, size_t count,
     pages = vmalloc(pages_nr * sizeof(struct page *));
     if (! pages)
     {
-        pr_err("pages OOM.\n");
+        xdma_error("pages OOM.\n");
         rv = - ENOMEM;
         goto err_out;
     }
@@ -663,12 +666,12 @@ int fh_pin_pages(const char __user *buf, size_t count,
                              pages);
     if (rv < 0)
     {
-        pr_err("unable to pin down %u user pages, %d.\n", pages_nr, rv);
+        xdma_error("unable to pin down %u user pages, %d.\n", pages_nr, rv);
         goto err_out;
     }
     if (rv != pages_nr)
     {
-        pr_err("unable to pin down all %u user pages, %d.\n", pages_nr, rv);
+        xdma_error("unable to pin down all %u user pages, %d.\n", pages_nr, rv);
         rv = - EFAULT;
         goto err_out;
     }
@@ -676,19 +679,17 @@ int fh_pin_pages(const char __user *buf, size_t count,
     {
         if (pages[i - 1] == pages[i])
         {
-            pr_err("duplicate pages, %d, %d.\n", i - 1, i);
+            xdma_error("duplicate pages, %d, %d.\n", i - 1, i);
             rv = - EFAULT;
             goto err_out;
         }
     }
+    CCA_MARKER_PIN_USER_PAGES_WRITE(pages_nr);
     for (i = 0; i < pages_nr; i ++)
     {
         unsigned long offset = offset_in_page(buf);
         unsigned long nbytes = min_t(unsigned int, PAGE_SIZE - offset, len);
         unsigned long pfn = page_to_pfn(pages[i]);
-        #if 0
-        pr_info("pfn: %lx, %lx, %lx\n", pfn, nbytes, offset);
-        #endif
 
         pin_pages->page_chunks[i] = (struct page_chunk) {
                 .addr = pfn,
@@ -701,7 +702,7 @@ int fh_pin_pages(const char __user *buf, size_t count,
     }
     if (len)
     {
-        pr_err("Invalid user buffer length. Cannot map to sgl\n");
+        xdma_error("Invalid user buffer length. Cannot map to sgl\n");
         rv = - EINVAL;
         goto err_out;
     }

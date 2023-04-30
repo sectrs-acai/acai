@@ -22,7 +22,7 @@ topdir := $(shell cd $(src)/.. && pwd)
 
 TARGET_MODULE:=xdma_stub
 
-EXTRA_CFLAGS := -I$(topdir)/include $(XVC_FLAGS)
+EXTRA_CFLAGS := -I$(topdir)/include $(XVC_FLAGS) -Wno-declaration-after-statement -Wno-format -Wno-unused-function -Wno-unused-variable
 ifeq ($(DEBUG),1)
 	EXTRA_CFLAGS += -D__LIBXDMA_DEBUG__
 endif

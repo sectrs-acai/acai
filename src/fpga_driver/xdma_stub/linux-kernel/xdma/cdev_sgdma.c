@@ -83,11 +83,11 @@ static int transfer_chunk_to_host(
     ret = fh_do_faulthook(FH_ACTION_TRANSFER_ESCAPE_DATA);
     if (ret != 0)
     {
-        pr_info("fh_do_faulthook failed\n");
+        xdma_error("fh_do_faulthook failed\n");
         return ret;
     }
     transfer_size = escape->handshake.chunk_size;
-    pr_info("using transfer size : %lx\n", transfer_size);
+    xdma_trace("using transfer size : %lx\n", transfer_size);
 
     size_remain = size;
     ret = 0;
@@ -98,18 +98,18 @@ static int transfer_chunk_to_host(
         escape->chunk.chunk_data_size = transfer;
         size_remain -= transfer;
         escape->status = action_transfer_escape_data_status_transfer_data;
-        pr_info("transfering %ld bytes, remain: %ld\n", transfer, size_remain);
+        xdma_trace("transferring %ld bytes, remain: %ld\n", transfer, size_remain);
 
         ret = fh_do_faulthook(FH_ACTION_TRANSFER_ESCAPE_DATA);
         if (ret != 0)
         {
-            pr_info("fh_do_faulthook failed\n");
+            xdma_error("fh_do_faulthook failed\n");
             break;
         }
     } while (escape->status == action_transfer_escape_data_status_ok && size_remain > 0);
     if (escape->status != action_transfer_escape_data_status_ok)
     {
-        pr_info("transfer failed with status: %d\n", escape->status);
+        xdma_error("transfer failed with status: %d\n", escape->status);
         ret = - 1;
     }
     return ret;
@@ -127,16 +127,16 @@ static int simulate_pci_dma(struct pin_pages_struct *pinned)
     struct scatterlist *sg;
     struct page *page;
 
-    pr_info("simulating pci dma access...\n");
+    xdma_trace("simulating pci dma access...\n");
     sgt = kmalloc(sizeof(struct sg_table), GFP_KERNEL);
     if (sgt == NULL)
     {
-        pr_err("sgl OOM.\n");
+        xdma_error("sgl OOM.\n");
         return - ENOMEM;
     }
     if (sg_alloc_table(sgt, pinned->pages_nr, GFP_KERNEL))
     {
-        pr_err("sgl OOM.\n");
+        xdma_error("sgl OOM.\n");
         return - ENOMEM;
     }
     sg = sgt->sgl;
@@ -145,9 +145,6 @@ static int simulate_pci_dma(struct pin_pages_struct *pinned)
         page = pfn_to_page(pinned->page_chunks[i].addr);
         offset = pinned->page_chunks[i].offset;
         nbytes = pinned->page_chunks[i].nbytes;
-        #if 0
-        pr_info("sg_set_page(pages[%d], %x, %x\n", i, nbytes, offset);
-        #endif
         sg_set_page(sg, page, nbytes, offset);
     }
 
@@ -231,23 +228,29 @@ static ssize_t char_sgdma_read_write(struct file *file,
     int ret, i;
     struct pin_pages_struct *pinned = NULL;
     unsigned long page_chunk_size;
+    CCA_MARKER_DRIVER_FOP;
 
     ret = fh_pin_pages(buf, count, &pinned);
     if (ret != 0)
     {
-        pr_info("pin_pages failed: %d\n", ret);
+        xdma_error("pin_pages failed: %d\n", ret);
         return ret;
+    }
+    if (do_write) {
+        CCA_MARKER_DMA_PAGE_WRITE(pinned->pages_nr);
+    } else {
+        CCA_MARKER_DMA_PAGE_READ(pinned->pages_nr);
     }
     ret = simulate_pci_dma(pinned);
     if (ret < 0)
     {
-        pr_info("simulate_pci_dma failed with: %d. continue\n", ret);
+        xdma_error("simulate_pci_dma failed with: %d. continue\n", ret);
     }
 
     page_chunk_size = pinned->pages_nr * sizeof(struct page_chunk);
     if (sizeof(struct action_dma) + page_chunk_size > fvp_escape_size)
     {
-        pr_info("escape page too small\n");
+        xdma_error("escape page too small\n");
         return - ENOMEM;
     }
 
@@ -258,21 +261,10 @@ static ssize_t char_sgdma_read_write(struct file *file,
                                  FH_ACTION_DMA);
     if (ret < 0)
     {
-        pr_info("transfer_chunk_to_host failed\n");
+        xdma_error("transfer_chunk_to_host failed\n");
         goto clean_up;
     }
-
-    for (i = 0; i < pinned->pages_nr; i ++)
-    {
-        #if 0
-        pr_info("pinned page: %lx, %lx, %lx\n",
-                pinned->page_chunks[i].addr,
-                pinned->page_chunks[i].offset,
-                pinned->page_chunks[i].nbytes);
-        #endif
-    }
-
-
+    
     struct faulthook_priv_data *fh_info = file->private_data;
     struct action_dma *escape = (struct action_dma *) &fd_data->data;
     escape->do_write = do_write;
@@ -282,12 +274,10 @@ static ssize_t char_sgdma_read_write(struct file *file,
     escape->do_aperture = do_aperture;
     escape->pages_nr = pinned->pages_nr;
     escape->user_buf = (char *) buf;
-
-    pr_info("ret = fh_do_faulthook(FH_ACTION_DMA): size: %lx\n", page_chunk_size);
     ret = fh_do_faulthook(FH_ACTION_DMA);
     if (ret < 0)
     {
-        pr_info("fh_do_faulthook(FH_ACTION_DMA) failed\n");
+        xdma_error("fh_do_faulthook(FH_ACTION_DMA) failed\n");
         goto clean_up;
     }
     if (escape->common.ret < 0)
@@ -296,10 +286,6 @@ static ssize_t char_sgdma_read_write(struct file *file,
         goto clean_up;
     }
     ret = escape->common.ret;
-
-    #if 0
-    pr_info("escape->common.ret: %lx\n", ret);
-    #endif
 
     clean_up:
     fd_data_unlock();
@@ -320,7 +306,7 @@ static int ioctl_do_aperture_dma(struct file *file, unsigned long arg,
                         sizeof(struct xdma_aperture_ioctl));
     if (rv < 0)
     {
-        pr_info("failed to copy from userspace\n");
+        xdma_error("failed to copy from userspace\n");
         return - EINVAL;
     }
 
@@ -337,7 +323,7 @@ static int ioctl_do_aperture_dma(struct file *file, unsigned long arg,
                                1);
     if (rv < 0)
     {
-        pr_info("char_sgdma_read_write failed with error: %d\n", rv);
+        xdma_error("char_sgdma_read_write failed with error: %d\n", rv);
     }
     io.error = rv;
     if (rv > 0)
@@ -349,7 +335,7 @@ static int ioctl_do_aperture_dma(struct file *file, unsigned long arg,
                       sizeof(struct xdma_aperture_ioctl));
     if (rv < 0)
     {
-        pr_info("copy_to_user failed\n");
+        xdma_error("copy_to_user failed\n");
         return - EINVAL;
     }
     return io.error;
@@ -381,6 +367,7 @@ static int char_sgdma_close(struct inode *inode, struct file *file)
 static loff_t char_sgdma_llseek(struct file *file, loff_t off, int whence)
 {
     loff_t newpos = 0;
+    CCA_MARKER_DRIVER_FOP;
     switch (whence)
     {
         case 0: /* SEEK_SET */
@@ -400,7 +387,7 @@ static loff_t char_sgdma_llseek(struct file *file, loff_t off, int whence)
         return - EINVAL;
     }
     file->f_pos = newpos;
-            dbg_fops("%s: pos=%lld\n", __func__, (signed long long) newpos);
+    xdma_trace("%s: pos=%lld\n", __func__, (signed long long) newpos);
     return newpos;
 }
 
@@ -408,6 +395,7 @@ static long char_sgdma_ioctl(struct file *file, unsigned int cmd,
                              unsigned long arg)
 {
     int rv = 0;
+    CCA_MARKER_DRIVER_FOP;
     switch (cmd)
     {
         case IOCTL_XDMA_APERTURE_R:
@@ -422,7 +410,7 @@ static long char_sgdma_ioctl(struct file *file, unsigned int cmd,
         }
         default:
         {
-            pr_info("unknown ioctl: %d\n", cmd);
+            xdma_error("unknown ioctl: %d\n", cmd);
             rv = - EINVAL;
             break;
         }

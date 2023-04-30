@@ -4,15 +4,18 @@
 
 int char_open(struct inode *inode, struct file *file) {
     NOT_SUPPORTED;
+    CCA_MARKER_DRIVER_FOP;
     return -EINVAL;
 }
 int char_close(struct inode *inode, struct file *file) {
     NOT_SUPPORTED;
+    CCA_MARKER_DRIVER_FOP;
     return -EINVAL;
 }
 
 int bridge_mmap(struct file *file, struct vm_area_struct *vma) {
     NOT_SUPPORTED;
+    CCA_MARKER_DRIVER_FOP;
     return -EINVAL;
 }
 

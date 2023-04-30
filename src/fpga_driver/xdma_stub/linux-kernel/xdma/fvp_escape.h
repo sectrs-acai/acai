@@ -13,6 +13,16 @@
 #define NOT_SUPPORTED pr_alert("Operation not supported: %s/%s: %d\n", __FILE__, __FUNCTION__, __LINE__)
 #define PTR_FMT "0x%llx"
 
+
+// #define XDMA_DO_PRINT
+#ifdef XDMA_DO_PRINT
+#define xdma_trace(...) pr_info(__VA_ARGS__)
+#else
+#define xdma_trace(...)
+#endif
+#define xdma_error(...) pr_err(__VA_ARGS__)
+#define xdma_info(...) pr_info(__VA_ARGS__)
+
 #if defined(__x86_64__) || defined(_M_X64)
 
 #define faultdata_flush(faultdata) \

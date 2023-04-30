@@ -46,7 +46,7 @@
 #include <linux/uio.h>
 #include <linux/spinlock_types.h>
 #include <linux/delay.h> /* usleep_range */
-
+#include "cca_benchmark.h"
 #include "libxdma.h"
 #include "xdma_thread.h"
 #include "fvp_escape.h"
