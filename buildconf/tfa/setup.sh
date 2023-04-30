@@ -21,7 +21,7 @@ function do_run_tests {
 }
 
 function do_build_linux {
-    make -f ./Makefile linux
+    make -f ./Makefile linux DEBUG=0
 }
 
 function do_run_linux {

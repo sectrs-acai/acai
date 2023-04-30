@@ -16,8 +16,8 @@ set -x
 
 cd $ROOT_DIR
 ssh $host mkdir -p $target_dir
-sync $ASSETS_DIR/tfa/
-sync $OUTPUT_LINUX_CCA_GUEST_DIR/images/
+#sync $ASSETS_DIR/tfa/
+#sync $OUTPUT_LINUX_CCA_GUEST_DIR/images/
 sync $ASSETS_DIR/snapshots
 
 # shrinkwrap output
