@@ -76,6 +76,8 @@ function do_kvmtool {
     update_overlay_kvmtool
 
     set -x
+    cd $ROOT_DIR/src/kvmtool/kvmtool
+    make clean
     cd $SCRIPT_DIR
     $SHRINKWRAP_EXE build kvmtool-base.yaml  --overlay ${OVERLAY_KVMTOOL}
     cp $HOME/.shrinkwrap/package/kvmtool-base/lkvm $ASSETS_DIR/snapshots
