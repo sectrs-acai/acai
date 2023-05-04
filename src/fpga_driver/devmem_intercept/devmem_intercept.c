@@ -14,6 +14,12 @@ module_param(realm, int, 0);
 static int debug = 0;
 module_param(debug, int, 0);
 
+static int no_delegate = 0;
+module_param(no_delegate, int, 0);
+
+static int kprobe = 1;
+module_param(kprobe, int, 0);
+
 /* whether to verify devmem delegate with smmu test engine */
 static int testengine = 0;
 module_param(testengine, int, 0);
@@ -22,6 +28,12 @@ module_param(testengine, int, 0);
 
 #define STR(s) #s
 #define CCA_MARKER(marker) __asm__ volatile("MOV XZR, " STR(marker))
+
+#define CCA_DEVMEM_DELEGATE_RANGE CCA_MARKER(0x300)
+#define CCA_DEVMEM_UNDELEGATE_RANGE CCA_MARKER(0x301)
+
+#define DEVMEM_DELEGATE 1
+#define DEVMEM_UNDELEGATE 0
 
 /*
  * hook for:
@@ -40,13 +52,27 @@ struct kprobe dma_map_sg_attrs_probe;
 /* for dma_unmap_sg_attrs(d, s, n, r, 0) */
 struct kprobe dma_unmap_sg_attrs_probe;
 
-static inline int devmem_delegate_mem_range_device(phys_addr_t addr, unsigned long num_granules) {
+int devmem_delegate_mem_range_device(
+    phys_addr_t addr,
+    unsigned long num_granules,
+    int do_delegate) {
+
     int ret = 0;
     unsigned long i, testengine_addr;
 
+    if (no_delegate) {
+        return 0;
+    }
+
     if (realm)
     {
-        ret = rsi_set_addr_range_dev_mem(addr, 1 /* delegate */, num_granules);
+        if (do_delegate) {
+            CCA_DEVMEM_DELEGATE_RANGE;
+        } else {
+            CCA_DEVMEM_UNDELEGATE_RANGE;
+        }
+
+        ret = rsi_set_addr_range_dev_mem(addr, num_granules, do_delegate);
         if (ret != 0)
         {
             debug_print("rsi_set_addr_dev_mem delegate failed for %lx\n", addr);
@@ -69,15 +95,22 @@ static inline int devmem_delegate_mem_range_device(phys_addr_t addr, unsigned lo
             }
         }
     }else{
-        // map the pages here with the smmu driver code.
-        ret = _map_pages_from_sid(31, addr, addr, num_granules);
+        /* TODO: How to undelegate through SMMU? */
+        if (do_delegate) {
+            // map the pages here with the smmu driver code.
+            ret = _map_pages_from_sid(31, addr, addr, num_granules);
+        }
     }
     return ret;
 }
 
-static inline int devmem_delegate_mem_device(phys_addr_t addr)
+int devmem_delegate_mem_device(phys_addr_t addr)
 {
     int ret = 0;
+    if (no_delegate) {
+        return 0;
+    }
+
     if (realm)
     {
         ret = rsi_set_addr_dev_mem(addr, 1 /* delegate */);
@@ -101,10 +134,12 @@ static inline int devmem_delegate_mem_device(phys_addr_t addr)
     return ret;
 }
 
-static inline int devmem_undelegate_mem_device(phys_addr_t addr)
+int devmem_undelegate_mem_device(phys_addr_t addr)
 {
-
     int ret = 0;
+    if (no_delegate) {
+        return 0;
+    }
     if (realm)
     {
         ret = rsi_set_addr_dev_mem(addr, 0 /* undelegate */);
@@ -154,9 +189,10 @@ static void post_remap_pfn_range(struct kprobe *p, struct pt_regs *regs,
     #endif
 }
 
-static inline int devmem_delegate_mem_range_sgl(
+int devmem_delegate_mem_range_sgl(
     struct scatterlist *sg,
-    int nents_tot
+    int nents_tot,
+    int do_delegate /* =1 do delete, 0 do undelegate */
     ) {
     struct scatterlist *sg_start;
     unsigned long base;
@@ -191,10 +227,11 @@ static inline int devmem_delegate_mem_range_sgl(
             pr_info("base %lx entr: %ld\n", base, base_nents);
         }
         #endif
-        devmem_delegate_mem_range_device(base, base_nents);
+        devmem_delegate_mem_range_device(base, base_nents,  do_delegate);
     }
     return 0;
 }
+EXPORT_SYMBOL(devmem_delegate_mem_range_sgl);
 
 static int pre_dma_map_sg_attrs(struct kprobe *p, struct pt_regs *regs)
 {
@@ -217,7 +254,7 @@ static int pre_dma_map_sg_attrs(struct kprobe *p, struct pt_regs *regs)
      * XXX: We may want to sort it too to exploit more range behavior
      */
     #if 1
-    devmem_delegate_mem_range_sgl(sg, nents);
+    devmem_delegate_mem_range_sgl(sg, nents, /* delegate */ 1);
     #else
     for (i = 0; i < nents; i ++, sg = sg_next(sg))
     {
@@ -257,7 +294,9 @@ static int pre_dma_unmap_sg_attrs(struct kprobe *p, struct pt_regs *regs)
     enum dma_data_direction dir = (enum dma_data_direction) regs->regs[3];
     unsigned long attrs = regs->regs[4];
 
-    debug_print("pre_dma_unmap_sg_attrs dev %lx, sg %lx, nents %lx, dir: %lx, attr %lx\n",
+    /* no undelegate */
+    #if 0
+    pr_info("pre_dma_unmap_sg_attrs dev %lx, sg %lx, nents %lx, dir: %lx, attr %lx\n",
             dev, sg, nents, dir, attrs);
 
     for (i = 0; i < nents; i ++, sg = sg_next(sg))
@@ -266,6 +305,12 @@ static int pre_dma_unmap_sg_attrs(struct kprobe *p, struct pt_regs *regs)
             devmem_undelegate_mem_device(page_to_phys(sg_page(sg) + j));
         }
     }
+    #endif
+    #if 0
+    // undelegate range
+    devmem_delegate_mem_range_sgl(sg, nents, /* delegate */ 0);
+    #endif
+
     return 0;
 }
 
@@ -282,12 +327,14 @@ static int devmem_register_kprobes(void)
     remap_pfn_range_probe.pre_handler = pre_remap_pfn_range;
     remap_pfn_range_probe.post_handler = post_remap_pfn_range;
     remap_pfn_range_probe.symbol_name = "remap_pfn_range";
+    #if 0
     ret = register_kprobe(&remap_pfn_range_probe);
-
     if (ret != 0)
     {
         pr_err("mmap_probe kprobe failed\n");
     }
+    #endif
+
     memset(&dma_map_sg_attrs_probe, 0, sizeof(dma_map_sg_attrs_probe));
     dma_map_sg_attrs_probe.pre_handler = pre_dma_map_sg_attrs;
     dma_map_sg_attrs_probe.post_handler = post_dma_map_sg_attrs;
@@ -297,7 +344,10 @@ static int devmem_register_kprobes(void)
     {
         pr_err("dma_map_sg_attrs_probe kprobe failed\n");
     }
-    memset(&dma_unmap_sg_attrs_probe, 0, sizeof(dma_unmap_sg_attrs_probe));
+
+        memset(&dma_unmap_sg_attrs_probe, 0, sizeof(dma_unmap_sg_attrs_probe));
+
+    #if 1
     dma_unmap_sg_attrs_probe.pre_handler = pre_dma_unmap_sg_attrs;
     dma_unmap_sg_attrs_probe.post_handler = post_dma_unmap_sg_attrs;
     dma_unmap_sg_attrs_probe.symbol_name = "dma_unmap_sg_attrs";
@@ -306,12 +356,15 @@ static int devmem_register_kprobes(void)
     {
         pr_err("dma_unmap_sg_attrs_probe kprobe failed\n");
     }
+    #endif
     return ret;
 }
 
 static void devmem_unregister_kprobes(void)
 {
+    #if 0
     unregister_kprobe(&remap_pfn_range_probe);
+    #endif
     unregister_kprobe(&dma_map_sg_attrs_probe);
     unregister_kprobe(&dma_unmap_sg_attrs_probe);
 }
@@ -356,7 +409,7 @@ static void _test(void) {
         nbytes_left -= PAGE_SIZE;
     }
 
-    devmem_delegate_mem_range_sgl(sgt->sgl, pages_nr);
+    devmem_delegate_mem_range_sgl(sgt->sgl, pages_nr, 1);
     kfree(buffer);
     sg_free_table(sgt);
 }
@@ -368,6 +421,8 @@ static int devmem_init(void)
     pr_info("realm=%d\n", realm);
     pr_info("testengine verify=%d\n", testengine);
     pr_info("debug=%d\n", debug);
+    pr_info("no_delegate=%d\n", no_delegate);
+    pr_info("kprobe=%d\n", kprobe);
 
     #if defined(__x86_64__) || defined(_M_X64)
     #else
@@ -379,12 +434,16 @@ static int devmem_init(void)
     }
     #endif
 
-    ret = devmem_register_kprobes();
-    if (ret < 0)
-    {
-        return ret;
+    if (kprobe) {
+        ret = devmem_register_kprobes();
+        if (ret < 0)
+        {
+            return ret;
+        }
+        pr_info("kprobes registered\n");
+    } else {
+        pr_info("kprobe=0, no kprobe registered. Use explicit calls\n");
     }
-    pr_info("kprobes registered\n");
 
     #if 0
     _test();
@@ -395,7 +454,9 @@ static int devmem_init(void)
 static void devmem_exit(void)
 {
     pr_info("monitor intercept exit");
-    devmem_unregister_kprobes();
+    if (kprobe) {
+        devmem_unregister_kprobes();
+    }
 }
 
 module_init(devmem_init)
