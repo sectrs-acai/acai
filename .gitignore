@@ -72,3 +72,7 @@ src/gpu
 /src/fpga_driver/xdma/linux-kernel/tools/dma_from_device
 /src/fpga_driver/xdma/linux-kernel/tools/dma_to_device
 /src/fpga_driver/xdma/linux-kernel/tools/performance
+/tmp2/
+/src/benchmarking/marker/start
+/src/benchmarking/marker/stop
+/stop

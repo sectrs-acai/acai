@@ -62,7 +62,7 @@ static void async_io_handler(unsigned long  cb_hndl, int err)
 	int rv;
 
 	if (caio == NULL) {
-		pr_err("Invalid work struct\n");
+        xdma_error("Invalid work struct\n");
 		return;
 	}
 
@@ -74,12 +74,12 @@ static void async_io_handler(unsigned long  cb_hndl, int err)
 	/* Safeguarding for cancel requests */
 	lock_stat = spin_trylock(&caio->lock);
 	if (!lock_stat) {
-		pr_err("caio lock not acquired\n");
+		xdma_error("caio lock not acquired\n");
 		goto skip_dev_lock;
 	}
 
 	if (false != caio->cancel) {
-		pr_err("skipping aio\n");
+		xdma_error("skipping aio\n");
 		goto skip_tran;
 	}
 
@@ -156,7 +156,7 @@ static loff_t char_sgdma_llseek(struct file *file, loff_t off, int whence)
 	dbg_fops("%s: pos=%lld\n", __func__, (signed long long)newpos);
 
 #if 0
-	pr_err("0x%p, off %lld, whence %d -> pos %lld.\n",
+	xdma_error("0x%p, off %lld, whence %d -> pos %lld.\n",
 		file, (signed long long)off, whence, (signed long long)off);
 #endif
 
@@ -182,7 +182,7 @@ static int check_transfer_align(struct xdma_engine *engine,
 	const char __user *buf, size_t count, loff_t pos, int sync)
 {
 	if (!engine) {
-		pr_err("Invalid DMA engine\n");
+		xdma_error("Invalid DMA engine\n");
 		return -EINVAL;
 	}
 
@@ -265,7 +265,7 @@ static void char_sgdma_unmap_user_buf(struct xdma_io_cb *cb, bool write)
 	}
 
 	if (i != cb->pages_nr)
-		pr_info("sgl pages %d/%u.\n", i, cb->pages_nr);
+		xdma_trace("sgl pages %d/%u.\n", i, cb->pages_nr);
 
 	kfree(cb->pages);
 	cb->pages = NULL;
@@ -289,7 +289,7 @@ static int map_remote_pages_to_sgl(struct xdma_io_cb *cb,
     }
     HERE;
     if (sg_alloc_table(sgt, pages_nr, GFP_KERNEL)) {
-        pr_err("sgl OOM.\n");
+        xdma_error("sgl OOM.\n");
         return -ENOMEM;
     }
     HERE;
@@ -298,14 +298,14 @@ static int map_remote_pages_to_sgl(struct xdma_io_cb *cb,
     cb->pages = kcalloc(pages_nr, sizeof(struct page *), GFP_KERNEL);
     HERE;
     if (!cb->pages) {
-        pr_err("pages OOM.\n");
+        xdma_error("pages OOM.\n");
         ret = -ENOMEM;
         goto err_out;
     }
     HERE;
     for(i = 0; i < pages_nr; i ++) {
         buf = (char*) dma->chunks[i].addr; // here
-        pr_info("iter: %d\n", i);
+        xdma_trace("iter: %d\n", i);
 
         HERE;
         struct mm_struct *mm = get_mm(dma->pid);
@@ -326,48 +326,43 @@ static int map_remote_pages_to_sgl(struct xdma_io_cb *cb,
                 NULL, /* we dont need vma */
                 NULL /* TODO Do we care about locking? FVP is desceduled */
         );
-        HERE;
 
         if (ret < 0) {
             // TODO: free pages
-            pr_info("get_user_pages_remote failed in iteration: %d/%d: %d\n",
+            xdma_error("get_user_pages_remote failed in iteration: %d/%d: %d\n",
                     i, pages_nr, ret);
             goto err_out;
         }
         if (ret != 1) {
-            pr_info("Could not get 1 page: %d/%d: %d\n", i, pages_nr, ret);
+            xdma_error("Could not get 1 page: %d/%d: %d\n", i, pages_nr, ret);
             goto err_out;
         }
     }
-    HERE;
     for (i = 1; i < pages_nr; i++) {
         if (cb->pages[i - 1] == cb->pages[i]) {
-            pr_err("duplicate pages, %d, %d.\n",
+            xdma_error("duplicate pages, %d, %d.\n",
                    i - 1, i);
             ret = -EFAULT;
             cb->pages_nr = pages_nr;
             goto err_out;
         }
     }
-    HERE;
     sg = sgt->sgl;
     for (i = 0; i < pages_nr; i++, sg = sg_next(sg)) {
         unsigned int offset = dma->chunks[i].offset;
         unsigned int nbytes = dma->chunks[i].nbytes;
 
         flush_dcache_page(cb->pages[i]);
-        pr_info("sg_set_page(pages[%d], %x, %x\n", i, nbytes, offset);
+        xdma_trace("sg_set_page(pages[%d], %x, %x\n", i, nbytes, offset);
         sg_set_page(sg, cb->pages[i], nbytes, offset);
 
         buf += nbytes;
         len -= nbytes;
     }
     if (len) {
-        pr_err("Invalid user buffer length. Cannot map to sgl\n");
+        xdma_error("Invalid user buffer length. Cannot map to sgl\n");
         return -EINVAL;
     }
-    HERE;
-
     cb->pages_nr = dma->chunks_nr;
 
     ret = 0;
@@ -392,13 +387,13 @@ static int char_sgdma_map_user_buf_to_sgl(struct xdma_io_cb *cb, bool write)
 		return -EINVAL;
 
 	if (sg_alloc_table(sgt, pages_nr, GFP_KERNEL)) {
-		pr_err("sgl OOM.\n");
+		xdma_error("sgl OOM.\n");
 		return -ENOMEM;
 	}
 
 	cb->pages = kcalloc(pages_nr, sizeof(struct page *), GFP_KERNEL);
 	if (!cb->pages) {
-		pr_err("pages OOM.\n");
+		xdma_error("pages OOM.\n");
 		rv = -ENOMEM;
 		goto err_out;
 	}
@@ -407,13 +402,13 @@ static int char_sgdma_map_user_buf_to_sgl(struct xdma_io_cb *cb, bool write)
 				cb->pages);
 	/* No pages were pinned */
 	if (rv < 0) {
-		pr_err("unable to pin down %u user pages, %d.\n",
+		xdma_error("unable to pin down %u user pages, %d.\n",
 			pages_nr, rv);
 		goto err_out;
 	}
 	/* Less pages pinned than wanted */
 	if (rv != pages_nr) {
-		pr_err("unable to pin down all %u user pages, %d.\n",
+		xdma_error("unable to pin down all %u user pages, %d.\n",
 			pages_nr, rv);
 		cb->pages_nr = rv;
 		rv = -EFAULT;
@@ -422,7 +417,7 @@ static int char_sgdma_map_user_buf_to_sgl(struct xdma_io_cb *cb, bool write)
 
 	for (i = 1; i < pages_nr; i++) {
 		if (cb->pages[i - 1] == cb->pages[i]) {
-			pr_err("duplicate pages, %d, %d.\n",
+			xdma_error("duplicate pages, %d, %d.\n",
 				i - 1, i);
 			rv = -EFAULT;
 			cb->pages_nr = pages_nr;
@@ -444,7 +439,7 @@ static int char_sgdma_map_user_buf_to_sgl(struct xdma_io_cb *cb, bool write)
 	}
 
 	if (len) {
-		pr_err("Invalid user buffer length. Cannot map to sgl\n");
+		xdma_error("Invalid user buffer length. Cannot map to sgl\n");
 		return -EINVAL;
 	}
 	cb->pages_nr = pages_nr;
@@ -456,17 +451,17 @@ err_out:
 	return rv;
 }
 
-static void print_xdma_io_cb(struct xdma_io_cb *cb) {
-    pr_info("void __user *buf: %lx\n", cb->buf);
-    pr_info("size_t len: %lx\n", 	cb->len);
-    pr_info("void *private: %lx\n", 	cb->private);
-    pr_info("unsigned int pages_nr: %lx\n", 	cb->pages_nr);
-    pr_info("struct sg_table sgt: %lx\n", 	cb->sgt);
-    pr_info("struct page **pages: %lx\n", 	cb->pages);
-    pr_info("unsigned int count: %lx\n" ,cb->count);
-    pr_info("u64 ep_addr: %lx\n", 	cb->ep_addr);
-    pr_info("struct xdma_request_cb *req: %lx\n", 	cb->req);
-    pr_info("u8 write:1: %x\n", 	cb->write);
+inline static void print_xdma_io_cb(struct xdma_io_cb *cb) {
+    xdma_trace("void __user *buf: %lx\n", cb->buf);
+    xdma_trace("size_t len: %lx\n", 	cb->len);
+    xdma_trace("void *private: %lx\n", 	cb->private);
+    xdma_trace("unsigned int pages_nr: %lx\n", 	cb->pages_nr);
+    xdma_trace("struct sg_table sgt: %lx\n", 	cb->sgt);
+    xdma_trace("struct page **pages: %lx\n", 	cb->pages);
+    xdma_trace("unsigned int count: %lx\n" ,cb->count);
+    xdma_trace("u64 ep_addr: %lx\n", 	cb->ep_addr);
+    xdma_trace("struct xdma_request_cb *req: %lx\n", 	cb->req);
+    xdma_trace("u8 write:1: %x\n", 	cb->write);
 }
 
 /*
@@ -485,43 +480,34 @@ ssize_t char_sgdma_read_write_remote(
     struct xdma_dev *xdev;
     struct xdma_engine *engine;
     struct xdma_io_cb cb;
-    HERE;
 
     /*
      * TODO: Do we care about memory of user_buf ?
      * Currently we pass user_buf of fvp ns linux address!
      */
     void __user *buf = (char*) dma->user_buf;
-    HERE;
     rv = xcdev_check(__func__, xcdev, 1);
     if (rv < 0) {
         return rv;
     }
-
-    HERE;
     xdev = xcdev->xdev;
     engine = xcdev->engine;
-    HERE;
-    pr_info("file 0x%p, priv 0x%p, buf 0x%p,%llu, pos %llu, W %d, %s.\n",
+    xdma_trace("file 0x%p, priv 0x%p, buf 0x%p,%llu, pos %llu, W %d, %s.\n",
             file, file->private_data, buf, (u64)count, (u64)remote_addr, write,
             engine->name);
 
-    HERE;
     if ((write && engine->dir != DMA_TO_DEVICE) ||
             (!write && engine->dir != DMA_FROM_DEVICE)) {
-        pr_err("r/w mismatch. W %d, dir %d.\n",
+        xdma_error("r/w mismatch. W %d, dir %d.\n",
                write, engine->dir);
         return -EINVAL;
     }
-    HERE;
 
     rv = check_transfer_align(engine, buf, count, remote_addr, 1);
-    HERE;
     if (rv) {
-        pr_info("Invalid transfer alignment detected\n");
+        xdma_error("Invalid transfer alignment detected\n");
         return rv;
     }
-    HERE;
     memset(&cb, 0, sizeof(struct xdma_io_cb));
     cb.buf = (char __user *)buf;
     cb.len = count;
@@ -530,18 +516,17 @@ ssize_t char_sgdma_read_write_remote(
     rv = map_remote_pages_to_sgl(&cb, dma, write);
     if (rv < 0)
         return rv;
-    HERE;
     print_xdma_io_cb(&cb);
 
-    pr_info("remote_addr: %lx\n", remote_addr);
-    pr_info("write: %x\n", write);
-    res = xdma_xfer_submit(xdev, engine->channel, write, remote_addr, &cb.sgt,
-                           0, write ? h2c_timeout * 1000 :
-                                   c2h_timeout * 1000);
-
-    HERE;
+    xdma_trace("remote_addr: %lx\n", remote_addr);
+    xdma_trace("write: %x\n", write);
+    res = xdma_xfer_submit(xdev,
+                           engine->channel,
+                           write,
+                           remote_addr,
+                           &cb.sgt,
+                           0, write ? h2c_timeout * 1000 : c2h_timeout * 1000);
     char_sgdma_unmap_user_buf(&cb, write);
-    HERE;
     return res;
 }
 
@@ -563,20 +548,20 @@ static ssize_t char_sgdma_read_write(struct file *file, const char __user *buf,
 	xdev = xcdev->xdev;
 	engine = xcdev->engine;
 
-	dbg_tfr("file 0x%p, priv 0x%p, buf 0x%p,%llu, pos %llu, W %d, %s.\n",
+	xdma_trace("file 0x%p, priv 0x%p, buf 0x%p,%llu, pos %llu, W %d, %s.\n",
 		file, file->private_data, buf, (u64)count, (u64)*pos, write,
 		engine->name);
 
 	if ((write && engine->dir != DMA_TO_DEVICE) ||
 	    (!write && engine->dir != DMA_FROM_DEVICE)) {
-		pr_err("r/w mismatch. W %d, dir %d.\n",
+		xdma_error("r/w mismatch. W %d, dir %d.\n",
 			write, engine->dir);
 		return -EINVAL;
 	}
 
 	rv = check_transfer_align(engine, buf, count, *pos, 1);
 	if (rv) {
-		pr_info("Invalid transfer alignment detected\n");
+        xdma_error("Invalid transfer alignment detected\n");
 		return rv;
 	}
 
@@ -590,16 +575,13 @@ static ssize_t char_sgdma_read_write(struct file *file, const char __user *buf,
 		return rv;
 
     print_xdma_io_cb(&cb);
-    pr_info("write: %x\n", write);
-    pr_info("remote_addr: %x\n", *pos);
-
 	res = xdma_xfer_submit(xdev, engine->channel, write, *pos, &cb.sgt,
 				0, write ? h2c_timeout * 1000 :
 					   c2h_timeout * 1000);
 
 	char_sgdma_unmap_user_buf(&cb, write);
 
-    pr_info("xdma_xfer_submit ret: %ld\n", res);
+    xdma_trace("xdma_xfer_submit ret: %ld\n", res);
 	return res;
 }
 
@@ -607,14 +589,12 @@ static ssize_t char_sgdma_read_write(struct file *file, const char __user *buf,
 static ssize_t char_sgdma_write(struct file *file, const char __user *buf,
 		size_t count, loff_t *pos)
 {
-    HERE;
 	return char_sgdma_read_write(file, buf, count, pos, 1);
 }
 
 static ssize_t char_sgdma_read(struct file *file, char __user *buf,
 				size_t count, loff_t *pos)
 {
-    HERE;
 	return char_sgdma_read_write(file, buf, count, pos, 0);
 }
 
@@ -628,10 +608,9 @@ static ssize_t cdev_aio_write(struct kiocb *iocb, const struct iovec *io,
 	struct xdma_dev *xdev;
 	int rv;
 	unsigned long i;
-    HERE;
 
 	if (!xcdev) {
-		pr_info("file 0x%p, xcdev NULL, %llu, pos %llu, W %d.\n",
+		xdma_error("file 0x%p, xcdev NULL, %llu, pos %llu, W %d.\n",
 			iocb->ki_filp, (u64)count, (u64)pos, 1);
 		return -EINVAL;
 	}
@@ -640,7 +619,7 @@ static ssize_t cdev_aio_write(struct kiocb *iocb, const struct iovec *io,
 	xdev = xcdev->xdev;
 
 	if (engine->dir != DMA_TO_DEVICE) {
-		pr_err("r/w mismatch. WRITE, dir %d.\n",
+		xdma_error("r/w mismatch. WRITE, dir %d.\n",
 			engine->dir);
 		return -EINVAL;
 	}
@@ -670,7 +649,7 @@ static ssize_t cdev_aio_write(struct kiocb *iocb, const struct iovec *io,
 		rv = check_transfer_align(engine, caio->cb[i].buf,
 					caio->cb[i].len, pos, 1);
 		if (rv) {
-			pr_info("Invalid transfer alignment detected\n");
+            xdma_error("Invalid transfer alignment detected\n");
 			kmem_cache_free(cdev_cache, caio);
 			return rv;
 		}
@@ -705,7 +684,7 @@ static ssize_t cdev_aio_read(struct kiocb *iocb, const struct iovec *io,
     HERE;
 
 	if (!xcdev) {
-		pr_info("file 0x%p, xcdev NULL, %llu, pos %llu, W %d.\n",
+        xdma_error("file 0x%p, xcdev NULL, %llu, pos %llu, W %d.\n",
 			iocb->ki_filp, (u64)count, (u64)pos, 1);
 		return -EINVAL;
 	}
@@ -714,7 +693,7 @@ static ssize_t cdev_aio_read(struct kiocb *iocb, const struct iovec *io,
 	xdev = xcdev->xdev;
 
 	if (engine->dir != DMA_FROM_DEVICE) {
-		pr_err("r/w mismatch. READ, dir %d.\n",
+		xdma_error("r/w mismatch. READ, dir %d.\n",
 			engine->dir);
 		return -EINVAL;
 	}
@@ -745,7 +724,7 @@ static ssize_t cdev_aio_read(struct kiocb *iocb, const struct iovec *io,
 		rv = check_transfer_align(engine, caio->cb[i].buf,
 					caio->cb[i].len, pos, 1);
 		if (rv) {
-			pr_info("Invalid transfer alignment detected\n");
+            xdma_error("Invalid transfer alignment detected\n");
 			kmem_cache_free(cdev_cache, caio);
 			return rv;
 		}
@@ -786,13 +765,13 @@ static int ioctl_do_perf_start(struct xdma_engine *engine, unsigned long arg)
 	struct xdma_dev *xdev;
 
 	if (!engine) {
-		pr_err("Invalid DMA engine\n");
+		xdma_error("Invalid DMA engine\n");
 		return -EINVAL;
 	}
 
 	xdev = engine->xdev;
 	if (!xdev) {
-		pr_err("Invalid xdev\n");
+		xdma_error("Invalid xdev\n");
 		return -EINVAL;
 	}
 
@@ -832,7 +811,7 @@ static int ioctl_do_perf_start(struct xdma_engine *engine, unsigned long arg)
 #endif
 	rv = xdma_performance_submit(xdev, engine);
 	if (rv < 0)
-		pr_err("Failed to submit dma performance\n");
+		xdma_error("Failed to submit dma performance\n");
 	return rv;
 }
 
@@ -842,7 +821,7 @@ static int ioctl_do_perf_stop(struct xdma_engine *engine, unsigned long arg)
 	int rv;
 
 	if (!engine) {
-		pr_err("Invalid DMA engine\n");
+		xdma_error("Invalid DMA engine\n");
 		return -EINVAL;
 	}
 
@@ -857,7 +836,7 @@ static int ioctl_do_perf_stop(struct xdma_engine *engine, unsigned long arg)
 	/* stop measurement */
 	transfer = engine_cyclic_stop(engine);
 	if (!transfer) {
-		pr_err("Failed to stop cyclic transfer\n");
+		xdma_error("Failed to stop cyclic transfer\n");
 		return -EINVAL;
 	}
 	dbg_perf("Waiting for measurement to stop\n");
@@ -884,7 +863,7 @@ static int ioctl_do_perf_get(struct xdma_engine *engine, unsigned long arg)
 	int rc;
 
 	if (!engine) {
-		pr_err("Invalid DMA engine\n");
+		xdma_error("Invalid DMA engine\n");
 		return -EINVAL;
 	}
 
@@ -918,7 +897,7 @@ static int ioctl_do_addrmode_get(struct xdma_engine *engine, unsigned long arg)
 	unsigned long src;
 
 	if (!engine) {
-		pr_err("Invalid DMA engine\n");
+		xdma_error("Invalid DMA engine\n");
 		return -EINVAL;
 	}
 	src = !!engine->non_incr_addr;
@@ -932,7 +911,7 @@ static int ioctl_do_addrmode_get(struct xdma_engine *engine, unsigned long arg)
 static int ioctl_do_align_get(struct xdma_engine *engine, unsigned long arg)
 {
 	if (!engine) {
-		pr_err("Invalid DMA engine\n");
+		xdma_error("Invalid DMA engine\n");
 		return -EINVAL;
 	}
 
@@ -963,7 +942,7 @@ static int ioctl_do_aperture_dma(struct xdma_engine *engine, unsigned long arg,
 
 	if ((write && engine->dir != DMA_TO_DEVICE) ||
 	    (!write && engine->dir != DMA_FROM_DEVICE)) {
-		pr_err("r/w mismatch. W %d, dir %d.\n", write, engine->dir);
+		xdma_error("r/w mismatch. W %d, dir %d.\n", write, engine->dir);
 		return -EINVAL;
 	}
 

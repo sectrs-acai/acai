@@ -21,8 +21,6 @@
 #include "fvp_escape.h"
 #include "cdev_sgdma.h"
 
-#define HERE pr_info("%s/%s: %d\n", __FILE__, __FUNCTION__, __LINE__)
-
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 7, 0)
 #define KPROBE_KALLSYMS_LOOKUP 1
 
@@ -168,7 +166,7 @@ void dump_pagetable(unsigned long address)
     p4d = p4d_offset(pgd, address);
     pud = pud_offset(p4d, address);
     pmd = pmd_offset(pud, address);
-            pr_pde("*pde = %0*Lx ", sizeof(*pmd) * 2, (u64) pmd_val(*pmd));
+    xdma_trace("*pde = %0*Lx ", sizeof(*pmd) * 2, (u64) pmd_val(*pmd));
 #undef pr_pde
 
     /*
@@ -181,9 +179,9 @@ void dump_pagetable(unsigned long address)
         goto out;
 
     pte = pte_offset_kernel(pmd, address);
-    pr_cont("*pte = %0*Lx ", sizeof(*pte) * 2, (u64) pte_val(*pte));
+    xdma_trace("*pte = %0*Lx ", sizeof(*pte) * 2, (u64) pte_val(*pte));
     out:
-    pr_cont("\n");
+    xdma_trace("\n");
 }
 
 struct mm_struct *get_mm(size_t pid)
@@ -227,7 +225,7 @@ int fvp_escape_init(void)
 
         if (! unlikely(kallsyms_lookup_name))
         {
-            pr_alert("Could not retrieve kallsyms_lookup_name address\n");
+            xdma_error("Could not retrieve kallsyms_lookup_name address\n");
             return - ENXIO;
         }
         #endif
@@ -235,14 +233,14 @@ int fvp_escape_init(void)
         flush_tlb_mm_range = (void *) kallsyms_lookup_name("flush_tlb_mm_range");
         if (flush_tlb_mm_range == NULL)
         {
-            pr_info("lookup failed flush_tlb_mm_range\n");
+            xdma_error("lookup failed flush_tlb_mm_range\n");
             return - ENXIO;
         }
 
         do_mprotect_pkey = (void *) kallsyms_lookup_name("do_mprotect_pkey");
         if (do_mprotect_pkey == NULL)
         {
-            pr_info("lookup failed orig_mprotect_pkey\n");
+            xdma_error("lookup failed orig_mprotect_pkey\n");
             return - ENXIO;
         }
     }
@@ -255,13 +253,12 @@ static void protect_pid_worker(struct work_struct *work)
 {
     HERE;
     struct protect_pid_struct *data
-
             = container_of(work,
                            struct protect_pid_struct, work);
 
     HERE;
     kthread_use_mm(data->mm);
-    pr_info("addr: %lx, len: %lx, prot: %x\n", data->addr, data->len, data->prot);
+    xdma_trace("addr: %lx, len: %lx, prot: %x\n", data->addr, data->len, data->prot);
 
     fvp_escape_init();
     data->ret_value = do_mprotect_pkey(data->addr,
@@ -296,12 +293,12 @@ long protect_pid(
         mm = get_mm(pid);
         if (mm == NULL)
         {
-            pr_info("invalid pid\n");
+            xdma_error("invalid pid\n");
             ret = - EFAULT;
             goto clean_up;
         }
 
-        pr_info("protect_pid: %d, %ld, %ld, %x\n", pid, addr, len, prot);
+        xdma_trace("protect_pid: %d, %ld, %ld, %x\n", pid, addr, len, prot);
 
         HERE;
         INIT_WORK(&work.work, protect_pid_worker);
@@ -341,12 +338,12 @@ int prepare_mmap_remote(pid_t target_pid,
 
     if (vaddr_pages_size != 1)
     {
-        pr_info("currently only supporting 1 page\n");
+        xdma_error("currently only supporting 1 page\n");
         return - EINVAL;
     }
 
     addr = vaddr_pages[0];
-    pr_info("addr: %lx, size: %lx\n", addr, size);
+    xdma_trace("addr: %lx, size: %lx\n", addr, size);
 
     struct mm_struct *mm = current->mm;
     if (target_pid != 0)
@@ -355,26 +352,26 @@ int prepare_mmap_remote(pid_t target_pid,
         mm = get_mm(target_pid);
         if (mm == NULL)
         {
-            pr_info("invalid pid\n");
+            xdma_error("invalid pid\n");
             return - EFAULT;
         }
     }
     struct vm_area_struct *vma = find_vma(mm, addr);
     if (vma == NULL)
     {
-        pr_info("addr not found in vma\n");
+        xdma_error("addr not found in vma\n");
         return - EFAULT;
     }
     if (addr >= vma->vm_end)
     {
-        pr_info("addr not found in vma\n");
+        xdma_error("addr not found in vma\n");
         return - EFAULT;
     }
 
     ret = resolve_vm(mm, addr, &vm, 1);
     if (ret != 0)
     {
-        pr_info("pte lookup failed\n");
+        xdma_error("pte lookup failed\n");
         return - ENXIO;
     }
     ret = protect_pid(
@@ -385,11 +382,10 @@ int prepare_mmap_remote(pid_t target_pid,
     );
     if (ret != 0)
     {
-        pr_info("protect failed for addr %ld\n", addr);
+        xdma_error("protect failed for addr %ld\n", addr);
         return - EFAULT;
     }
 
-    pr_info("page table before mapping\n");
     dump_pagetable(addr);
 
     /* TODO clear mapping, we dont care about restoring for now */
@@ -418,7 +414,7 @@ int fh_handle_dma(struct file *file, unsigned int cmd, unsigned long arg)
 
     if (ret < 0)
     {
-        pr_info("copy_from_user failed\n");
+        xdma_error("copy_from_user failed\n");
         return ret;
     }
 
@@ -434,7 +430,7 @@ int fh_handle_dma(struct file *file, unsigned int cmd, unsigned long arg)
                          page_chunks_size);
     if (ret < 0)
     {
-        pr_info("copy_from_user page_chunks failed\n");
+        xdma_error("copy_from_user page_chunks failed\n");
         return ret;
     }
     for (i = 0; i < usr.chunks_nr; i ++)
@@ -469,7 +465,7 @@ long fh_handle_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
         }
         default:
         {
-            pr_info("Unsupported operation\n");
+            xdma_error("Unsupported operation\n");
             ret = - EINVAL;
             break;
         }

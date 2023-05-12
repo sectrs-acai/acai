@@ -4,6 +4,18 @@
 #include <linux/types.h>
 #include "fpga_escape_libhook/fpga_usr_manager.h"
 
+#ifdef XDMA_DO_TRACE
+#define xdma_trace(...) pr_info(__VA_ARGS__)
+#else
+
+#define xdma_trace(...)
+#endif
+
+#define HERE xdma_trace("%s/%s: %d\n", __FILE__, __FUNCTION__, __LINE__)
+#define xdma_error(...) pr_err(__VA_ARGS__)
+#define xdma_info(...) pr_info(__VA_ARGS__)
+
+
 int fvp_escape_init(void);
 
 typedef struct
