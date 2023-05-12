@@ -4,7 +4,9 @@
 
 int main() {
   CCA_BENCHMARK_INIT;
-  CCA_BENCHMARK_START;
+  CCA_BENCHMARK_STOP;
+
+  printf("stop tracing\n");
 
   return 0;
 }
