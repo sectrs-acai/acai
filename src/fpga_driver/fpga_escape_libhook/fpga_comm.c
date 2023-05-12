@@ -75,7 +75,7 @@ inline static FILE *__get_bench_file()
         mkdir(TRACE_FILE_DIR, 0777);
     }
 
-    f = fopen(filename, "w");
+    f = fopen(filename, "a");
     return f;
 }
 
@@ -97,8 +97,6 @@ int do_action_transfer_escape_data(struct faultdata_struct *fault,
             get_mapped_escape_buffer_size(ctx) - sizeof (struct action_transfer_escape_data)
                     - sizeof(struct faultdata_struct);
 
-    print_ok("max transfer_size %ld\n", transfer_max);
-
     if (a->status == action_transfer_escape_data_status_transfer_size) {
         if (action_transfer_data_ptr != NULL) {
             print_err("do_action_transfer_escape_data without a free. memory leak\n");
@@ -118,7 +116,6 @@ int do_action_transfer_escape_data(struct faultdata_struct *fault,
 
     } else if (a->status == action_transfer_escape_data_status_transfer_data) {
         unsigned long transfer = MIN(a->chunk.chunk_data_size, transfer_max);
-        print_progress("transfer: %ld\n", transfer);
 
         if (action_transfer_data_chunk + transfer > action_transfer_data_size) {
             print_err("Program error. out of bounds memory transfer!\n");
@@ -229,9 +226,9 @@ static int do_dma(struct faultdata_struct *fault,
         chunk = chunks + i;
         print_ok("%lx, %lx, %lx\n", chunk->addr, chunk->nbytes, chunk->offset);
     }
+    print_progress("transfering %d pages\n", a->pages_nr);
     #endif
 
-    print_progress("transfering %d pages\n", a->pages_nr);
     for (int i = 0; i < a->pages_nr; i ++)
     {
         chunk = chunks + i;
@@ -476,7 +473,6 @@ int on_fault(unsigned long addr,
             unmap_clean:
             free(addrs);
             set_ret_and_err_no(a, ret);
-            print_status(fault->action, &a->common);
         }
         case FH_ACTION_DMA:
         {
