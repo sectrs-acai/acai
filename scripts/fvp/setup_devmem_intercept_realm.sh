@@ -9,4 +9,4 @@ set -x
 
 cd $devmem
 rmmod devmem_intercept.ko
-insmod ./devmem_intercept.ko realm=1
+insmod ./devmem_intercept.ko realm=1 kprobe=1

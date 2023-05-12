@@ -45,9 +45,7 @@ function do_compile {
     set -x
     env -u LD_LIBRARY_PATH \
         time make BR2_JLEVEL=$BR2_JLEVEL O=$BUILDROOT_OUTPUT_DIR \
-        gdev_guest-rebuild all
-
-    # linux-rebuild
+        gdev_guest-rebuild linux-rebuild all
 
     ls -al $BUILDROOT_OUTPUT_DIR/images/
     cp -rf $BUILDROOT_OUTPUT_DIR/images/Image $ASSETS_DIR/snapshots/Image-cca
@@ -66,6 +64,12 @@ function do_linux {
     cp -rf $BUILDROOT_OUTPUT_DIR/images/Image $ASSETS_DIR/snapshots/Image-cca
     cp -rf $BUILDROOT_OUTPUT_DIR/images/rootfs.ext2 $ASSETS_DIR/snapshots/rootfs-ns.ext2
 }
+
+function do_clean_linux {
+    set +x
+    rm -rf $BUILDROOT_OUTPUT_DIR/build/linux-custom
+}
+
 
 function do_libdrm {
     cd $BUILDROOT_DIR
@@ -165,6 +169,9 @@ case "$1" in
         ;;
     clean)
         do_clean
+        ;;
+    clean_linux)
+        do_clean_linux
         ;;
     init)
         do_init
