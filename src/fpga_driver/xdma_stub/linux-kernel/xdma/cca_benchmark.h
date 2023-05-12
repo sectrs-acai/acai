@@ -32,4 +32,5 @@ for(unsigned long _i = 0; _i < pages_nr; _i ++) { \
 CCA_MARKER(0x95); \
 }
 
+#define CCA_MARKER_FH_ESCAPE CCA_MARKER(0x9A)
 #endif

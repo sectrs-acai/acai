@@ -266,6 +266,8 @@ int fh_do_faulthook(int action)
     fd_data->turn = FH_TURN_HOST;
     fd_data->action = action;
 
+    CCA_MARKER_FH_ESCAPE;
+
     #if defined(__x86_64__) || defined(_M_X64)
     #else
     asm volatile("dmb sy");
