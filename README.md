@@ -4,8 +4,6 @@
 ```sh
 ./scripts/init.sh
 ```
-If git fails with `error: Server does not allow request for
-  unadvertised object X` you may run `git submodule sync` to fix the issue.
 
 ## build x86 host
 ```sh
@@ -54,4 +52,25 @@ make
 
 ## misc
 - Run the FVP with faulthook and libc hooks: ./doc/fvp_libhook_setup.md
-- mount 9p directory in realm: `mount -t 9p -o trans=virtio,version=9p2000.L host0 /mnt`
+
+
+## troubleshooting
+- Git fails with `error: Server does not allow request for unadvertised object X
+
+  - Try to run `git submodule sync` to fix the issue.
+
+- 9p directory sharing fails in the FVP during kernel boot with 9pnet_virtio: no channels available for device 
+  - ensure to configure 9p in the device tree
+  ```
+  # fvp-base-psci-common.dtsi
+
+   virtio_p9@140000 {
+       compatible = "virtio,mmio";
+       reg = <0x0 0x1c140000 0x0 0x1000>;
+       interrupts = <0x0 0x2b 0x4>;
+  };
+
+  ```
+- no 9p directory mounted
+  - mount 9p directory in realm: `mount -t 9p -o trans=virtio,version=9p2000.L host0 /mnt` 
+  where host0 is the tag specified during fvp launch and /mnt the target mount location
