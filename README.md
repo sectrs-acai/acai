@@ -20,13 +20,20 @@ while maintaining performance and compatibility.
 
 
 ```TeX
-@misc{sridhara2023acai,
-      title={ACAI: Extending Arm Confidential Computing Architecture Protection from CPUs to Accelerators}, 
-      author={Supraja Sridhara and Andrin Bertschi and Benedict Schlüter and Mark Kuhne and Fabio Aliberti and Shweta Shinde},
-      year={2023},
-      eprint={2305.15986},
-      archivePrefix={arXiv},
-      primaryClass={cs.CR}
+@article{DBLP:journals/corr/abs-2305-15986,
+  author       = {Supraja Sridhara and Andrin Bertschi and Benedict Schl{\"{u}}ter and Mark Kuhne and Fabio Aliberti and Shweta Shinde},
+  title        = {{ACAI:} Extending Arm Confidential Computing Architecture Protection
+                  from CPUs to Accelerators},
+  journal      = {CoRR},
+  volume       = {abs/2305.15986},
+  year         = {2023},
+  url          = {https://doi.org/10.48550/arXiv.2305.15986},
+  doi          = {10.48550/ARXIV.2305.15986},
+  eprinttype    = {arXiv},
+  eprint       = {2305.15986},
+  timestamp    = {Wed, 07 Jun 2023 14:31:13 +0200},
+  biburl       = {https://dblp.org/rec/journals/corr/abs-2305-15986.bib},
+  bibsource    = {dblp computer science bibliography, https://dblp.org}
 }
 ```
 
