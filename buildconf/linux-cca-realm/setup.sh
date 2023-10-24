@@ -39,7 +39,7 @@ function do_compile {
     cd $BUILDROOT_DIR
     set -x
     env -u LD_LIBRARY_PATH \
-        time make BR2_JLEVEL=$BR2_JLEVEL O=$BUILDROOT_OUTPUT_DIR  all
+        time make BR2_JLEVEL=$BR2_JLEVEL O=$BUILDROOT_OUTPUT_DIR all  gdev_guest-rebuild gdev_guest_cuda-rebuild
     ls -al $BUILDROOT_OUTPUT_DIR/images
 
     cp -rf $BUILDROOT_OUTPUT_DIR/images/rootfs.cpio $ASSETS_DIR/snapshots/rootfs.realm.cpio

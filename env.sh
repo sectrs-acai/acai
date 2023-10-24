@@ -10,8 +10,15 @@ export EXT_PTEDIT_DIR=$ROOT_DIR/ext/pteditor
 export SRC_DIR=$ROOT_DIR/src
 export RAMDISK_DIR=/tmp/armcca-ramdisk
 
+
+
 # buildroot output
-export OUTPUT_DIR=$ROOT_DIR/output
+#
+# in distrobox container, set OUTPUT_DISTROBOX="-distrobox"
+# to have separate output artifact when built in container
+#
+out_suffix=${OUTPUT_SUFFIX:=}
+export OUTPUT_DIR=$ROOT_DIR/output${out_suffix}
 export OUTPUT_LINUX_GUEST_DIR=$OUTPUT_DIR/buildroot-linux-guest
 export OUTPUT_LINUX_GUEST_HEADERS=$OUTPUT_LINUX_GUEST_DIR/build/linux-custom
 

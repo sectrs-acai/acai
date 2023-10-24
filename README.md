@@ -1,76 +1,70 @@
-# trusted-peripherals
+# Protecting Accelerator Execution with Arm Confidential Computing Architecture
+[![acai-artifact-evaluation-build](https://github.com/sectrs-acai/acai/actions/workflows/build-acai.yml/badge.svg)](https://github.com/sectrs-acai/acai/actions/workflows/build-acai.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+## Abstract 
+Trusted execution environments in several existing and upcoming CPUs demonstrate
+the success of confidential computing, with the caveat that tenants cannot use
+accelerators such as GPUs and FPGAs. Even after hardware changes to enable TEEs
+on both sides and software changes to adopt existing code to leverage these
+features, it results in redundant data copies and hardware encryption at the
+bus-level and on the accelerator thus degrading the performance and defeating
+the purpose of using accelerators. In this paper, we reconsider the Arm
+Confidential Computing Architecture (CCA) design — an upcoming TEE feature in
+Arm v9 — to address this gap. We observe that CCA offers the right abstraction
+and mechanisms to allow confidential VMs to use accelerators as a first class
+abstraction, while relying on the hardware-based memory protection to preserve
+security. We build ACAI, a CCA-based solution, to demonstrate the feasibility of
+our approach while addressing several critical security gaps. Our experimental
+results on GPU and FPGA show that ACAI can achieve strong security guarantees
+while maintaining performance and compatibility.
 
-## setup
-```sh
-./scripts/init.sh
+
+```TeX
+@misc{sridhara2023acai,
+      title={ACAI: Extending Arm Confidential Computing Architecture Protection from CPUs to Accelerators}, 
+      author={Supraja Sridhara and Andrin Bertschi and Benedict Schlüter and Mark Kuhne and Fabio Aliberti and Shweta Shinde},
+      year={2023},
+      eprint={2305.15986},
+      archivePrefix={arXiv},
+      primaryClass={cs.CR}
+}
 ```
 
-## build x86 host
-```sh
-./buildconf/linux-host/setup.sh init
-./buildconf/linux-host/setup.sh build
+https://arxiv.org/abs/2305.15986
+
+## Build the Project
+
+Please follow [Artifact Evaluation](./doc/artifact-evaluation.md) for
+instructions how to build and run the project. You find more tutorials and
+documentation [here](./doc).
+
+## Files and Directories
+
+``` sh
+/ext...................................: External project dependencies 
+/buildconf.............................: Scripts and configuration to build artifacts
+/scripts...............................: Helper scripts
+/output................................: Artifact output
+/output-distrobox......................: Artifact output built in container
+/src...................................: Sources and source submodules
+/scr/tfa...............................: TFA Monitor
+/src/rmm...............................: RMM
+/src/linux-cca-guest...................: CCA-enabled kernel
+/src/fpga_driver.......................: PCIe bypass for FPGA
+/src/fpga_driver/fh_host...............: ioctl library for PCIe bypass on x86
+/src/fpga_driver/fpga_escape_libhook...: x86 FPGA Userspace Manager
+/src/fpga_driver/xdma..................: x86 FPGA Host driver
+/src/fpga_driver/xdma_stub.............: aarch64 FPGA guest driver
+/src/fpga_driver/libhook...............: FVP memory alignment for DMA/ mmap
+/src/fpga_driver/devmem_intercept .....: ACAI aarch64 kernel helper
+/src/gpu_driver........................: PCIe bypass for GPU
+/src/gpu_driver/gdev-guest.............: aarch64 GPU guest driver
+/src/gpu_driver/gdev-host..............: x86 GPU host driver
+/src/gpu_driver/gpu_gdev_usr_manager...: x86 GPU Userspace Manager
+/src/gpu_driver/rodinia-bench..........: GPU Benchmarks CUDA Driver API
+/src/benchmarking/fpga.................: FPGA Benchmarks
+/src/linux-host........................: Faulthook host kernel
+/src/encrypted-cuda....................: Encryption layer
+/src/kvmtool...........................: Virtual Machine Manager
+/src/tfa-tests.........................: TFA tests
 ```
-
-## build aarch64 ns guest
-```sh
-# kernel based on kvm/cca patches
-./buildconf/linux-cca-guest/setup.sh init
-./buildconf/linux-cca-guest/setup.sh build
-```
-
-## run
-```sh
-./buildconf/linux-host/setup.sh run          # run on qemu
-./buildconf/linux-cca-guest/setup.sh run_fvp # run on fvp (cca, full stack)
-```
-- `/mnt/host/` mounts to source root of this directory.
-- qemu runs require qemu-system-aarch64 or qemu-system-x86_64 installed.
-
-## develop 
-
-### build with buildroot x86 toolchain
-```sh
-# ensure to run /buildconf/linux-host/setup.sh init/build first
-source ./scripts/env-x86.sh
-cd /your/source/directory
-make
-```
-
-### build with buildroot aarch64 toolchain (6.2 kernel headers)
-```sh
-# ensure to run /buildconf/linux-cca-guest/setup.sh init/build first
-source ./scripts/aarch64.sh
-cd /your/source/directory
-make
-```
-
-### develop on tfa/rmm/tests
-```sh
-# change ./src/{tfa, rmm, tfa-tests} 
-./buildconf/tfa/setup.sh {clean|tests|run_tests|linux|run_linux}
-```
-
-## misc
-- Run the FVP with faulthook and libc hooks: ./doc/fvp_libhook_setup.md
-
-
-## troubleshooting
-- Git fails with `error: Server does not allow request for unadvertised object X
-
-  - Try to run `git submodule sync` to fix the issue.
-
-- 9p directory sharing fails in the FVP during kernel boot with 9pnet_virtio: no channels available for device 
-  - ensure to configure 9p in the device tree
-  ```
-  # fvp-base-psci-common.dtsi
-
-   virtio_p9@140000 {
-       compatible = "virtio,mmio";
-       reg = <0x0 0x1c140000 0x0 0x1000>;
-       interrupts = <0x0 0x2b 0x4>;
-  };
-
-  ```
-- no 9p directory mounted
-  - mount 9p directory in realm: `mount -t 9p -o trans=virtio,version=9p2000.L host0 /mnt` 
-  where host0 is the tag specified during fvp launch and /mnt the target mount location

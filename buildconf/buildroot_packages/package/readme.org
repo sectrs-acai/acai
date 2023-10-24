@@ -1,0 +1,25 @@
+#+title: ACAI buildroot custom packages
+
+- gdev_guest :: gdev escape aware runtime
+- gdev_guest_cuda :: cuda driver api
+- gdev_guest_cuda_rt :: cuda runtime api
+- gdev_host :: gdev x86 host runtime
+- python-cryptography_port :: crypto apis python aarch64
+- pteditor :: pteditor x86
+- scanmem :: scanmen x86
+- fvp_escape_host :: fvp experiments
+- guest_user :: experiments
+- guest_kernel_module :: experiments
+
+
+* Gdev builds
+We support gdev in cuda driver API version as well as runtime API version.
+
+For this we use the following conventions:
+- Build gdev shared library and install in =/usr/local/gdev=
+- Build cuda shared library with driver api support to =/usr/local/gdev_cuda/=
+- Build cuda shared library with runtime api support to =/usr/local/gdev_cudart/=
+
+During benchmark execution, add =/usr/local/gdev/lib64= as well as either
+=/usr/local/gdev_cudart/lib64= or =/usr/local/gdev_cuda/lib64= to
+LD_LIBRARY_PATH

@@ -17,7 +17,7 @@ USR_MNGR_BASE := ./fpga_escape_libhook/usr_manager.c
 # because libdrm has no static lib support
 #
 # XXX: STAGIND_DIR is provided by buildroot
-LIBS += -lpthread -lgdev -L$(STAGING_DIR)/usr/local/gdev/lib64 -lscanmem
+LIBS += -lpthread -lgdev -L$(STAGING_DIR)/usr/local/gdev/lib64 -L$(STAGING_DIR)/usr/gdev/lib64 -lscanmem
 
 all: gpu_gdev_usr_manager
 

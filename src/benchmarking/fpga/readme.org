@@ -1,0 +1,3 @@
+#+title: FPGA benchmarks
+
+- ./scripts contains the aarch64 benchmark scripts

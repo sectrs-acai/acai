@@ -1,0 +1,60 @@
+name: acai-artifact-evaluation-build
+concurrency: 
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+  
+on:
+  push:
+    branches: [ "trusted-periph/master" ]
+  pull_request:
+    branches: [ "" ]
+    
+  workflow_dispatch:
+     inputs:
+      clean-working-dir:
+        type: boolean
+        required: false
+        description: Cleans all output directory (fresh install)
+  
+jobs:
+  build:
+    runs-on: [self-hosted, linux, X64]
+    steps:
+    
+     # XXX: Github Runner specific
+    - name: Install missing binaries
+      run: |
+        sudo apt install -y wget xz-utils gzip git git-lfs file
+
+     # XXX: Github Runner specific
+    - name: Cleaning working directory (fresh build)
+      if: ${{github.event.inputs.clean-working-dir=='true' }}
+      run: find ${{ github.workspace }} -mindepth 1 -delete
+
+    # XXX: git clone && git submodule update --init --recursive
+    - uses: actions/checkout@v4
+      with:
+          ssh-key: ${{ secrets.ACAI_RUNNER_RSA_KEY }}
+          submodules: recursive
+
+    # XXX: Install prerequisites
+    - name: "Prerequisites: Install Docker and Distrobox"
+      shell: bash
+      run: |
+       ./.github/install-docker.sh 
+       curl -s https://raw.githubusercontent.com/89luca89/distrobox/a636d46e96c0d355650efbc4babff60ef16faf47/install | sudo sh
+
+    # XXX: Init the build...
+    - name: "1. Run ./scripts/init.sh"
+      shell: bash
+      run: ./scripts/init.sh
+
+    # XXX: Build the container
+    - name: "2. Build the Docker container (./scripts/distrobox/distrobox_setup.sh)"
+      shell: bash
+      run: ./scripts/distrobox/distrobox_setup.sh 
+
+    # XXX: Build ACAI
+    - name: "3. Build ACAI Software (./scripts/install.sh)"
+      shell: bash
+      run: ./scripts/distrobox/distrobox_run.sh /bin/bash -c ./scripts/install.sh

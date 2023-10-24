@@ -1,0 +1,4 @@
+config BR2_PACKAGE_GDEV_GUEST_CUDA
+	bool "gdev_guest_cuda"
+	help
+      Gdev Guest cuda build

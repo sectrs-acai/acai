@@ -1,0 +1,40 @@
+#-----------------------------------------------------------
+# Vivado v2020.2 (64-bit)
+# SW Build 3064766 on Wed Nov 18 09:12:47 MST 2020
+# IP Build 3064653 on Wed Nov 18 14:17:31 MST 2020
+# Start of session at: Mon May  1 17:31:04 2023
+# Process ID: 522580
+# Current directory: /opt/Xilinx/Vivado/2020.2/bin
+# Command line: vivado
+# Log file: /opt/Xilinx/Vivado/2020.2/bin/vivado.log
+# Journal file: /opt/Xilinx/Vivado/2020.2/bin/vivado.jou
+#-----------------------------------------------------------
+# start_gui
+# open_project /home/armcca/vivado-projects/xdma_fresh/xdma_fresh/xdma_fresh.xpr
+open_project /home/armcca/vivado-projects/xdma_fresh/xdma_fresh/xdma_fresh.xpr
+open_hw_manager
+connect_hw_server -allow_non_jtag
+open_hw_target
+set_property PROGRAM.FILE {/home/armcca/fpga/bitstreams/xdma_fresh_svd32x32_works.runs/impl_1/design_1_wrapper.bit} [get_hw_devices xcvu9p_0]
+set_property PROBES.FILE {/home/armcca/fpga/bitstreams/xdma_fresh_svd32x32_works.runs/impl_1/design_1_wrapper.ltx} [get_hw_devices xcvu9p_0]
+set_property FULL_PROBES.FILE {/home/armcca/fpga/bitstreams/xdma_fresh_svd32x32_works.runs/impl_1/design_1_wrapper.ltx} [get_hw_devices xcvu9p_0]
+current_hw_device [get_hw_devices xcvu9p_0]
+refresh_hw_device [lindex [get_hw_devices xcvu9p_0] 0]
+display_hw_ila_data [ get_hw_ila_data hw_ila_data_1 -of_objects [get_hw_ilas -of_objects [get_hw_devices xcvu9p_0] -filter {CELL_NAME=~"design_1_i/system_ila_0/inst/ila_lib"}]]
+
+
+display_hw_ila_data [ get_hw_ila_data hw_ila_data_2 -of_objects [get_hw_ilas -of_objects [get_hw_devices xcvu9p_0] -filter {CELL_NAME=~"design_1_i/system_ila_1/inst/ila_lib"}]]
+
+set_property PROBES.FILE {/home/armcca/fpga/bitstreams/xdma_fresh_svd32x32_works.runs/impl_1/design_1_wrapper.ltx} [get_hw_devices xcvu9p_0]
+set_property FULL_PROBES.FILE {/home/armcca/fpga/bitstreams/xdma_fresh_svd32x32_works.runs/impl_1/design_1_wrapper.ltx} [get_hw_devices xcvu9p_0]
+set_property PROGRAM.FILE {/home/armcca/fpga/bitstreams/xdma_fresh_svd32x32_works.runs/impl_1/design_1_wrapper.bit} [get_hw_devices xcvu9p_0]
+program_hw_devices [get_hw_devices xcvu9p_0]
+
+
+
+refresh_hw_device [lindex [get_hw_devices xcvu9p_0] 0]
+
+
+
+
+

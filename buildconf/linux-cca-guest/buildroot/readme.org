@@ -1,3 +1,0 @@
-#+begin_src sh
-kernel_config_fragment: custom kconfig
-#+end_src

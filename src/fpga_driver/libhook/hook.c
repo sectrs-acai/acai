@@ -40,7 +40,7 @@ static void *map_start;
  * max size: does not MAP_POPULATE at creation time
  * Increase if you need more
  */
-static size_t map_size = 1024L * 1024L * 1024L * 12L;
+static size_t map_size = 1024L * 1024L * 1024L * 3L;
 
 static int is_do_init = 0;
 static int do_malloc_init = 0;

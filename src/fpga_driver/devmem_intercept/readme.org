@@ -1,1 +1,0 @@
- * devmem_intercept

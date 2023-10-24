@@ -7,9 +7,7 @@ SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 BUILDROOT_CONFIG_DIR=$SCRIPT_DIR/buildroot
 BUILDROOT_OUTPUT_DIR=$OUTPUT_LINUX_CCA_GUEST_DIR
 BUILDROOT_DIR=$EXT_BUILDROOT_DIR
-
 SRC_LINUX=$SRC_DIR/linux-cca-guest
-
 BR2_EXTERNAL=$SCRIPT_DIR/../buildroot_packages
 BR2_JLEVEL=$(nproc)
 
@@ -45,7 +43,7 @@ function do_compile {
     set -x
     env -u LD_LIBRARY_PATH \
         time make BR2_JLEVEL=$BR2_JLEVEL O=$BUILDROOT_OUTPUT_DIR \
-        gdev_guest-rebuild linux-rebuild all
+        all gdev_guest-rebuild
 
     ls -al $BUILDROOT_OUTPUT_DIR/images/
     cp -rf $BUILDROOT_OUTPUT_DIR/images/Image $ASSETS_DIR/snapshots/Image-cca
@@ -83,46 +81,6 @@ function do_libdrm {
     ls -al $BUILDROOT_OUTPUT_DIR/build/libdrm-custom/build
     cp -rf $BUILDROOT_OUTPUT_DIR/build/libdrm-custom/build/lib*.so* $ASSETS_DIR/snapshots/lib64/
     ls -al $ASSETS_DIR/snapshots/lib64/
-}
-
-# XXX: this does not work with qemu without cca patches
-function do_run {
-    cd $BUILDROOT_OUTPUT_DIR
-    exec qemu-system-aarch64 \
-        -s -M virt -m 2G -cpu cortex-a53 -nographic -smp 2 \
-        -kernel ./images/Image -append "rootwait root=/dev/vda console=ttyAMA0 nokaslr" \
-        -netdev user,id=eth0 -device virtio-net-device,netdev=eth0 \
-        -drive file=./images/rootfs.ext4,if=none,format=raw,id=hd0 -device virtio-blk-device,drive=hd0 \
-        -virtfs local,path=$SHARE_DIR,mount_tag=host0,security_model=none,id=host0
-    #-s  \
-}
-
-function do_run_fvp {
-    cd $BUILDROOT_OUTPUT_DIR
-    local preload=$ASSETS_DIR/fvp/bin/libhook-libc-2.31.so
-
-    # XXX: For shrinkwrap output when compiling locally
-    # local shrinkwrap=$HOME/.shrinkwrap/package/cca-3world
-    # local bl1=$shrinkwrap/bl1.bin
-    # local fip=$shrinkwrap/fip.bin
-
-    # XXX: For tfa prebuilt off assets
-    #local bl1=$ASSETS_DIR/tfa/tfa-unmod-realm-ready/2gb-memcap-unmod-bl1.bin
-    #local fip=$ASSETS_DIR/tfa/tfa-unmod-realm-ready/2gb-memcap-unmod-fip.bin
-    local bl1=$ASSETS_DIR/tfa/bl1.bin
-    local fip=$ASSETS_DIR/tfa/fip.bin
-
-    local image=./images/Image
-    local rootfs=./images/rootfs.ext4
-    local p9_folder=$ROOT_DIR
-
-    $SCRIPTS_DIR/run_fvp.sh \
-        --bl1=$bl1 \
-        --fip=$fip \
-        --kernel=$image \
-        --rootfs=$rootfs \
-        --p9=$p9_folder \
-        --hook=$preload
 }
 
 function do_run_fvp_snapshot {
@@ -187,15 +145,8 @@ case "$1" in
         ;;
     build)
         do_compile
-        do_run_fvp
         ;;
     run)
-        do_run
-        ;;
-    run_fvp)
-        do_run_fvp
-        ;;
-    run_fvp_snapshot)
         do_run_fvp_snapshot
         ;;
     compilationdb)

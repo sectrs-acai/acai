@@ -1,0 +1,17 @@
+#+title: Sample Realm VM ACAI device access
+
+- allocate realm private memory
+- use acai to transfer memory to device
+- FVP testengine accesses memory
+
+** Build
+On x86 host with aarch64 buildroot build environment installed, run
+#+begin_src
+./build.sh
+#+end_src
+
+** Run
+- Inside FVP in realm VM, run
+  #+begin_src
+./run.sh
+  #+end_src

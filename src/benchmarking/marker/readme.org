@@ -1,0 +1,4 @@
+#+title: Marker Framework
+
+- Introduces a way to mark special events during code execution in the FVP
+- A trace plugin in FVP collects these events for benchmark evaluation

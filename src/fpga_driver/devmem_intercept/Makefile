@@ -7,6 +7,7 @@ ccflags-y := -DDEBUG -g -std=gnu99 -Wno-declaration-after-statement -Wframe-larg
 .PHONY: all clean
 
 all:
+	echo $(LINUX_DIR)
 	$(MAKE) V=1 -C '$(LINUX_DIR)' M='$(PWD)' modules
 
 clean:

@@ -5,6 +5,11 @@ set -euo pipefail
 source $SCRIPT_DIR/../env.sh
 FVP=$ASSETS_DIR/fvp/bin/FVP_Base_RevC-2xAEMvA
 
+#
+# XXX: Running the tracer plugin (--benchmark)
+# requires two FVP plugins (ACAI GenericTrace.so and Arm ToggleMTIPlugin.so)
+#
+
 function run_fvp {
   set -x
   local bl1=$1
@@ -23,7 +28,7 @@ function run_fvp {
     --data cluster0.cpu0=${image}@0x84000000 \
     --stat \
     -C bp.dram_metadata.is_enabled=1 \
-    -C bp.dram_size=5 \
+    -C bp.dram_size=3 \
     -C bp.flashloader0.fname=${fip} \
     -C bp.hostbridge.userNetPorts=8022=22 \
     -C bp.hostbridge.userNetworking=1 \
@@ -156,7 +161,7 @@ rootfs=""
 p9=""
 hook=""
 ssh=0
-benchmark=1
+benchmark=0
 
 while [ $# -gt 0 ]; do
   case "$1" in

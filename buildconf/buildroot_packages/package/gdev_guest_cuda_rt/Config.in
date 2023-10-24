@@ -1,0 +1,4 @@
+config BR2_PACKAGE_GDEV_GUEST_CUDA_RT
+	bool "gdev_guest_cuda_rt"
+	help
+      Gdev Guest cuda runtime api build

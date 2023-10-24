@@ -76,3 +76,9 @@ src/gpu
 /src/benchmarking/marker/start
 /src/benchmarking/marker/stop
 /stop
+/output-distrobox/
+/buildconf/linux-cca-guest/out
+/test.txt
+/doc-tmp/
+/assets-gitlab/
+/tests/

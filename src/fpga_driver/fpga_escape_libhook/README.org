@@ -13,6 +13,6 @@ This is the libc allocator hook based userspace manager for xdma.
 
 ** Build
 #+begin_src
-source /trusted-peripherals-root/scripts/env-x86.sh
-make
+# requires the buildroot environment for linust-host to be built beforehand.
+./build.sh build
 #+end_src

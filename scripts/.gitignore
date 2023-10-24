@@ -5,3 +5,5 @@ tmp/
 
 
 build
+stdout.log
+distrobox/home

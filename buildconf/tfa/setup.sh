@@ -5,7 +5,7 @@ source $(git rev-parse --show-toplevel)/env.sh
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 function do_init {
-    echo "init"
+    echo "doing init..."
 }
 
 function do_clean {

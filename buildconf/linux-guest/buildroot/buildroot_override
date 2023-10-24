@@ -1,2 +1,0 @@
-# normally placed in buildroot dir
-LINUX_OVERRIDE_SRCDIR="../../src/linux-guest"

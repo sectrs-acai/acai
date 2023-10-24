@@ -1,5 +1,0 @@
-#+title: fpga_libhook_manager
-
-This is the bare faulthook based userspace manager for xdma. Due to memory
-alignment issues in the FVP, this approach was replaced by a libc allocator hook
-approach (fpga_escape_libhook).

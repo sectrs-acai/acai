@@ -1,9 +1,7 @@
-#+title: GPU for trusted peripherals
+#+title: GPU FVP integration layer
 
-- fh_fixup :: faulthook fixup module
+- fh_fixup :: faulthook (pcie bypass) fixup module
 - rodinia-bench :: GPU benchmark suite
 - gdev-host :: x86 host gdev component
 - gdev-guest :: aarch64 gueset gdev component
 - gpu_gdev_usr_manager :: userspace manager
-
-- nouveau-experiments :: deprecated nouveau approach

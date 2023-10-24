@@ -1,2 +1,2 @@
 * linux-cca-realm
-Build minimal rootfs in cpio format. Reuse kernel form linux-cca-guest.
+Build minimal rootfs in cpio format for realm VM.
