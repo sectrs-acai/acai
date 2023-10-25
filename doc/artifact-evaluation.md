@@ -122,6 +122,16 @@ With X server permissions properly configured, launch the FVP with the command b
   host machine).
 - This spawns three X11 xterm windows and runs our research prototype.
 - EL3 and realm-EL2 runs ACAI firmware code
+- If you are receiving the error: "xterm: Xt error: Can't open display", ensure that
+  you are running the script without a terminal multiplexer such as tmux or
+  screen inside the docker container. We pin the FVP pages to DRAM such that
+  they are not paged out which requires sudo priviledges.
+- If you are receiving the error: "Warning: This program is an suid-root
+  program...", and running the script witout a terminal multiplexer does not fix
+  the issue, remove sudo invocation from
+  [setup.sh](https://github.com/sectrs-acai/acai/blob/0b0ae3daee9ab239071c5831fdfe3c71fd072238/scripts/run_fvp.sh#L27).
+  Sudo is only required for the PCIe bypass which we do not need in the minimal
+  working example.
 
 In one of the three xterm windows, login with user _root_ and no password. You
 are now running a KVM hypervisor in Non-Secure world. The git repository is
@@ -148,6 +158,7 @@ cd /mnt/host/scripts/
 - This boots a realm VM on the simulated system
 - Use root and no password to login. Boot may take up to 15 mins
 - The realm VM mounts the git repository to `/mnt/host/mnt/host`.
+- Ignore (9P mounting) errors in the console output, mounting succeeds nonetheless. 
 
 You can kill the realm VM by running the following command in the screen session
 of the hypervisor or just restart the FVP (kill the Linux process).
