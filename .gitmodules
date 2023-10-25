@@ -1,48 +1,48 @@
 [submodule "ext/buildroot"]
 	path = ext/buildroot
-	url = git@github.com:sectrs-acai/buildroot.git
+	url = https://github.com/sectrs-acai/buildroot.git
 [submodule "ext/scanmem"]
 	path = ext/scanmem
-	url = git@github.com:sectrs-acai/scanmem.git
+	url = https://github.com/sectrs-acai/scanmem.git
 [submodule "assets"]
 	path = assets
-	url = git@github.com:sectrs-acai/acai-assets.git
+	url = https://github.com/sectrs-acai/acai-assets.git
 [submodule "ext/pteditor"]
 	path = ext/pteditor
-	url = git@github.com:sectrs-acai/acai-pteditor.git
+	url = https://github.com/sectrs-acai/acai-pteditor.git
 [submodule "src/linux-host"]
 	path = src/linux-host
-	url = git@github.com:sectrs-acai/acai-kernel.git
+	url = https://github.com/sectrs-acai/acai-kernel.git
 [submodule "src/linux-cca-guest"]
 	path = src/linux-cca-guest
-	url = git@github.com:sectrs-acai/acai-kernel.git
+	url = https://github.com/sectrs-acai/acai-kernel.git
 [submodule "ext/shrinkwrap"]
 	path = ext/shrinkwrap
-	url = git@github.com:sectrs-acai/shrinkwrap.git
+	url = https://github.com/sectrs-acai/shrinkwrap.git
 [submodule "src/tfa"]
 	path = src/tfa
-	url = git@github.com:sectrs-acai/acai-tfa.git
+	url = https://github.com/sectrs-acai/acai-tfa.git
 [submodule "src/rmm"]
 	path = src/rmm
-	url = git@github.com:sectrs-acai/acai-rmm.git
+	url = https://github.com/sectrs-acai/acai-rmm.git
 [submodule "src/tfa-tests"]
 	path = src/tfa-tests
-	url = git@github.com:sectrs-acai/acai-tfa-tests.git
+	url = https://github.com/sectrs-acai/acai-tfa-tests.git
 [submodule "src/kvmtool/dtc"]
 	path = src/kvmtool/dtc
-	url = git@github.com:sectrs-acai/dtc.git
+	url = https://github.com/sectrs-acai/dtc.git
 [submodule "src/kvmtool/kvmtool-cca"]
 	path = src/kvmtool/kvmtool
-	url = git@github.com:sectrs-acai/acai-kvmtool-cca.git
+	url = https://github.com/sectrs-acai/acai-kvmtool-cca.git
 [submodule "src/gdev"]
 	path = src/gpu_driver/gdev-guest
-	url = git@github.com:sectrs-acai/acai-gdev.git
+	url = https://github.com/sectrs-acai/acai-gdev.git
 [submodule "src/gpu/gdev-host"]
 	path = src/gpu_driver/gdev-host
-	url = git@github.com:sectrs-acai/acai-gdev.git
+	url = https://github.com/sectrs-acai/acai-gdev.git
 [submodule "src/gpu/rodina-cudadrv"]
 	path = src/gpu_driver/rodinia-bench
-	url = git@github.com:sectrs-acai/acai-rodinia.git
+	url = https://github.com/sectrs-acai/acai-rodinia.git
 [submodule "src/encrypted-cuda"]
 	path = src/encrypted-cuda
-	url = git@github.com:sectrs-acai/acai-encrypted-cuda.git
+	url = https://github.com/sectrs-acai/acai-encrypted-cuda.git
