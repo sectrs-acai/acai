@@ -40,7 +40,7 @@ configured within the container.
 ### 1. Download Repository and Submodules (5 human minutes + 30 compute minutes)
 
 ```sh
-git clone git@github.com:sectrs-acai/acai.git
+git clone https://github.com/sectrs-acai/acai.git
 cd acai
 git submodule update --init --recursive
 
