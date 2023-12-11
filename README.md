@@ -2,6 +2,8 @@
 [![License: MIT](https://img.shields.io/badge/USENIX%20Security%20'24-Accepted%20Paper-blue)](https://www.usenix.org/conference/usenixsecurity24/presentation/sridhara)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![acai-artifact-evaluation-build](https://github.com/sectrs-acai/acai/actions/workflows/build-acai.yml/badge.svg)](https://github.com/sectrs-acai/acai/actions/workflows/build-acai.yml)
+[![Twitter](https://img.shields.io/twitter/follow/sectrs_ethz)](https://twitter.com/sectrs_ethz)
+
 
 
 <img src="https://github.com/sectrs-acai/acai/assets/2311941/60969033-76c2-408e-b07d-f70830f449a8" width="600">
