@@ -1,6 +1,6 @@
 # Documentation and Tutorials
 
-- Artifact evaluation: [artifact-evaluation.md](./artifact-evaluation.md)
+- USENIX Security '24 Artifact evaluation: [artifact-evaluation.md](./artifact-evaluation.md)
 - Build the project: [build_project.md](./build_project.md)
 - Boot the FVP and run a realm VM: [run_realm.md](./run_realm.md)
 - Develop on the project: [develop.md](./develop.md)
