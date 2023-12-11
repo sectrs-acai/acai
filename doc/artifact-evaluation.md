@@ -1,4 +1,4 @@
-# Artifact ACAI
+#  USENIX Security '24 Artifact ACAI
 
 # Overview
 - 1. Build Instructions (20 human minutes + 250 compute minutes)
@@ -11,7 +11,7 @@
 
 - You need an x86 Linux system to build the project.
 - The build requires ca. 60 GB of available storage.
-- In order to run a minimal example, your host system needs X server running.
+- In order to run a minimal example, your host system needs X server running. We recommend [setting up VNC](https://www.digitalocean.com/community/tutorials/how-to-install-and-configure-vnc-on-ubuntu-20-04) to access X remotely.
 - Running the minimal example in the simulation software needs ca. 4 GB of ram.
 - We used an Ubuntu 20.04 system to build and evaluate our research artifacts.
   However, we capture all build dependencies in an Ubuntu 20.04-based
@@ -19,7 +19,8 @@
   build the artifacts, provided it supports Docker.
 - You are about to cross compile several linux kernels, root filesystems and software packages. 
   If you are running this in a VM, ensure that the VM has several cores to speed up compilation.
-- The github-runner [![acai-artifact-evaluation-build](https://github.com/sectrs-acai/acai/actions/workflows/build-acai.yml/badge.svg)](https://github.com/sectrs-acai/acai/actions/workflows/build-acai.yml) continuously builds the ACAI artifacts (steps 0. to 3. in the following build instructions).
+- A GitHub runner continuously builds the ACAI artifacts (steps 0. to 3. in the following build instructions). Throughout USENIX Security '24 artifact evaluation period, this self-hosted runner remains accessible and serves as a resource to solve build-related challenges that
+may arise.
 
 ### 0. Prerequisites (5 human minutes)
 Ensure to have the following two technologies installed:
