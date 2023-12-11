@@ -1,6 +1,12 @@
-# Protecting Accelerator Execution with Arm Confidential Computing Architecture
+# ACAI
+[![License: MIT](https://img.shields.io/badge/USENIX%20Security%20'24-Accepted%20Paper-blue)](https://www.usenix.org/conference/usenixsecurity24/presentation/sridhara)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![acai-artifact-evaluation-build](https://github.com/sectrs-acai/acai/actions/workflows/build-acai.yml/badge.svg)](https://github.com/sectrs-acai/acai/actions/workflows/build-acai.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+
+
+<img src="https://github.com/sectrs-acai/acai/assets/2311941/60969033-76c2-408e-b07d-f70830f449a8" width="600">
+
+
 ## Abstract 
 Trusted execution environments in several existing and upcoming CPUs demonstrate
 the success of confidential computing, with the caveat that tenants cannot use
